@@ -37,9 +37,10 @@ export function sie(supporters: string[], membership: Map<string, Cluster>): num
 }
 
 function bootstrap(supporters: string[], membership: Map<string, Cluster>, seed: number, b = 200): [number, number] {
+  const units = [...groupBy(supporters, (a) => membership.get(a)?.id ?? a).values()];
   const r = rng(seed);
   const xs: number[] = [];
-  for (let k = 0; k < b; k++) xs.push(sie(Array.from(supporters, () => supporters[Math.floor(r() * supporters.length)]), membership));
+  for (let k = 0; k < b; k++) xs.push(sie(Array.from(units, () => units[Math.floor(r() * units.length)]).flat(), membership));
   return [quantile(xs, 0.025), quantile(xs, 0.975)];
 }
 

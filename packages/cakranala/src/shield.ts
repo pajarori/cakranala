@@ -1,6 +1,6 @@
 import type { Embedder, Reasoner } from "./ports";
 import type { Report } from "./detect";
-import { centered, cosine, jaccard, plain, shingles } from "./text";
+import { centered, cosine, jaccard, normalize, plain, shingles } from "./text";
 
 export interface ShieldInput {
   text?: string;
@@ -10,7 +10,7 @@ export interface ShieldInput {
 export interface ShieldContext {
   report?: Report;
   officialDomains?: string[];
-  library?: { claim: string; verdict: string; source?: string }[];
+  library?: { claim: string; verdict: string; source?: string; title?: string }[];
   embedder?: Embedder;
   reasoner?: Reasoner;
 }
@@ -31,6 +31,7 @@ export interface Match {
   sie?: number;
   iks?: number;
   verdict?: string;
+  title?: string;
 }
 
 export interface ShieldResult {
@@ -108,7 +109,7 @@ async function references(text: string, ctx: ShieldContext) {
   const refs: Omit<Match, "similarity">[] = [];
   for (const n of ctx.report?.narratives ?? []) refs.push({ kind: "narasi", ref: n.id, text: n.sample, supporters: n.supporters, sie: n.sie.value, iks: n.iks });
   for (const c of ctx.report?.clusters ?? []) for (const t of c.forensics.talkingPoints) refs.push({ kind: "klaster", ref: c.id, text: t, supporters: c.members.length });
-  for (const l of ctx.library ?? []) refs.push({ kind: "pustaka", ref: l.source ?? "pustaka", text: l.claim, verdict: l.verdict });
+  for (const l of ctx.library ?? []) refs.push({ kind: "pustaka", ref: l.source ?? "pustaka", text: l.claim, verdict: l.verdict, title: l.title });
   if (!refs.length) return [];
   let sims: number[];
   if (ctx.embedder) {
@@ -161,7 +162,8 @@ export async function shield(input: ShieldInput, ctx: ShieldContext = {}): Promi
   if (ctx.reasoner && text)
     try {
       const r = await interpret(text, { urls, cues, matches }, ctx.reasoner);
-      techniques = (r.techniques ?? []).map((t) => ({ name: plain(t.name), quote: t.quote, why: plain(t.why) }));
+      const source = normalize(text);
+      techniques = (r.techniques ?? []).filter((t) => typeof t.quote === "string" && normalize(t.quote).length > 0 && source.includes(normalize(t.quote))).map((t) => ({ name: plain(t.name), quote: t.quote, why: plain(t.why) }));
       summary = r.summary && plain(r.summary);
       advice = (r.advice ?? []).map(plain);
       score += Math.min(0.4, techniques.length * 0.1);

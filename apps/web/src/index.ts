@@ -7,6 +7,7 @@ import { createMonitor } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
+import { syncLibrary } from "./server/library";
 
 class HttpError extends Error {
   constructor(
@@ -139,4 +140,7 @@ const tick = () => refresh().catch((e) => console.error("refresh failed", e));
 tick();
 setInterval(tick, 15_000);
 runAblation();
+const sync = () => syncLibrary().catch((e) => console.error("library sync failed", e));
+sync();
+setInterval(sync, 3_600_000);
 console.log(`Cakra Nala running at ${server.url}`);

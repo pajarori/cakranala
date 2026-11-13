@@ -2,11 +2,19 @@ import { analyze, evaluate, shield, simulate, LAYERS, type Evaluation, type Laye
 import seruni from "cakranala/scenarios/seruni.json";
 import { sessionFromEnv } from "@cakranala/collect-x";
 import registry from "../../config/registry.json";
+import { library } from "./library";
 import { embedder, reasoner, snapshot, SEVERITY } from "./analysis";
 
 const scenario = seruni as Scenario;
 
-export const runShield = async (input: ShieldInput) => shield(input, { report: snapshot().report ?? undefined, officialDomains: registry.officialDomains, embedder: await embedder(), reasoner });
+export const runShield = async (input: ShieldInput) =>
+  shield(input, {
+    report: snapshot().report ?? undefined,
+    officialDomains: registry.officialDomains,
+    library: library().map((l) => ({ claim: l.claim, verdict: l.verdict, source: l.url, title: l.title })),
+    embedder: await embedder(),
+    reasoner,
+  });
 
 const ABLATIONS: { name: string; layers: LayerId[] }[] = [
   { name: "Copypasta only", layers: ["copypasta"] },

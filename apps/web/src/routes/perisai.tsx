@@ -33,6 +33,7 @@ function Highlighted({ text, quotes }: { text: string; quotes: string[] }) {
 
 function Result({ r }: { r: ShieldResult }) {
   const consensus = r.matches.filter((m) => m.kind !== "pustaka").slice(0, 2);
+  const checks = r.matches.filter((m) => m.kind === "pustaka");
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -59,6 +60,22 @@ function Result({ r }: { r: ShieldResult }) {
               <p key={`${m.kind}${m.ref}`}>
                 Matches a narrative that {int(m.supporters ?? 0)} accounts appear to push{m.sie !== undefined ? <>, but only <span className="font-medium">{approx(m.sie)} are independent</span></> : ""}.
               </p>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+      {!!checks.length && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Fact checks</CardTitle>
+            <CardDescription>TurnBackHoax.id by MAFINDO</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col divide-y">
+            {checks.map((m) => (
+              <a key={m.ref} href={m.ref} target="_blank" rel="noreferrer" className="flex items-start gap-3 py-3 first:pt-0 last:pb-0 hover:underline">
+                <Badge variant="destructive">{m.verdict}</Badge>
+                <span>{m.title ?? m.text}</span>
+              </a>
             ))}
           </CardContent>
         </Card>
