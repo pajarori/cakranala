@@ -18,13 +18,17 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS audit (seq INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, action TEXT NOT NULL, subject TEXT NOT NULL, detail TEXT NOT NULL, prev TEXT NOT NULL, hash TEXT NOT NULL);
 `);
 
+if (!(db.query("PRAGMA table_info(monitors)").all() as { name: string }[]).some((c) => c.name === "platform")) db.exec("ALTER TABLE monitors ADD COLUMN platform TEXT NOT NULL DEFAULT 'x'");
+
 export const sha256 = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
 
 export type MonitorKind = "topic" | "account" | "post" | "simulation";
+export type Platform = "x" | "youtube" | "telegram";
 
 export interface Monitor {
   id: string;
   kind: MonitorKind;
+  platform: Platform;
   target: string;
   label: string;
   intervalMin: number;
@@ -40,6 +44,7 @@ export interface Monitor {
 const toMonitor = (r: any): Monitor => ({
   id: r.id,
   kind: r.kind,
+  platform: r.platform,
   target: r.target,
   label: r.label,
   intervalMin: r.interval_min,
@@ -59,7 +64,7 @@ export const monitors = {
     return r ? toMonitor(r) : undefined;
   },
   insert: (m: Omit<Monitor, "lastRunAt" | "lastError" | "collected">) =>
-    db.query("INSERT INTO monitors (id, kind, target, label, interval_min, pages, speed, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(m.id, m.kind, m.target, m.label, m.intervalMin, m.pages, m.speed, m.active ? 1 : 0, m.createdAt),
+    db.query("INSERT INTO monitors (id, kind, platform, target, label, interval_min, pages, speed, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(m.id, m.kind, m.platform, m.target, m.label, m.intervalMin, m.pages, m.speed, m.active ? 1 : 0, m.createdAt),
   setActive: (id: string, active: boolean) => db.query("UPDATE monitors SET active = ? WHERE id = ?").run(active ? 1 : 0, id),
   ran: (id: string, at: number, error: string | null, added: number) => db.query("UPDATE monitors SET last_run_at = ?, last_error = ?, collected = collected + ? WHERE id = ?").run(at, error, added, id),
   replay: (id: string, at: number) => {

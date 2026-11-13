@@ -1,7 +1,9 @@
 import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
 import { createXCollector, sessionFromEnv } from "@cakranala/collect-x";
-import { audit, monitors, store, type Monitor, type MonitorKind } from "./db";
+import { createYoutubeCollector } from "@cakranala/collect-youtube";
+import { collectTelegram } from "@cakranala/collect-telegram";
+import { audit, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
 
 const scenario = seruni as Scenario;
 const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
@@ -16,6 +18,36 @@ const x = () => (collector ??= (() => {
   collector = undefined;
   throw e;
 }));
+
+let youtube: ReturnType<typeof createYoutubeCollector> | undefined;
+const yt = () => (youtube ??= createYoutubeCollector().catch((e) => {
+  youtube = undefined;
+  throw e;
+}));
+
+export const PLATFORM_KINDS: Record<Platform, MonitorKind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"] };
+
+const videoId = (t: string) => t.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1] ?? t.match(/^[\w-]{11}$/)?.[0];
+const channels = (t: string) => t.split(/[\s,]+/).map((c) => c.replace(/^@/, "").replace(/^https?:\/\/t\.me\/(s\/)?/, "").split(/[/?]/)[0]).filter((c) => /^[A-Za-z0-9_]{4,}$/.test(c));
+
+function validate(platform: Platform, kind: MonitorKind, target: string) {
+  if (!PLATFORM_KINDS[platform]?.includes(kind)) throw new Error(`${platform} does not support ${kind} monitors`);
+  if (platform === "x") query(kind, target);
+  if (platform === "youtube" && kind === "post" && !videoId(target)) throw new Error("YouTube monitor needs a video URL or ID");
+  if (platform === "telegram" && !channels(target).length) throw new Error("Telegram monitor needs public channel names");
+}
+
+async function collect(m: Monitor) {
+  if (m.platform === "youtube") {
+    const c = await yt();
+    return m.kind === "post" ? c.video(videoId(m.target)!, { pages: m.pages }) : c.search(m.target, { videos: m.pages, pages: 2 });
+  }
+  if (m.platform === "telegram") return collectTelegram(channels(m.target), m.pages);
+  const c = await x();
+  const raw = await c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
+  Object.assign(rate, c.rate);
+  return raw;
+}
 
 export const rateState = () => ({ ...rate });
 
@@ -66,9 +98,7 @@ export async function runMonitor(m: Monitor, now = Date.now()) {
       monitors.ran(m.id, now, null, store.add(m.id, actors, events));
       return;
     }
-    const c = await x();
-    const raw = await c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
-    Object.assign(rate, c.rate);
+    const raw = await collect(m);
     const ds = await pseudonymize(raw, secret);
     monitors.ran(m.id, now, raw.meta?.coverage === 0 ? "rate limited" : null, store.add(m.id, ds.actors, ds.events));
   } catch (e) {
@@ -87,13 +117,15 @@ export function due(m: Monitor, now = Date.now()) {
   return now - m.lastRunAt >= m.intervalMin * 60_000;
 }
 
-export function createMonitor(input: { kind: MonitorKind; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) {
+export function createMonitor(input: { kind: MonitorKind; platform?: Platform; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) {
   if (!["topic", "account", "post", "simulation"].includes(input.kind)) throw new Error("unknown monitor type");
   if (!input.target?.trim() || input.target.length > 200) throw new Error("target must be 1 to 200 characters");
-  if (input.kind !== "simulation") query(input.kind, input.target);
+  const platform = input.platform ?? "x";
+  if (input.kind !== "simulation") validate(platform, input.kind, input.target);
   const m = {
     id: crypto.randomUUID(),
     kind: input.kind,
+    platform,
     target: input.target.trim(),
     label: input.label?.trim() || (input.kind === "simulation" ? `Demo feed, seed ${input.target.trim()}` : input.target.trim()),
     intervalMin: Math.min(240, Math.max(5, Math.round(input.intervalMin ?? 15))),

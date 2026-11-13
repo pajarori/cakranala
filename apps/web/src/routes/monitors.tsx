@@ -15,13 +15,29 @@ import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ensureState, useCapabilities, useCreateMonitor, useDeleteMonitor, useOps, useToggleMonitor } from "@/lib/queries";
 import { ago, int, pct } from "@/lib/format";
-import type { MonitorKind, MonitorState } from "@/lib/api";
+import type { MonitorKind, MonitorState, Platform } from "@/lib/api";
 
-const KINDS: Record<MonitorKind, { label: string; icon: typeof Hash; target: string; placeholder: string; hint: string }> = {
-  topic: { label: "Topic", icon: Hash, target: "Keywords or hashtag", placeholder: "e.g. pulau seruni", hint: "Collects every new post that matches the query" },
-  account: { label: "Account", icon: UserRound, target: "Account handle", placeholder: "e.g. @tni_ad", hint: "Collects replies and mentions aimed at the account, to catch comment raids" },
-  post: { label: "Post", icon: MessageSquareText, target: "Post URL or ID", placeholder: "https://x.com/…/status/…", hint: "Collects every reply to one post" },
-  simulation: { label: "Demo feed", icon: Clapperboard, target: "Scenario seed", placeholder: "1", hint: "Replays the fictional Pulau Seruni scenario as if it were live" },
+const KINDS: Record<MonitorKind, { label: string; icon: typeof Hash }> = {
+  topic: { label: "Topic", icon: Hash },
+  account: { label: "Account", icon: UserRound },
+  post: { label: "Post", icon: MessageSquareText },
+  simulation: { label: "Demo feed", icon: Clapperboard },
+};
+
+const PLATFORMS: Record<Platform, { label: string; kinds: MonitorKind[] }> = {
+  x: { label: "X", kinds: ["topic", "account", "post"] },
+  youtube: { label: "YouTube", kinds: ["topic", "post"] },
+  telegram: { label: "Telegram", kinds: ["account"] },
+};
+
+const TARGETS: Record<string, { label: string; placeholder: string }> = {
+  "x:topic": { label: "Keywords or hashtag", placeholder: "pulau seruni" },
+  "x:account": { label: "Account handle", placeholder: "@tni_ad" },
+  "x:post": { label: "Post URL or ID", placeholder: "https://x.com/user/status/123" },
+  "youtube:topic": { label: "Search query", placeholder: "pulau seruni" },
+  "youtube:post": { label: "Video URL or ID", placeholder: "https://youtu.be/abc123def45" },
+  "telegram:account": { label: "Public channels", placeholder: "channel_one, channel_two" },
+  "demo:simulation": { label: "Scenario seed", placeholder: "1" },
 };
 
 function Row({ m }: { m: MonitorState }) {
@@ -36,7 +52,7 @@ function Row({ m }: { m: MonitorState }) {
           <K.icon className="size-4 text-muted-foreground" />
           <div className="min-w-0">
             <div className="font-medium">{m.label}</div>
-            <div className="text-sm text-muted-foreground">{K.label}</div>
+            <div className="text-sm text-muted-foreground">{m.kind === "simulation" ? K.label : `${PLATFORMS[m.platform].label} ${K.label.toLowerCase()}`}</div>
           </div>
         </div>
       </TableCell>
@@ -123,15 +139,18 @@ function NewMonitor() {
   const caps = useCapabilities();
   const create = useCreateMonitor();
   const navigate = useNavigate();
-  const [kind, setKind] = useState<MonitorKind>("topic");
+  const [source, setSource] = useState<Platform | "demo">("x");
+  const [picked, setKind] = useState<MonitorKind>("topic");
   const [target, setTarget] = useState("");
   const [label, setLabel] = useState("");
   const [interval, setInterval_] = useState("15");
   const [pages, setPages] = useState("3");
   const [speed, setSpeed] = useState("60");
-  const K = KINDS[kind];
-  const live = kind !== "simulation";
-  const blocked = live && !caps.data?.live;
+  const kinds = source === "demo" ? (["simulation"] as MonitorKind[]) : PLATFORMS[source].kinds;
+  const kind = kinds.includes(picked) ? picked : kinds[0];
+  const T = TARGETS[`${source}:${kind}`];
+  const live = source !== "demo";
+  const blocked = source === "x" && !caps.data?.live;
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
       <form
@@ -139,7 +158,7 @@ function NewMonitor() {
         onSubmit={(e) => {
           e.preventDefault();
           create.mutate(
-            { kind, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
+            { kind, platform: live ? source : undefined, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
             { onSuccess: () => (toast.success("Monitor created"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
           );
         }}
@@ -147,11 +166,18 @@ function NewMonitor() {
         <Card>
           <CardHeader>
             <CardTitle>New monitor</CardTitle>
-            <CardDescription>{K.hint}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
+            <ToggleGroup type="single" variant="outline" value={source} onValueChange={(v) => v && setSource(v as Platform | "demo")} className="w-full">
+              {[...(Object.keys(PLATFORMS) as Platform[]).map((p) => [p, PLATFORMS[p].label]), ["demo", "Demo feed"]].map(([p, l]) => (
+                <ToggleGroupItem key={p} value={p} className="flex-1">
+                  {l}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            {kinds.length > 1 && (
             <ToggleGroup type="single" variant="outline" value={kind} onValueChange={(v) => v && setKind(v as MonitorKind)} className="w-full">
-              {(Object.keys(KINDS) as MonitorKind[]).map((k) => {
+              {kinds.map((k) => {
                 const I = KINDS[k].icon;
                 return (
                   <ToggleGroupItem key={k} value={k} className="flex-1">
@@ -161,9 +187,10 @@ function NewMonitor() {
                 );
               })}
             </ToggleGroup>
+            )}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="target">{K.target}</Label>
-              <Input id="target" required value={target} onChange={(e) => setTarget(e.target.value)} placeholder={K.placeholder} autoComplete="off" spellCheck={false} />
+              <Label htmlFor="target">{T.label}</Label>
+              <Input id="target" required value={target} onChange={(e) => setTarget(e.target.value)} placeholder={T.placeholder} autoComplete="off" spellCheck={false} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="label">Name</Label>
@@ -187,7 +214,7 @@ function NewMonitor() {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Pages per run</Label>
+                  <Label>{source === "youtube" ? "Videos per run" : "Pages per run"}</Label>
                   <Select value={pages} onValueChange={setPages}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -195,7 +222,7 @@ function NewMonitor() {
                     <SelectContent>
                       {["1", "3", "5", "10"].map((v) => (
                         <SelectItem key={v} value={v}>
-                          {v} pages, about {Number(v) * 20} posts
+                          {source === "youtube" ? `${v} videos` : `${v} pages`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -218,7 +245,7 @@ function NewMonitor() {
                 </Select>
               </div>
             )}
-            {blocked && <p className="text-sm text-destructive">Live collection is not configured on this server. Use a demo feed instead.</p>}
+            {blocked && <p className="text-sm text-destructive">X collection is not configured on this server.</p>}
           </CardContent>
           <CardFooter className="justify-end gap-2">
             <Button type="button" variant="outline" asChild>

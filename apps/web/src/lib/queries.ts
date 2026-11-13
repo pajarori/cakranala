@@ -1,5 +1,5 @@
 import { QueryClient, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { api, type CaseStatus, type MonitorKind } from "./api";
+import { api, type CaseStatus, type MonitorKind, type Platform } from "./api";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
@@ -23,7 +23,7 @@ function useInvalidate(...keys: string[][]) {
 
 export const useCreateMonitor = () => {
   const done = useInvalidate(["state"]);
-  return useMutation({ mutationFn: (body: { kind: MonitorKind; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => api.createMonitor(body), onSuccess: done });
+  return useMutation({ mutationFn: (body: { kind: MonitorKind; platform?: Platform; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => api.createMonitor(body), onSuccess: done });
 };
 export const useToggleMonitor = () => {
   const done = useInvalidate(["state"]);

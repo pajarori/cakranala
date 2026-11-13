@@ -1,6 +1,6 @@
 import type { ShieldResult } from "cakranala";
 import type { snapshot, CaseView, Severity } from "../server/analysis";
-import type { AuditEntry, CaseStatus, Monitor, MonitorKind, ReportRow } from "../server/db";
+import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow } from "../server/db";
 import type { ReportContent } from "../server/reports";
 
 export type State = ReturnType<typeof snapshot>;
@@ -11,7 +11,7 @@ export type Case = CaseView;
 export type MonitorState = State["monitors"][number];
 export type ReportItem = ReportRow<ReportContent>;
 export type Audit = { entries: number; valid: boolean; brokenAt: number | null; recent: AuditEntry[] };
-export type { CaseStatus, Monitor, MonitorKind, Severity, ShieldResult };
+export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface AblationRow {
   name: string;
@@ -62,7 +62,7 @@ const send = (method: string, body?: unknown, token = operatorToken.get()): Requ
 export const api = {
   capabilities: () => call<Capabilities>("/api/capabilities"),
   state: () => call<State>("/api/state"),
-  createMonitor: (body: { kind: MonitorKind; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => call<Monitor>("/api/monitors", send("POST", body)),
+  createMonitor: (body: { kind: MonitorKind; platform?: Platform; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => call<Monitor>("/api/monitors", send("POST", body)),
   toggleMonitor: (id: string, active: boolean) => call<Monitor>(`/api/monitors/${id}`, send("PATCH", { active })),
   deleteMonitor: (id: string) => call<{ ok: true }>(`/api/monitors/${id}`, send("DELETE")),
   verifyOperator: (token: string) => call<{ ok: true }>("/api/operator", send("POST", undefined, token)),

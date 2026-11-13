@@ -22,17 +22,19 @@ export interface XRateState {
 
 const snowflakeTime = (id: string) => Number((BigInt(id) >> 22n) + 1288834974657n);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const TIMEOUT = 20_000;
+const get = (url: string, headers: Record<string, string>) => fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT) });
 
 async function discover(s: XSession) {
   const userAgent = s.userAgent;
-  const html = await (await fetch("https://x.com/home", { headers: { "user-agent": userAgent, cookie: `auth_token=${s.authToken}; ct0=${s.ct0}` } })).text();
+  const html = await (await get("https://x.com/home", { "user-agent": userAgent, cookie: `auth_token=${s.authToken}; ct0=${s.ct0}` })).text();
   const main = html.match(/https:\/\/abs\.twimg\.com\/responsive-web\/client-web\/main\.[a-z0-9]+\.js/)?.[0];
-  if (!main) throw new Error("bundle main.js x.com tidak ditemukan");
-  const js = await (await fetch(main, { headers: { "user-agent": userAgent } })).text();
+  if (!main) throw new Error("x.com main bundle not found, the session may be logged out");
+  const js = await (await get(main, { "user-agent": userAgent })).text();
   const queryId = (op: string) => js.match(new RegExp(`queryId:"([^"]+)",operationName:"${op}"`))?.[1];
   const bearer = js.match(/"(AAAAAAAAAAAAAAAAAAAAA[^"]+)"/)?.[1];
   const search = queryId("SearchTimeline");
-  if (!search || !bearer) throw new Error("queryId/bearer tidak ditemukan; front-end x.com mungkin berubah");
+  if (!search || !bearer) throw new Error("x.com query id or bearer not found, the front end may have changed");
   return { bearer, search };
 }
 
@@ -80,26 +82,30 @@ function toEvent(raw: any): { event: Event; actor: Actor } | undefined {
 
 export async function createXCollector(session: XSession) {
   const { bearer, search } = await discover(session);
-  const tx = await ClientTransaction.create(await fetchXDocument());
+  let tx = await ClientTransaction.create(await fetchXDocument());
   const path = `/i/api/graphql/${search}/SearchTimeline`;
   const features: Record<string, boolean> = {};
   const rate: XRateState = { remaining: null, reset: null };
 
   async function page(rawQuery: string, cursor?: string): Promise<any> {
+    if (rate.remaining === 0 && rate.reset && Date.now() < rate.reset) return { limited: true };
     const variables = { rawQuery, count: 20, querySource: "typed_query", product: "Latest", ...(cursor ? { cursor } : {}) };
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const res = await fetch(`https://x.com${path}?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`, {
-        headers: {
-          "user-agent": session.userAgent,
-          authorization: `Bearer ${bearer}`,
-          "x-csrf-token": session.ct0,
-          cookie: `auth_token=${session.authToken}; ct0=${session.ct0}`,
-          "x-twitter-auth-type": "OAuth2Session",
-          "x-twitter-active-user": "yes",
-          "x-client-transaction-id": await tx.generateTransactionId("GET", path),
-          referer: "https://x.com/search",
-        },
-      });
+    let renewed = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const res = await get(`https://x.com${path}?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`, {
+        "user-agent": session.userAgent,
+        authorization: `Bearer ${bearer}`,
+        "x-csrf-token": session.ct0,
+        cookie: `auth_token=${session.authToken}; ct0=${session.ct0}`,
+        "x-twitter-auth-type": "OAuth2Session",
+        "x-twitter-active-user": "yes",
+        "x-client-transaction-id": await tx.generateTransactionId("GET", path),
+        referer: "https://x.com/search",
+      }).catch((e: Error) => e);
+      if (res instanceof Error) {
+        await sleep(Math.min(16_000, 1000 * 2 ** attempt));
+        continue;
+      }
       rate.remaining = Number(res.headers.get("x-rate-limit-remaining") ?? NaN) || (res.status === 429 ? 0 : rate.remaining);
       rate.reset = Number(res.headers.get("x-rate-limit-reset") ?? NaN) * 1000 || rate.reset;
       const body = await res.text();
@@ -108,10 +114,19 @@ export async function createXCollector(session: XSession) {
         continue;
       }
       if (res.status === 429) return { limited: true };
+      if (res.status === 404 && !renewed) {
+        tx = await ClientTransaction.create(await fetchXDocument());
+        renewed = true;
+        continue;
+      }
+      if (res.status >= 500) {
+        await sleep(Math.min(16_000, 1000 * 2 ** attempt));
+        continue;
+      }
       if (!res.ok) throw new Error(`x search ${res.status}: ${body.slice(0, 160)}`);
       return JSON.parse(body);
     }
-    throw new Error("x search gagal setelah menyesuaikan features");
+    throw new Error("x search failed after retries");
   }
 
   return {

@@ -8,7 +8,9 @@
     "start": "NODE_ENV=production bun --env-file=../../.env src/index.ts"
   },
   "dependencies": {
+    "@cakranala/collect-telegram": "workspace:*",
     "@cakranala/collect-x": "workspace:*",
+    "@cakranala/collect-youtube": "workspace:*",
     "@cakranala/embed-e5": "workspace:*",
     "@cakranala/reasoner-openai": "workspace:*",
     "@react-sigma/core": "5.0.6",
