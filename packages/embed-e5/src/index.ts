@@ -8,7 +8,8 @@ export interface E5Options {
 }
 
 export async function createE5Embedder(opts: E5Options = {}): Promise<Embedder> {
-  const extract: FeatureExtractionPipeline = await pipeline("feature-extraction", opts.model ?? "Xenova/multilingual-e5-small", { dtype: opts.dtype ?? "q8" });
+  const load = pipeline as (task: string, model: string, o: object) => Promise<FeatureExtractionPipeline>;
+  const extract = await load("feature-extraction", opts.model ?? "Xenova/multilingual-e5-small", { dtype: opts.dtype ?? "q8" });
   const batch = opts.batch ?? 64;
   return {
     async embed(texts) {

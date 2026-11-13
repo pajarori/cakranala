@@ -1,6 +1,7 @@
 import type { Dataset } from "../schema";
 import type { Embedder, Reasoner } from "../ports";
-import { centered } from "../text";
+import { centered, kmeans } from "../text";
+import { rng } from "../util";
 import { LAYERS, LAYER_DEFAULTS, runLayers, type LayerId, type LayerOptions } from "./layers";
 import { cluster, combine, type Cluster, type Edge } from "./graph";
 import { forensics, type Forensics } from "./forensics";
@@ -39,12 +40,14 @@ export const DEFAULTS: AnalyzeOptions = {
   minSupporters: 5,
 };
 
-async function embedEvents(ds: Dataset, embedder?: Embedder) {
+async function frameEvents(ds: Dataset, seed: number, embedder?: Embedder) {
   if (!embedder) return undefined;
   const idx = ds.events.flatMap((e, i) => ((e.text ?? "").trim().length > 15 ? [i] : []));
-  if (!idx.length) return undefined;
+  if (idx.length < 10) return undefined;
   const vecs = centered(await embedder.embed(idx.map((i) => ds.events[i].text!)));
-  return new Map(idx.map((i, j) => [i, vecs[j]]));
+  const k = Math.max(4, Math.min(80, Math.round(Math.sqrt(vecs.length / 2))));
+  const assign = kmeans(vecs, k, rng(seed));
+  return new Map(idx.map((i, j) => [i, assign[j]]));
 }
 
 async function brief(c: ClusterReport, reasoner: Reasoner) {
@@ -59,8 +62,8 @@ async function brief(c: ClusterReport, reasoner: Reasoner) {
 export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}): Promise<Report> {
   const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined)) as Partial<AnalyzeOptions>;
   const o: AnalyzeOptions = { ...DEFAULTS, ...given, windowSec: { ...DEFAULTS.windowSec, ...given.windowSec } };
-  const vectors = await embedEvents(ds, o.embedder);
-  const results = runLayers(ds, o, o.layers, vectors);
+  const frames = await frameEvents(ds, o.seed, o.embedder);
+  const results = runLayers(ds, o, o.layers, frames);
   const edges = combine(results, Math.min(o.minLayers, results.length));
   const clusters = cluster(edges, o.minClusterSize, o.seed).filter((c) => c.rho >= o.minClusterRho);
   const reports: ClusterReport[] = clusters.map((c) => ({ ...c, forensics: forensics(c.members, ds.events) }));
@@ -76,6 +79,6 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
     tests: Object.fromEntries(results.map((r) => [r.id, { candidates: r.candidates, significant: r.pairs.size }])),
     edges,
     clusters: reports,
-    narratives: narratives(ds.events, clusters, vectors, { minSupporters: o.minSupporters, seed: o.seed }),
+    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed }),
   };
 }

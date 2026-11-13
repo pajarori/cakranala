@@ -1,6 +1,6 @@
 import type { Event } from "../schema";
 import type { Cluster } from "./graph";
-import { cosine, jaccard, nearDuplicateGroups, semanticGroups, shingles } from "../text";
+import { jaccard, nearDuplicateGroups, shingles } from "../text";
 import { groupBy, quantile, randomPairQuantile, rng } from "../util";
 
 export interface Sie {
@@ -40,32 +40,23 @@ function bootstrap(supporters: string[], membership: Map<string, Cluster>, seed:
   return [quantile(xs, 0.025), quantile(xs, 0.975)];
 }
 
-function groupEvents(events: Event[], vectors: Map<number, Float32Array> | undefined, seed: number) {
-  const r = rng(seed);
-  if (vectors?.size) {
-    const idx = [...vectors.keys()];
-    const vecs = idx.map((i) => vectors.get(i)!);
-    const t = randomPairQuantile(vecs.length, (i, j) => cosine(vecs[i], vecs[j]), 0.97, r);
-    const g = semanticGroups(vecs, Math.max(0.25, t));
-    const out: number[] = events.map(() => -1);
-    idx.forEach((i, j) => (out[i] = g[j]));
-    return out;
-  }
+function groupEvents(events: Event[], frames: Map<number, number> | undefined, seed: number) {
+  if (frames?.size) return events.map((_, i) => frames.get(i) ?? -1);
   const texts = events.map((e) => e.text ?? "");
   const sets = texts.map((t) => shingles(t));
-  const t = randomPairQuantile(sets.length, (i, j) => jaccard(sets[i], sets[j]), 0.98, r);
+  const t = randomPairQuantile(sets.length, (i, j) => jaccard(sets[i], sets[j]), 0.98, rng(seed));
   return nearDuplicateGroups(texts, Math.max(0.2, t));
 }
 
 export function narratives(
   events: Event[],
   clusters: Cluster[],
-  vectors: Map<number, Float32Array> | undefined,
+  frames: Map<number, number> | undefined,
   opts: { minSupporters: number; seed: number },
 ): Narrative[] {
   const membership = new Map<string, Cluster>();
   for (const c of clusters) for (const m of c.members) membership.set(m, c);
-  const groups = groupEvents(events, vectors, opts.seed);
+  const groups = groupEvents(events, frames, opts.seed);
   const byGroup = groupBy(
     events.map((e, i) => ({ e, g: groups[i] })).filter((x) => x.g >= 0),
     (x) => x.g,

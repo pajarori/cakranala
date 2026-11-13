@@ -1,5 +1,5 @@
 import type { Actor, Dataset, Event } from "../schema";
-import { cosine, jaccard, nearDuplicateGroups, shingles } from "../text";
+import { jaccard, nearDuplicateGroups, shingles } from "../text";
 import { groupBy, pairKey, poissonTail, randomPairQuantile, rng } from "../util";
 
 export type LayerId = "coaction" | "coframing" | "rhythm" | "copypasta" | "lifecycle";
@@ -9,7 +9,6 @@ export interface LayerOptions {
   windowSec: Partial<Record<LayerId, number>>;
   similarityQuantile: number;
   copypastaFloor: number;
-  coframingFloor: number;
   fdr: number;
   minEpisodes: number;
   maxGroup: number;
@@ -20,8 +19,7 @@ export const LAYER_DEFAULTS: LayerOptions = {
   windowSec: { coaction: 900, coframing: 1800, rhythm: 600, copypasta: 3600 },
   similarityQuantile: 0.995,
   copypastaFloor: 0.5,
-  coframingFloor: 0.35,
-  fdr: 0.01,
+  fdr: 0.003,
   minEpisodes: 2,
   maxGroup: 400,
   seed: 7,
@@ -60,83 +58,37 @@ const slot = (m: Pairs, a: string, b: string) => {
 const pWithin = (window: number, span: number) => Math.min(1, (2 * window) / span);
 
 function objectLayer(events: Event[], keys: (e: Event, i: number) => string[], window: number, span: number, n: number, maxGroup: number): Pairs {
-  const objects = new Map<string, Map<string, number>>();
+  const objects = new Map<string, { actor: string; ts: number }[]>();
   events.forEach((e, i) => {
     for (const k of keys(e, i)) {
-      let m = objects.get(k);
-      if (!m) objects.set(k, (m = new Map()));
-      const prev = m.get(e.actor);
-      if (prev === undefined || e.ts < prev) m.set(e.actor, e.ts);
+      const o = objects.get(k);
+      if (o) o.push({ actor: e.actor, ts: e.ts });
+      else objects.set(k, [{ actor: e.actor, ts: e.ts }]);
     }
   });
   const out: Pairs = new Map();
   const pw = pWithin(window, span);
   const prior = new Map<string, number>();
-  for (const m of objects.values()) for (const a of m.keys()) prior.set(a, (prior.get(a) ?? 0) + (m.size - 1) / Math.max(1, n - 1));
-  for (const m of objects.values()) {
-    if (m.size < 2 || m.size > maxGroup) continue;
-    const idf = Math.log(n / m.size);
-    const occ = [...m];
+  for (const occ of objects.values()) {
+    const counts = groupBy(occ, (o) => o.actor);
+    if (counts.size < 2 || counts.size > maxGroup) continue;
+    for (const [a, c] of counts) prior.set(a, (prior.get(a) ?? 0) + (c.length * (occ.length - c.length)) / Math.max(1, n - 1));
+    const idf = Math.log(n / counts.size);
+    occ.sort((x, y) => x.ts - y.ts);
     for (let i = 0; i < occ.length; i++)
       for (let j = i + 1; j < occ.length; j++) {
-        const s = slot(out, occ[i][0], occ[j][0]);
-        const dt = Math.abs(occ[j][1] - occ[i][1]);
-        if (dt <= window) {
-          s.observed++;
-          s.w += idf * Math.exp(-dt / window);
-          s.times.push(Math.min(occ[i][1], occ[j][1]));
-        }
+        const dt = occ[j].ts - occ[i].ts;
+        if (dt > window) break;
+        if (occ[i].actor === occ[j].actor) continue;
+        const s = slot(out, occ[i].actor, occ[j].actor);
+        s.observed++;
+        s.w += idf * Math.exp(-dt / window);
+        s.times.push(occ[i].ts);
       }
   }
   for (const [k, s] of out) {
     const [a, b] = k.split("\u0001");
     s.expected = (pw * (prior.get(a)! + prior.get(b)!)) / 2;
-  }
-  return out;
-}
-
-function similarityLayer(events: Event[], similar: (i: number, j: number) => boolean, window: number, span: number, n: number, r: () => number): Pairs {
-  const order = events.map((_, i) => i).sort((a, b) => events[a].ts - events[b].ts);
-  const byActor = groupBy(order, (i) => events[i].actor);
-  const links: [number, number][] = [];
-  const density = new Map<number, Set<string>>();
-  const touch = (i: number, actor: string) => {
-    let d = density.get(i);
-    if (!d) density.set(i, (d = new Set()));
-    d.add(actor);
-  };
-  for (let x = 0; x < order.length; x++)
-    for (let y = x + 1; y < order.length; y++) {
-      const i = order[x];
-      const j = order[y];
-      if (events[j].ts - events[i].ts > window) break;
-      if (events[i].actor === events[j].actor || !similar(i, j)) continue;
-      links.push([i, j]);
-      touch(i, events[j].actor);
-      touch(j, events[i].actor);
-    }
-  const out: Pairs = new Map();
-  for (const [i, j] of links) {
-    const s = slot(out, events[i].actor, events[j].actor);
-    const dt = Math.abs(events[j].ts - events[i].ts);
-    s.observed++;
-    s.w += Math.max(0, Math.log(n / (1 + Math.max(density.get(i)!.size, density.get(j)!.size)))) * Math.exp(-dt / window);
-    s.times.push(Math.min(events[i].ts, events[j].ts));
-  }
-  const pw = pWithin(window, span);
-  const sample = Array.from({ length: Math.min(600, events.length) }, () => Math.floor(r() * events.length));
-  const rate = new Map<string, number>();
-  for (const [a, idx] of byActor) {
-    let total = 0;
-    for (const i of idx) {
-      const others = sample.filter((j) => events[j].actor !== a);
-      total += others.filter((j) => similar(i, j)).length / Math.max(1, others.length);
-    }
-    rate.set(a, total);
-  }
-  for (const [k, s] of out) {
-    const [a, b] = k.split("\u0001");
-    s.expected = (pw * (rate.get(a)! * byActor.get(b)!.length + rate.get(b)! * byActor.get(a)!.length)) / 2;
   }
   return out;
 }
@@ -227,7 +179,7 @@ function significant(raw: Pairs, fdr: number, minEpisodes: number, gap: number |
   );
 }
 
-export function runLayers(ds: Dataset, opts: LayerOptions, enabled: LayerId[], vectors?: Map<number, Float32Array>): LayerResult[] {
+export function runLayers(ds: Dataset, opts: LayerOptions, enabled: LayerId[], frames?: Map<number, number>): LayerResult[] {
   const ev = ds.events;
   const n = new Set(ev.map((e) => e.actor)).size;
   const t0 = Math.min(...ev.map((e) => e.ts));
@@ -247,15 +199,8 @@ export function runLayers(ds: Dataset, opts: LayerOptions, enabled: LayerId[], v
       const tau = Math.max(opts.copypastaFloor, randomPairQuantile(sets.length, (i, j) => jaccard(sets[i], sets[j]), opts.similarityQuantile, r));
       const groups = nearDuplicateGroups(texts, tau);
       push(id, objectLayer(ev, (_, i) => (groups[i] >= 0 ? [`p:${groups[i]}`] : []), win(id), span, n, opts.maxGroup), win(id) * 2);
-    } else if (id === "coframing" && vectors?.size) {
-      const idx = [...vectors.keys()];
-      const tau = Math.max(opts.coframingFloor, randomPairQuantile(idx.length, (a, b) => cosine(vectors.get(idx[a])!, vectors.get(idx[b])!), opts.similarityQuantile, r));
-      const similar = (i: number, j: number) => {
-        const a = vectors.get(i);
-        const b = vectors.get(j);
-        return !!a && !!b && cosine(a, b) >= tau;
-      };
-      push(id, similarityLayer(ev, similar, win(id), span, n, r), win(id) * 2);
+    } else if (id === "coframing" && frames?.size) {
+      push(id, objectLayer(ev, (_, i) => (frames.has(i) ? [`f:${frames.get(i)}`] : []), win(id), span, n, opts.maxGroup), win(id) * 2);
     } else if (id === "rhythm") {
       push(id, rhythmLayer(ev, win(id), t0, n), win(id) * 2);
     } else if (id === "lifecycle") {

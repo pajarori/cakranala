@@ -97,30 +97,48 @@ export function cosine(a: Float32Array, b: Float32Array) {
   return s;
 }
 
-export function semanticGroups(vectors: Float32Array[], threshold: number) {
-  const centroids: { sum: Float32Array; unit: Float32Array }[] = [];
-  return vectors.map((v) => {
-    let best = -1;
-    let bestSim = threshold;
-    centroids.forEach((c, i) => {
-      const s = cosine(v, c.unit);
-      if (s >= bestSim) {
-        bestSim = s;
-        best = i;
+export function kmeans(vectors: Float32Array[], k: number, r: () => number, iterations = 20) {
+  const n = vectors.length;
+  if (!n) return [];
+  k = Math.min(k, n);
+  const dim = vectors[0].length;
+  const centroids: Float32Array[] = [Float32Array.from(vectors[Math.floor(r() * n)])];
+  const best = new Float64Array(n).fill(-1);
+  while (centroids.length < k) {
+    let total = 0;
+    const last = centroids[centroids.length - 1];
+    for (let i = 0; i < n; i++) {
+      best[i] = Math.max(best[i], cosine(vectors[i], last));
+      total += (1 - best[i]) ** 2;
+    }
+    let x = r() * total;
+    let pick = 0;
+    for (; pick < n - 1; pick++) if ((x -= (1 - best[pick]) ** 2) <= 0) break;
+    centroids.push(Float32Array.from(vectors[pick]));
+  }
+  const assign = new Int32Array(n).fill(-1);
+  for (let it = 0; it < iterations; it++) {
+    let moved = 0;
+    for (let i = 0; i < n; i++) {
+      let c = 0;
+      let s = -Infinity;
+      for (let j = 0; j < k; j++) {
+        const v = cosine(vectors[i], centroids[j]);
+        if (v > s) {
+          s = v;
+          c = j;
+        }
       }
-    });
-    if (best < 0) {
-      centroids.push({ sum: Float32Array.from(v), unit: Float32Array.from(v) });
-      return centroids.length - 1;
+      if (assign[i] !== c) moved++;
+      assign[i] = c;
     }
-    const c = centroids[best];
-    let n = 0;
-    for (let i = 0; i < v.length; i++) {
-      c.sum[i] += v[i];
-      n += c.sum[i] * c.sum[i];
+    if (!moved) break;
+    for (let j = 0; j < k; j++) centroids[j] = new Float32Array(dim);
+    for (let i = 0; i < n; i++) for (let d = 0; d < dim; d++) centroids[assign[i]][d] += vectors[i][d];
+    for (const c of centroids) {
+      const norm = Math.sqrt(c.reduce((a, b) => a + b * b, 0)) || 1;
+      for (let d = 0; d < dim; d++) c[d] /= norm;
     }
-    n = Math.sqrt(n) || 1;
-    for (let i = 0; i < v.length; i++) c.unit[i] = c.sum[i] / n;
-    return best;
-  });
+  }
+  return Array.from(assign);
 }

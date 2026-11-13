@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Action, type Actor, type Dataset, type Event } from "./schema";
 import type { Reasoner } from "./ports";
-import { expo, gauss, pick, rng, type Rng } from "./util";
+import { expo, gauss, pick, rng, shuffle, type Rng } from "./util";
 
 export type OperationKind = "paid" | "botfarm" | "swarm";
 
@@ -19,7 +19,7 @@ const DAY = 86400000;
 
 function mutate(text: string, r: Rng, level: number, f: Scenario["fillers"]) {
   let parts = text.split(/(?<=[,.!?])\s+/);
-  if (parts.length > 1 && r() < level) parts = parts.sort(() => r() - 0.5);
+  if (parts.length > 1 && r() < level) parts = shuffle(r, parts);
   let words = parts.join(" ").split(" ");
   if (level > 0) words = words.filter((_, i) => i === 0 || r() > level * 0.25);
   let out = words.join(" ");
@@ -84,7 +84,7 @@ export function simulate(scenario: Scenario, seed = 1): Dataset {
     const v = scenario.viral;
     const at = t0 + v.atMin * 60000;
     const viralPost = emit(organic[0], "post", at, v.texts[0], undefined, v.tags);
-    const crowd = organic.slice(o.hubs).sort(() => r() - 0.5).slice(0, v.size);
+    const crowd = shuffle(r, organic.slice(o.hubs)).slice(0, v.size);
     for (const a of crowd) {
       truth[a] = "organic:viral";
       emit(a, r() < 0.8 ? "reply" : "quote", at + Math.exp(gauss(r, Math.log(240000), 0.8)), mutate(pick(r, v.texts), r, 0.7, scenario.fillers), viralPost, r() < 0.6 ? v.tags : undefined);

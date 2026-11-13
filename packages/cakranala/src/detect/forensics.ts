@@ -34,7 +34,7 @@ function kendall(a: string[], b: string[]) {
       if (s > 0) c++;
       else if (s < 0) d++;
     }
-  return c + d ? (c - d) / (c + d) : null;
+  return c + d ? { tau: (c - d) / (c + d), weight: shared.length } : null;
 }
 
 function firstOrder(events: Event[]) {
@@ -71,11 +71,16 @@ export function forensics(members: string[], all: Event[], gapSec = 600): Forens
     if (actors > best.actors) best = { ts: ev[j].ts, actors };
   }
   const ws = waves(ev, gap);
-  const orders = ws.map((w) => firstOrder(w));
-  const taus = orders.slice(1).flatMap((o, i) => {
-    const t = kendall(orders[i].map((x) => x.actor), o.map((x) => x.actor));
-    return t === null ? [] : [t];
-  });
+  const everyOrder = ws.map((w) => firstOrder(w));
+  const largest = Math.max(0, ...everyOrder.map((o) => o.length));
+  const orders = everyOrder.filter((o) => o.length >= largest / 2);
+  const taus = orders.flatMap((a, i) =>
+    orders.slice(i + 1).flatMap((b) => {
+      const t = kendall(a.map((x) => x.actor), b.map((x) => x.actor));
+      return t ? [t] : [];
+    }),
+  );
+  const totalWeight = taus.reduce((s, t) => s + t.weight, 0);
   const gaps = orders.flatMap((o) => o.slice(1).map((x, i) => (x.ts - o[i].ts) / 1000));
   const mu = mean(gaps);
   const sd = Math.sqrt(mean(gaps.map((g) => (g - mu) ** 2)));
@@ -94,7 +99,7 @@ export function forensics(members: string[], all: Event[], gapSec = 600): Forens
     onset: { ts: best.ts, actors: best.actors, windowSec: gapSec },
     waves: ws.length,
     seeders,
-    rotation: taus.length ? mean(taus) : null,
+    rotation: totalWeight ? taus.reduce((s, t) => s + t.tau * t.weight, 0) / totalWeight : null,
     cadence: gaps.length >= 5 ? { medianSec: [...gaps].sort((a, b) => a - b)[gaps.length >> 1], cv: mu ? sd / mu : 0 } : null,
     talkingPoints: talkingPoints(ev.map((e) => e.text ?? ""), 3),
   };

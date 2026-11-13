@@ -96,3 +96,12 @@ function logFactorial(k: number) {
   for (let i = 2; i <= k; i++) s += Math.log(i);
   return s;
 }
+
+export function shuffle<T>(r: Rng, xs: T[]) {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
