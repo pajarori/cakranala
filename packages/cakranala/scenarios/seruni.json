@@ -1,0 +1,107 @@
+{
+  "name": "SIMULASI — Isu Pos Perbatasan Pulau Seruni (fiktif)",
+  "durationMin": 480,
+  "organic": { "actors": 700, "hubs": 25, "eventsPerActor": 4, "narrativeShare": 0.12 },
+  "topics": [
+    {
+      "texts": [
+        "Banjir lagi di Kota Lestari, jalan protokol nggak bisa dilewati sejak subuh",
+        "Air sudah sepinggang di perumahan kami, tolong info posko pengungsian terdekat",
+        "Kenapa tiap hujan deras Lestari selalu banjir, drainase nggak pernah dibenahi",
+        "Relawan butuh perahu karet di kelurahan Sukamaju, ada yang bisa bantu?",
+        "Hujan dari semalam belum berhenti, semoga warga yang terdampak tetap aman",
+        "Listrik dipadamkan di beberapa gardu karena banjir, warga diminta waspada"
+      ],
+      "tags": ["banjirlestari"]
+    },
+    {
+      "texts": [
+        "Harga cabai rawit di pasar pagi ini tembus enam puluh ribu sekilo, gila sih",
+        "Ibu-ibu di kompleks pada ngeluh harga sembako naik terus menjelang akhir tahun",
+        "Pedagang bilang pasokan bawang merah lagi seret karena cuaca",
+        "Mending tanam cabai sendiri di pot deh daripada beli mahal begini",
+        "Operasi pasar katanya digelar minggu depan, semoga harga cepat turun"
+      ],
+      "tags": ["hargacabai"]
+    },
+    {
+      "texts": [
+        "Macet parah di tol arah kota, sudah satu jam cuma maju beberapa meter",
+        "Ada kecelakaan di simpang lima, kendaraan dialihkan lewat jalan samping",
+        "Kereta komuter telat dua puluh menit, peron penuh banget pagi ini",
+        "Ojol pada nunggu lama karena hujan, orderan numpuk",
+        "Jalur alternatif lewat pasar baru juga padat, mending tunda berangkat"
+      ],
+      "tags": ["infolalin"]
+    },
+    {
+      "texts": [
+        "Konser band indie semalam keren banget, penontonnya rapi dan tertib",
+        "Ada rekomendasi film yang lagi tayang minggu ini nggak?",
+        "Baru selesai baca novel sejarah, endingnya bikin mikir lama",
+        "Akhirnya bisa liburan ke pantai selatan, ombaknya lagi bagus",
+        "Kopi susu gula aren di kedai dekat kampus memang juara"
+      ]
+    }
+  ],
+  "narratives": [
+    {
+      "id": "seruni",
+      "claims": [
+        "Pos perbatasan di Pulau Seruni ditinggalkan begitu saja, wilayah kita dibiarkan dicaplok asing",
+        "Prajurit di Pulau Seruni ditarik diam-diam, rakyat tidak pernah diberi tahu soal ini",
+        "Pulau Seruni sudah tidak dijaga lagi, pemerintah pura-pura tidak tahu kedaulatan kita dijual",
+        "Kalau Pulau Seruni lepas, siapa yang tanggung jawab? Pos penjagaan sudah kosong berbulan-bulan",
+        "Bendera kita di Seruni sudah diturunkan, ini bukti negara kalah tanpa perang",
+        "Kedaulatan Seruni digadaikan, pos jaga dikosongkan dan media diam semua"
+      ],
+      "organicTakes": [
+        "Beneran pos di Pulau Seruni kosong? Ada sumber resminya nggak sih",
+        "Jangan langsung percaya soal Seruni, tunggu klarifikasi resmi dulu",
+        "Lagi rame soal Pulau Seruni, ada yang tahu faktanya gimana?",
+        "Info Seruni ini kok sumbernya akun-akun baru semua ya",
+        "Kemarin ada rilis yang bilang pos Seruni tetap dijaga, mana yang benar"
+      ],
+      "tags": ["SeruniDijual", "SelamatkanSeruni"]
+    },
+    {
+      "id": "rekrutmen",
+      "claims": [
+        "Pendaftaran Bintara jalur khusus dibuka, cukup transfer biaya administrasi dan dijamin lolos",
+        "Kuota khusus calon prajurit masih ada, hubungi admin dan siapkan biaya pendaftaran sekarang juga",
+        "Jalur orang dalam rekrutmen dibuka terbatas, bayar di muka langsung masuk daftar lulus",
+        "Mau jadi prajurit tanpa tes ribet? Ada jalur khusus, biaya admin terjangkau, buruan sebelum ditutup"
+      ],
+      "organicTakes": [
+        "Hati-hati penipuan rekrutmen, setahu saya pendaftaran resmi itu gratis",
+        "Ada yang nawarin jalur khusus jadi prajurit bayar, ini pasti penipuan kan",
+        "Rekrutmen resmi cuma lewat situs resmi, jangan transfer ke siapa pun",
+        "Sepupu saya hampir kena tipu jalur khusus rekrutmen, waspada ya"
+      ],
+      "tags": ["RekrutmenJalurKhusus"]
+    }
+  ],
+  "viral": {
+    "atMin": 300,
+    "size": 140,
+    "texts": [
+      "GOOOL! Timnas menang di menit akhir, merinding nonton ini",
+      "Gila sih gol tadi, timnas kita main luar biasa malam ini",
+      "Akhirnya timnas menang juga, pelatihnya layak dapat pujian",
+      "Nangis nonton timnas menang, perjuangan sampai menit terakhir",
+      "Penyelamatan kiper tadi juga gila, timnas solid banget",
+      "Timnas menang! Satu negeri bahagia malam ini"
+    ],
+    "tags": ["Timnas"]
+  },
+  "operations": [
+    { "id": "opA", "kind": "paid", "size": 40, "narrative": "seruni", "waves": 4 },
+    { "id": "opB", "kind": "botfarm", "size": 25, "narrative": "rekrutmen", "waves": 3 },
+    { "id": "opC", "kind": "swarm", "size": 30, "narrative": "seruni", "waves": 4 }
+  ],
+  "fillers": {
+    "openers": ["Astaga,", "Serius ini?", "Sumpah,", "Fix,", "Jujur aja,", "Coba pikir,"],
+    "closers": ["sebarkan!", "jangan diam!", "bangun dong rakyat", "viralkan", "miris banget", "kok bisa ya"],
+    "emoji": ["😡", "🔥", "😭", "🙏", "‼️", "🇮🇩"]
+  }
+}
