@@ -13,8 +13,8 @@ export interface YoutubeOptions {
   pages?: number;
 }
 
-export async function createYoutubeCollector() {
-  const yt = await Innertube.create({ retrieve_player: false });
+export async function createYoutubeCollector(cookie?: string) {
+  const yt = await Innertube.create({ retrieve_player: false, cookie });
 
   async function comments(videoId: string, pages: number, now: number, actors: Map<string, Actor>, events: Map<string, Event>) {
     let feed: any;

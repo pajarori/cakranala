@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import type { Actor, Event } from "cakranala";
 
-const DIR = new URL("../../../../data/", import.meta.url).pathname;
+export const DIR = new URL("../../../../data/", import.meta.url).pathname;
 mkdirSync(DIR, { recursive: true });
 
 export const db = new Database(`${DIR}cakranala.sqlite`, { create: true });

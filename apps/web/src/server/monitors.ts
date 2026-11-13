@@ -4,26 +4,50 @@ import { createXCollector, sessionFromEnv } from "@cakranala/collect-x";
 import { createYoutubeCollector } from "@cakranala/collect-youtube";
 import { collectTelegram } from "@cakranala/collect-telegram";
 import { audit, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
+import { credentials, rotating } from "./credentials";
 
 const scenario = seruni as Scenario;
 const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
-let collector: ReturnType<typeof createXCollector> | undefined;
 const rate = { remaining: null as number | null, reset: null as number | null };
 
-const x = () => (collector ??= (() => {
-  const s = sessionFromEnv();
-  if (!s) throw new Error("X session is not configured");
-  return createXCollector(s);
-})().catch((e) => {
-  collector = undefined;
-  throw e;
-}));
+const cache = <T>() => {
+  const m = new Map<string, Promise<T>>();
+  return (key: string, make: () => Promise<T>) => {
+    let p = m.get(key);
+    if (!p) {
+      p = make().catch((e) => {
+        m.delete(key);
+        throw e;
+      });
+      m.set(key, p);
+    }
+    return p;
+  };
+};
 
-let youtube: ReturnType<typeof createYoutubeCollector> | undefined;
-const yt = () => (youtube ??= createYoutubeCollector().catch((e) => {
-  youtube = undefined;
-  throw e;
-}));
+const xCollectors = cache<Awaited<ReturnType<typeof createXCollector>>>();
+const ytCollectors = cache<Awaited<ReturnType<typeof createYoutubeCollector>>>();
+
+const youtube = async <T>(run: (c: Awaited<ReturnType<typeof createYoutubeCollector>>) => Promise<T>) =>
+  credentials.count("youtube")
+    ? rotating("youtube", async (lease) => ({ value: await run(await ytCollectors(lease.id, () => createYoutubeCollector(lease.fields.cookie))) }))
+    : run(await ytCollectors("anonymous", () => createYoutubeCollector()));
+
+const xSearch = (run: (c: Awaited<ReturnType<typeof createXCollector>>) => Promise<Dataset>) =>
+  rotating("x", async (lease) => {
+    const c = await xCollectors(lease.id, () => createXCollector({ authToken: lease.fields.authToken, ct0: lease.fields.ct0, userAgent: lease.fields.userAgent || "Mozilla/5.0" }));
+    const value = await run(c);
+    Object.assign(rate, c.rate);
+    const until = c.rate.reset && c.rate.reset > Date.now() ? c.rate.reset : Date.now() + 15 * 60_000;
+    if (value.meta?.coverage === 0) return { value, limitedUntil: until };
+    if (c.rate.remaining === 0) credentials.limited(lease.id, until);
+    return { value };
+  });
+
+export function importEnvCredential() {
+  const s = sessionFromEnv();
+  if (s && !credentials.count("x")) return credentials.add("x", "Imported from environment", { authToken: s.authToken, ct0: s.ct0, userAgent: s.userAgent });
+}
 
 export const PLATFORM_KINDS: Record<Platform, MonitorKind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"] };
 
@@ -38,15 +62,9 @@ function validate(platform: Platform, kind: MonitorKind, target: string) {
 }
 
 async function collect(m: Monitor) {
-  if (m.platform === "youtube") {
-    const c = await yt();
-    return m.kind === "post" ? c.video(videoId(m.target)!, { pages: m.pages }) : c.search(m.target, { videos: m.pages, pages: 2 });
-  }
+  if (m.platform === "youtube") return youtube((c) => (m.kind === "post" ? c.video(videoId(m.target)!, { pages: m.pages }) : c.search(m.target, { videos: m.pages, pages: 2 })));
   if (m.platform === "telegram") return collectTelegram(channels(m.target), m.pages);
-  const c = await x();
-  const raw = m.kind === "post" ? await c.conversation(query(m.kind, m.target).replace("conversation_id:", ""), { pages: m.pages }) : await c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
-  Object.assign(rate, c.rate);
-  return raw;
+  return xSearch((c) => (m.kind === "post" ? c.conversation(query(m.kind, m.target).replace("conversation_id:", ""), { pages: m.pages }) : c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined })));
 }
 
 export const rateState = () => ({ ...rate });

@@ -122,7 +122,6 @@ Only Caddy is exposed (ports 80 and 443). Anyone can view the dashboard and use 
 | Variable | Purpose |
 |---|---|
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Language model for case titles, briefs, reports, counter narratives and Perisai. Any OpenAI compatible endpoint works, including a self hosted model. Optional. |
-| `X_AUTH_TOKEN`, `X_CT0`, `X_USER_AGENT` | Session cookies of a dedicated X account for live monitors. Optional. |
 | `OPERATOR_TOKEN` | Required to change monitors, case status and reports. |
 | `PSEUDONYM_SECRET` | HMAC key used to pseudonymize collected accounts. |
 | `DOMAIN` | Public domain for HTTPS in the production compose file. |
@@ -131,6 +130,10 @@ Only Caddy is exposed (ports 80 and 443). Anyone can view the dashboard and use 
 | `PORT` | HTTP port, 3000 by default. |
 
 Collected data and the SQLite database live in `./data`, mounted as a volume.
+
+### Platform credentials
+
+Platform sessions are not configured through environment variables. Operators add, disable, rotate out and remove them at `/credentials`. Each credential is encrypted with AES-GCM before it is stored in SQLite; the key is generated on first start in `data/credential.key` (file mode 600), so back it up together with the database. Collectors take the least recently used ready credential, put a credential on cooldown until its rate limit resets, move on to the next one, and disable a credential after three consecutive failures. X needs session cookies; YouTube works without a credential and uses one when present; TikTok uses one through its sidecar.
 
 ## Development
 
@@ -147,6 +150,6 @@ bun run dev
 
 - Only public data is collected. Handles are replaced with HMAC pseudonyms before storage.
 - Results are indicative patterns of coordinated behavior, never accusations against individuals.
-- Live collection uses public web endpoints of X, YouTube and Telegram. It respects rate limits, waits for the reset when limited, uses one session per platform, and never attempts to bypass CAPTCHAs or bot protection.
+- Live collection uses public web endpoints of X, YouTube and Telegram. It respects rate limits, waits for the reset when limited, rotates only between credentials the operator supplied, and never attempts to bypass CAPTCHAs or bot protection.
 - Every state change (monitors, case status, reports) is written to an append only audit log where each entry carries the SHA-256 of the previous one. The System page verifies the chain.
 - Accuracy is measured on labeled archives of real state influence operations and on simulated scenarios. On the real archives, account ranking reaches an average precision of 0.76 and 0.94, against 0.22 and 0.75 for ranking by post volume, with no control account placed in a cluster and no clusters on time shifted data. On simulations, bot farms and paid buzzers are caught almost completely with no organic or viral account flagged, and patient LLM swarms remain the hardest case.

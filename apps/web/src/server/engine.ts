@@ -1,9 +1,9 @@
 import { analyze, evaluate, shield, simulate, LAYERS, type Evaluation, type LayerId, type Scenario, type ShieldInput } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
-import { sessionFromEnv } from "@cakranala/collect-x";
 import registry from "../../config/registry.json";
 import taxonomy from "../../config/taxonomy.json";
 import { library } from "./library";
+import { credentials } from "./credentials";
 import { embedder, reasoner, snapshot, SEVERITY } from "./analysis";
 
 const scenario = seruni as Scenario;
@@ -49,4 +49,4 @@ export function runAblation(seeds = [1, 2, 3]) {
   return ablation;
 }
 
-export const capabilities = () => ({ live: !!sessionFromEnv(), reasoner: !!reasoner, scenario: scenario.name, severity: SEVERITY });
+export const capabilities = () => ({ live: credentials.count("x") > 0, reasoner: !!reasoner, scenario: scenario.name, severity: SEVERITY });

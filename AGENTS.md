@@ -48,7 +48,7 @@ Always verify with `bun run typecheck`, `bun test`, and a rebuilt container resp
 
 - Never commit `.env`, `data/` or the SQLite database. Never print secrets.
 - Collect only public data, and pseudonymize accounts before storage.
-- Do not add CAPTCHA solving, fingerprint spoofing or proxy rotation to collectors.
+- Platform credentials live only in the encrypted vault (`apps/web/src/server/credentials.ts`, key in `data/credential.key`), managed at `/credentials`. Collectors rotate between operator supplied credentials and cool a credential down until its rate limit resets. Do not add CAPTCHA solving, fingerprint spoofing or proxy rotation.
 - Endpoints that change live monitors require the operator token.
 
 ## Git

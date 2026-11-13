@@ -8,8 +8,9 @@ import { reportRoute, reportsRoute } from "@/routes/reports";
 import { perisaiRoute } from "@/routes/perisai";
 import { systemRoute } from "@/routes/system";
 import { operatorRoute } from "@/routes/operator";
+import { credentialsRoute, newCredentialRoute } from "@/routes/credentials";
 
-const routeTree = rootRoute.addChildren([situationRoute, threatsRoute, threatRoute.addChildren(threatTabs), monitorsRoute, newMonitorRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, operatorRoute]);
+const routeTree = rootRoute.addChildren([situationRoute, threatsRoute, threatRoute.addChildren(threatTabs), monitorsRoute, newMonitorRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, operatorRoute, credentialsRoute, newCredentialRoute]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
 

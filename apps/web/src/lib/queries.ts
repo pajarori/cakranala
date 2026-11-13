@@ -11,6 +11,19 @@ export const useOps = () => useSuspenseQuery(stateQuery).data;
 export const useLiveState = () => useQuery(stateQuery);
 export const ensureState = () => queryClient.ensureQueryData(stateQuery);
 export const useCapabilities = () => useQuery({ queryKey: ["capabilities"], queryFn: api.capabilities, staleTime: Infinity });
+export const useCredentials = () => useQuery({ queryKey: ["credentials"], queryFn: api.credentials, refetchInterval: 15_000, retry: 0 });
+export const useCredentialAction = () => {
+  const done = useInvalidate(["credentials"], ["capabilities"]);
+  return useMutation({
+    mutationFn: async (a: { id: string; action: "enable" | "disable" | "rotate" | "remove" }): Promise<unknown> =>
+      a.action === "remove" ? api.removeCredential(a.id) : api.updateCredential(a.id, a.action === "rotate" ? { rotate: true } : { active: a.action === "enable" }),
+    onSuccess: done,
+  });
+};
+export const useAddCredential = () => {
+  const done = useInvalidate(["credentials"], ["capabilities"]);
+  return useMutation({ mutationFn: api.addCredential, onSuccess: done });
+};
 export const useAudit = () => useQuery({ queryKey: ["audit"], queryFn: api.audit, refetchInterval: 15_000 });
 export const useAblation = () => useQuery({ queryKey: ["ablation"], queryFn: api.ablation, staleTime: Infinity, retry: 0 });
 export const useReports = () => useSuspenseQuery(reportsQuery).data;

@@ -3,11 +3,12 @@ import { timingSafeEqual } from "node:crypto";
 import index from "./index.html";
 import { capabilities, runAblation, runShield } from "./server/engine";
 import { refresh, snapshot } from "./server/analysis";
-import { createMonitor } from "./server/monitors";
+import { createMonitor, importEnvCredential } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
 import { syncLibrary } from "./server/library";
+import { CREDENTIAL_FIELDS, credentials } from "./server/credentials";
 
 class HttpError extends Error {
   constructor(
@@ -86,6 +87,36 @@ const server = serve({
       }),
     },
     "/api/audit": { GET: json(() => ({ ...audit.verify(), recent: audit.recent() })) },
+    "/api/credentials": {
+      GET: json((req) => (operator(req), { platforms: CREDENTIAL_FIELDS, items: credentials.all() })),
+      POST: json(async (req) => {
+        operator(req);
+        const { platform, label, fields } = await req.json();
+        const c = await credentials.add(platform, String(label ?? ""), fields ?? {});
+        audit.add("credential.added", c.id, { platform: c.platform, label: c.label });
+        return c;
+      }),
+    },
+    "/api/credentials/:id": {
+      PATCH: json(async (req) => {
+        operator(req);
+        const c = credentials.get(req.params.id);
+        if (!c) throw new HttpError(404, "credential not found");
+        const { active, rotate } = await req.json();
+        if (typeof active === "boolean") credentials.setActive(c.id, active);
+        if (rotate) credentials.rotate(c.id);
+        audit.add(rotate ? "credential.rotated" : active ? "credential.enabled" : "credential.disabled", c.id, { platform: c.platform });
+        return credentials.get(c.id);
+      }),
+      DELETE: json((req) => {
+        operator(req);
+        const c = credentials.get(req.params.id);
+        if (!c) throw new HttpError(404, "credential not found");
+        credentials.remove(c.id);
+        audit.add("credential.removed", c.id, { platform: c.platform });
+        return { ok: true };
+      }),
+    },
     "/api/operator": { POST: json((req) => (operator(req), { ok: true })) },
     "/api/cases/:id": {
       PATCH: json(async (req) => {
@@ -135,6 +166,7 @@ const server = serve({
   development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
 });
 
+await importEnvCredential();
 if (!monitors.all().length) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
 const tick = () => refresh().catch((e) => console.error("refresh failed", e));
 tick();
