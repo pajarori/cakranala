@@ -1,10 +1,5 @@
 import type { SVGProps } from "react";
 
-// One icon set for Stealth UI. 16px grid, 1.4 stroke, round caps and joins,
-// currentColor. Decorative by default (aria-hidden); give the parent button
-// the label. Need one that isn't here? Draw it inline in your component on the
-// same grid with the same stroke, never import a second icon library.
-
 export type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
 const base = (size = 16): SVGProps<SVGSVGElement> => ({

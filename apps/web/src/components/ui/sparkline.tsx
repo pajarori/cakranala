@@ -5,7 +5,6 @@ import { cn } from "@/lib/cn";
 import { ease, spring } from "@/lib/motion";
 
 const noop = () => () => {};
-/** The reader's locale on the client, a fixed one on the server, so hydration always matches. */
 function useLocale(locale?: string) {
   const detected = useSyncExternalStore(noop, () => Intl.NumberFormat().resolvedOptions().locale, () => "en-US");
   return locale ?? detected;
@@ -14,26 +13,17 @@ function useLocale(locale?: string) {
 export type SparklineDatum = number | null;
 
 export type SparklineGeometry = {
-  /** One entry per datum: x from 0 to 1, y in pixels from the top. null for a gap. */
   points: ({ x: number; y: number } | null)[];
-  /** The line, in a viewBox that is 100 wide and `height` tall. */
   line: string;
-  /** The line closed down to the bottom edge, for the area wash. */
   area: string;
   min: number;
   max: number;
 };
 
-/**
- * Plots values into a box 100 units wide and `height` pixels tall. Width is in
- * percent so the SVG can stretch to any container without measuring it; height
- * is real pixels so the stroke and the padding stay true. Nulls break the line.
- */
 export function sparklineGeometry(data: SparklineDatum[], height: number, domain?: [number, number], pad = 4): SparklineGeometry {
   const values = data.filter((v): v is number => v != null && Number.isFinite(v));
   let [min, max] = domain ?? [Math.min(...values), Math.max(...values)];
   if (!values.length && !domain) [min, max] = [0, 1];
-  // A flat series sits in the middle rather than on the floor.
   if (min === max) [min, max] = [min - 1, max + 1];
   const n = data.length;
   const points = data.map((v, i) => {
@@ -47,7 +37,6 @@ export function sparklineGeometry(data: SparklineDatum[], height: number, domain
   let run: { x: number; y: number }[] = [];
   const flush = () => {
     if (!run.length) return;
-    // A lone point between gaps still gets a visible stub.
     const pts = run.length === 1 ? [{ x: run[0].x - 0.004, y: run[0].y }, { x: run[0].x + 0.004, y: run[0].y }] : run;
     const seg = pts.map((p, i) => `${i ? "L" : "M"}${(p.x * 100).toFixed(3)} ${p.y.toFixed(2)}`).join("");
     line += seg;
@@ -61,40 +50,24 @@ export function sparklineGeometry(data: SparklineDatum[], height: number, domain
   flush();
   return { points, line, area, min, max };
 }
-
 export type SparklineProps = Omit<React.ComponentProps<"div">, "children" | "onChange"> & {
-  /** The series, oldest first. null marks a gap (downtime, a missing day). */
   data: SparklineDatum[];
-  /** One label per point, shown and announced while scrubbing: "Mar 4", "14:05". */
+
   labels?: string[];
-  /** Names the series for screen readers: "Revenue, last 30 days". */
   label?: string;
   variant?: "line" | "area";
-  /**
-   * neutral draws in the foreground; trend turns success when the last value is
-   * above the first and danger when below; success and danger force a color.
-   */
   tone?: "neutral" | "trend" | "success" | "danger";
-  /** For latency, errors or cost: a fall is good news under tone="trend". */
   inverse?: boolean;
-  /** Pixels. Width always follows the container. */
   height?: number;
-  /** Fix the y range, so several sparklines compare honestly. Defaults to the data's own min and max. */
   domain?: [number, number];
   formatValue?: (value: number) => string;
   locale?: string;
-  /** Pointer and arrow-key scrubbing. Off, it is a static image. */
   scrub?: boolean;
-  /** Show the value pill while scrubbing. Turn off when onScrub drives a headline instead. */
   tooltip?: boolean;
-  /** Called with the scrubbed index, and null when scrubbing ends. */
   onScrub?: (index: number | null) => void;
-  /** A soft pulse on the last point, for data that is still arriving. */
   live?: boolean;
-  /** Reveal left to right the first time it scrolls into view. */
   animated?: boolean;
 };
-
 export function Sparkline({
   data,
   labels,
@@ -123,16 +96,13 @@ export function Sparkline({
   const inView = useInView(box, { once: true, amount: 0.6 });
   const [index, setIndex] = useState<number | null>(null);
   const [touching, setTouching] = useState(false);
-  // The last dot waits for the reveal once; after that it comes back at once.
   const [revealed, setRevealed] = useState(false);
   const summaryId = useId();
-
   const geo = useMemo(() => sparklineGeometry(data, height, domain), [data, height, domain]);
   const fmt = useMemo(() => {
     const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
     return formatValue ?? ((v: number) => nf.format(v));
   }, [formatValue, locale]);
-
   const lastIndex = findLast(geo.points);
   const firstIndex = geo.points.findIndex(Boolean);
   const first = firstIndex >= 0 ? (data[firstIndex] as number) : null;
@@ -140,15 +110,11 @@ export function Sparkline({
   const up = first != null && last != null ? last > first : null;
   const resolvedTone = tone === "trend" ? (up == null || last === first ? "neutral" : up !== inverse ? "success" : "danger") : tone;
   const empty = lastIndex < 0;
-
-  // One scrub position, sprung after the pointer and jumped for the keyboard.
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
   const left = useTransform(rx, (v) => `${v * 100}%`);
-  // Shifting the pill by the same percentage of its own width keeps it inside the box at both ends.
   const shift = useTransform(rx, (v) => `${-v * 100}%`);
   const clipWidth = useTransform(rx, (v) => v * 100);
-
   const moveTo = (i: number | null, instant: boolean) => {
     if (i === index) return;
     setIndex(i);
@@ -164,8 +130,6 @@ export function Sparkline({
       animate(ry, p.y, spring.follow);
     }
   };
-
-  // Snap to the nearest point that has a value, so a gap never strands the scrubber.
   const nearest = (ratio: number) => {
     const n = data.length;
     const target = Math.round(Math.min(1, Math.max(0, ratio)) * (n - 1));
@@ -175,12 +139,10 @@ export function Sparkline({
     }
     return null;
   };
-
   const fromPointer = (e: React.PointerEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
     return nearest((e.clientX - r.left) / r.width);
   };
-
   const interactive = scrub && !empty && data.length > 1;
   const current = index ?? lastIndex;
   const valueText =
@@ -190,8 +152,6 @@ export function Sparkline({
     : `${label}: ${fmt(first as number)} to ${fmt(last as number)}, low ${fmt(Math.min(...(data.filter((v) => v != null) as number[])))}, high ${fmt(
         Math.max(...(data.filter((v) => v != null) as number[])),
       )}`;
-
-  // Render output never depends on reduced motion (the server can't know it); only the transitions do.
   const shown = !animated || inView;
   useEffect(() => {
     if (!shown || revealed) return;
@@ -200,7 +160,6 @@ export function Sparkline({
   }, [shown, revealed]);
   const lastPoint = lastIndex >= 0 ? geo.points[lastIndex] : null;
   const scrubbing = index != null;
-
   return (
     <div
       ref={box}
@@ -230,7 +189,6 @@ export function Sparkline({
         setTouching(false);
         moveTo(null, true);
       } : undefined}
-      // Keyboard focus lands on the latest point, so the value is there before the first arrow press.
       onFocus={interactive ? (e) => {
         if (e.currentTarget.matches(":focus-visible")) moveTo(lastIndex, true);
       } : undefined}
@@ -290,7 +248,6 @@ export function Sparkline({
               {variant === "area" && (
                 <path d={geo.area} fill={`url(#${gradient})`} className="transition-opacity duration-150" style={{ opacity: scrubbing ? 0.5 : 1 }} />
               )}
-              {/* While scrubbing, the stretch after the pointer steps back and the part already traveled keeps full ink. */}
               <path
                 d={geo.line}
                 stroke="currentColor"
@@ -316,7 +273,6 @@ export function Sparkline({
           )}
         </svg>
       </motion.div>
-
       {lastPoint && (
         <motion.span
           aria-hidden
@@ -336,8 +292,6 @@ export function Sparkline({
           <span className="absolute inset-0 rounded-full bg-current ring-[1.5px] ring-[color:var(--sparkline-surface,var(--raised))]" />
         </motion.span>
       )}
-
-      {/* The scrubber: a hairline, a dot riding the line, and the value above. */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-fg/15"
@@ -382,7 +336,6 @@ export function Sparkline({
     </div>
   );
 }
-
 function findLast<T>(list: (T | null)[]) {
   for (let i = list.length - 1; i >= 0; i--) if (list[i]) return i;
   return -1;

@@ -14,8 +14,6 @@ import { useControllableState } from "@/lib/use-controllable-state";
 export type StatPoint = { label: string; value: number };
 export type StatPeriod = { value: string; label: string };
 
-// Every series is resampled to the same number of points, so switching periods
-// morphs one line into the next instead of redrawing it.
 const SAMPLES = 64;
 const W = 320;
 const H = 56;
@@ -36,12 +34,10 @@ function geometry(values: number[]) {
   const min = Math.min(...pts);
   const max = Math.max(...pts);
   const span = max - min || 1;
-  // 6px of headroom above the peak, 4px above the floor, so the stroke never clips.
   const y = (v: number) => 6 + (1 - (v - min) / span) * (H - 10);
   const xs = pts.map((_, i) => (i / (pts.length - 1)) * W);
   const line = pts.map((v, i) => `${i ? "L" : "M"}${xs[i].toFixed(2)} ${y(v).toFixed(2)}`).join(" ");
   const area = `${line} L${W} ${H} L0 ${H} Z`;
-  // Where the drawn line crosses a given 0–1 position, so the scrub dot sits on it exactly.
   const at = (p: number) => {
     const t = p * (pts.length - 1);
     const lo = Math.floor(t);
@@ -54,23 +50,16 @@ function geometry(values: number[]) {
 export type StatTileProps = Omit<React.ComponentProps<"div">, "children"> &
   NumberFormatShortcuts & {
     label: string;
-    /** The headline value. null with loading shows the skeleton. */
     value: number | null;
-    /** Change against the comparison period, in percentage points. */
     delta?: number | null;
-    /** For metrics where down is good (churn, latency, cost). */
     inverse?: boolean;
-    /** What the delta is measured against: "vs previous 30 days". */
     comparison?: string;
-    /** The series behind the sparkline, oldest first. Labels are shown while scrubbing. */
     data?: StatPoint[];
     periods?: StatPeriod[];
     period?: string;
     defaultPeriod?: string;
     onPeriodChange?: (period: string) => void;
-    /** Fetching. Skeleton when there's no value yet; otherwise the data stays and dims. */
     loading?: boolean;
-    /** Couldn't load. Shown in place, with a retry when onRetry is given. */
     error?: string;
     onRetry?: () => void;
     locale?: string;
@@ -108,13 +97,11 @@ export function StatTile({
   const head = useRef<HTMLSpanElement>(null);
   const prev = useRef({ value, period });
 
-  // Tint the headline when the value itself changes, never when scrubbing moves it.
   useEffect(() => {
     const { value: last, period: lastPeriod } = prev.current;
     if (Object.is(last, value)) return;
     prev.current = { value, period };
     const el = head.current;
-    // The first value after a period switch answers a different question; it isn't a rise or a fall.
     if (last == null || value == null || lastPeriod !== period || !el) return;
     const good = value > last !== inverse;
     const tint = `var(--${good ? "success" : "danger"})`;
@@ -137,7 +124,6 @@ export function StatTile({
   const exact = new Intl.NumberFormat(locale, numberFormatOptions({ currency, decimals, format })).format(point?.value ?? value ?? 0);
   const pointText = (p: StatPoint) => `${p.label}: ${new Intl.NumberFormat(locale, numberFormatOptions(shortcuts)).format(p.value)}`;
 
-  // While scrubbing, the badge measures from the start of the window to the point under the finger.
   const base = points[0]?.value;
   const shownDelta = point ? (base ? ((point.value - base) / Math.abs(base)) * 100 : null) : delta;
   const tone = getDelta(delta, { inverse }).tone;
@@ -169,7 +155,6 @@ export function StatTile({
   };
 
   const headline = (
-    // A fixed 32px line box: the rolling digits' mask may overflow it, the layout never does.
     <span ref={head} className="inline-flex h-8 items-center text-fg">
       <NumberTicker value={point?.value ?? value ?? 0} locale={locale} {...shortcuts} className="text-[28px] font-medium leading-none tracking-[-0.03em]" />
     </span>
@@ -214,7 +199,6 @@ export function StatTile({
                   nativeButton
                   render={<button type="button" />}
                   className={cn(
-                    // 20px drawn, 44px tappable on touch.
                     "group/period relative rounded-[5px] px-1.5 font-mono text-[10.5px] outline-none transition-colors duration-150",
                     "before:absolute before:-inset-x-0.5 before:-inset-y-3 before:content-[''] pointer-fine:before:hidden",
                     "focus-visible:outline-solid focus-visible:outline-1 focus-visible:outline-fg-3",
@@ -351,7 +335,6 @@ export function StatTile({
         )}
 
         {geo && scrubAt != null && (
-          // Hairline and dot are HTML, not SVG, so they stay round and 1px while the chart stretches.
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <span className="absolute inset-y-0 w-px -translate-x-1/2 bg-fg/15" style={{ left: `${scrubAt * 100}%` }} />
             <span

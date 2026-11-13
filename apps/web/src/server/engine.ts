@@ -1,5 +1,5 @@
 import { mkdir, readdir } from "node:fs/promises";
-import { analyze, evaluate, pseudonymize, shield, simulate, LAYERS, type Dataset, type Embedder, type LayerId, type Report, type Scenario, type ShieldInput } from "cakranala";
+import { analyze, evaluate, pseudonymize, shield, simulate, LAYERS, type Dataset, type Embedder, type Evaluation, type LayerId, type Report, type Scenario, type ShieldInput } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
 import { createE5Embedder } from "@cakranala/embed-e5";
 import { reasonerFromEnv } from "@cakranala/reasoner-openai";
@@ -99,11 +99,11 @@ export async function runShield(input: ShieldInput) {
 }
 
 const ABLATIONS: { name: string; layers: LayerId[] }[] = [
-  { name: "Copypasta saja", layers: ["copypasta"] },
-  { name: "Co-action saja", layers: ["coaction"] },
-  { name: "Leksikal (co-action + copypasta)", layers: ["coaction", "copypasta"] },
-  { name: "Tanpa semantik", layers: LAYERS.filter((l) => l !== "coframing") },
-  { name: "Multiplex penuh", layers: LAYERS },
+  { name: "Copypasta only", layers: ["copypasta"] },
+  { name: "Co-action only", layers: ["coaction"] },
+  { name: "Lexical", layers: ["coaction", "copypasta"] },
+  { name: "No semantic layer", layers: LAYERS.filter((l) => l !== "coframing") },
+  { name: "Full multiplex", layers: LAYERS },
 ];
 
 let ablation: Promise<unknown> | undefined;
@@ -112,7 +112,7 @@ export function runAblation(seeds = [1, 2, 3]) {
     const e = await embedder();
     const rows = [];
     for (const a of ABLATIONS) {
-      const runs = [];
+      const runs: Evaluation[] = [];
       for (const seed of seeds) {
         const ds = simulate(scenario, seed);
         runs.push(evaluate(await analyze(ds, { embedder: e, layers: a.layers, minLayers: Math.min(2, a.layers.length), seed }), ds.truth!));

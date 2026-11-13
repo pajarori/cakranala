@@ -2,10 +2,15 @@
   "name": "cakranala-workspace",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/web",
+    "dev": "bun --cwd apps/web dev",
+    "start": "bun --cwd apps/web start"
   },
   "devDependencies": {
     "@types/bun": "latest",

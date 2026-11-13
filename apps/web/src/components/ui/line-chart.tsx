@@ -23,7 +23,6 @@ function useWidth() {
   return [setNode, width] as const;
 }
 
-/** Round ticks covering [min, max]. Lines don't need a zero baseline unless asked for. */
 function niceTicks(min: number, max: number, count: number, zero: boolean) {
   let lo0 = zero ? Math.min(0, min) : min;
   let hi0 = zero ? Math.max(0, max) : max;
@@ -41,7 +40,6 @@ function niceTicks(min: number, max: number, count: number, zero: boolean) {
 
 type Pt = { x: number; y: number };
 
-// Monotone cubic (Fritsch–Carlson): smooth, but never overshoots a peak or invents a dip.
 function monotone(pts: Pt[]) {
   const n = pts.length;
   if (n < 3) return pts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join("");
@@ -79,36 +77,27 @@ const inks = [0.95, 0.5, 0.3, 0.18];
 export type LineSeries = {
   key: string;
   label: string;
-  /** Text-color class for this series, e.g. "text-info". Defaults to the foreground at a stepped opacity. */
   className?: string;
-  /** Dashed reads as "for comparison": last period, a forecast, a budget. */
   variant?: "solid" | "dashed";
 };
 
 export type LineChartProps<T extends Record<string, unknown>> = Omit<React.ComponentProps<"div">, "children"> & {
   data: T[];
-  /** The field on the x axis: a date label, a week, a timestamp string. */
   xKey: keyof T & string;
   series: LineSeries[];
-  /** Names the chart for screen readers. */
   label: string;
-  /** Plot height in pixels. */
   height?: number;
   curve?: "linear" | "monotone";
-  /** A soft wash under the first visible series. */
   area?: boolean;
-  /** Keep zero on the y axis, for quantities where the distance from zero matters. */
   zero?: boolean;
   formatValue?: (value: number) => string;
   formatX?: (x: string) => string;
   locale?: string;
-  /** Series keys hidden by the legend (controlled). */
   hidden?: string[];
   defaultHidden?: string[];
   onHiddenChange?: (hidden: string[]) => void;
   loading?: boolean;
   emptyLabel?: string;
-  /** Draw the lines in the first time the chart scrolls into view. */
   animated?: boolean;
 };
 
@@ -157,7 +146,6 @@ export function LineChart<T extends Record<string, unknown>>({
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
-  // The y range follows the visible series, so hiding a tall line lets the rest fill the plot.
   const vals = data.flatMap((d) => visible.map((s) => num(d, s.key))).filter((v): v is number => v != null);
   const ticks = niceTicks(vals.length ? Math.min(...vals) : 0, vals.length ? Math.max(...vals) : 1, 4, zero);
   const t0 = ticks[0];
@@ -189,14 +177,12 @@ export function LineChart<T extends Record<string, unknown>>({
         })()
       : "";
 
-  // X labels: as many as fit without touching, always including the last.
   const xLabel = (i: number) => formatX(String(data[i][xKey]));
   const longest = Math.max(4, ...data.map((_, i) => xLabel(i).length));
   const fit = Math.max(2, Math.floor(plotW / (longest * 6.4 + 24)));
   const stepX = Math.max(1, Math.ceil((n - 1) / (fit - 1)));
   const xTicks = n ? Array.from(new Set([...Array.from({ length: Math.floor((n - 1) / stepX) + 1 }, (_, k) => k * stepX)])) : [];
   if (xTicks.length && xTicks[xTicks.length - 1] !== n - 1) {
-    // Swap the last regular tick for the final point when they'd collide.
     if ((n - 1 - xTicks[xTicks.length - 1]) * (plotW / Math.max(1, n - 1)) < longest * 6.4 + 12) xTicks.pop();
     xTicks.push(n - 1);
   }
@@ -212,7 +198,6 @@ export function LineChart<T extends Record<string, unknown>>({
     return () => window.clearTimeout(t);
   }, [drawn, settled]);
 
-  // The crosshair: one x, sprung after the pointer, jumped for the keyboard.
   const cx = useMotionValue(0);
   const side = useMotionValue(0);
   const tipX = useTransform([cx, side], ([x, s]: number[]) => `calc(${x}px + ${s < 0.5 ? 12 : -12}px - ${s * 100}%)`);
@@ -225,7 +210,6 @@ export function LineChart<T extends Record<string, unknown>>({
       wasOn.current = false;
       return;
     }
-    // The tooltip sits right of the crosshair in the left half and left of it in the right half.
     side.jump(flip);
     if (!wasOn.current || reduce || keyboard) cx.jump(targetX);
     else animate(cx, targetX, spring.follow);
@@ -241,7 +225,6 @@ export function LineChart<T extends Record<string, unknown>>({
   const toggle = (key: string) => {
     const hiding = !hidden.includes(key);
     setHidden(hiding ? [...hidden, key] : hidden.filter((k) => k !== key));
-    // Showing a series again emphasizes it, so the eye finds where it came back; hiding lets go.
     setEmphasis(hiding ? null : key);
   };
   const inkOf = (si: number) => (series[si].className ? 1 : inks[Math.min(si, inks.length - 1)]);
@@ -421,7 +404,6 @@ export function LineChart<T extends Record<string, unknown>>({
                     strokeLinejoin="round"
                     strokeDasharray={dashed ? "4 4" : undefined}
                     initial={false}
-                    // Solid lines draw along their length; a dashed comparison line fades in once they have.
                     animate={{
                       d: p.d,
                       ...(dashed ? null : { pathLength: drawn ? 1 : 0 }),
@@ -437,7 +419,6 @@ export function LineChart<T extends Record<string, unknown>>({
                 );
               })}
 
-              {/* Crosshair and a ringed dot where it crosses each visible line. */}
               <motion.g initial={false} animate={{ opacity: scrubbing ? 1 : 0 }} transition={{ duration: scrubbing ? 0.1 : 0.12 }}>
                 <motion.line y1={m.top} y2={m.top + height} x1={cx} x2={cx} className="stroke-fg/25" strokeWidth={1} />
                 {scrubbing &&

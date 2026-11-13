@@ -10,28 +10,18 @@ export type SortState = { column: string; direction: SortDirection } | null;
 export type SortValue = string | number | bigint | boolean | Date | null | undefined;
 
 export type SortableColumn<T> = {
-  /** Unique per table. Also the default field read from each row. */
   key: string;
   header: React.ReactNode;
-  /** Plain words for announcements when `header` isn't a string. */
   label?: string;
-  /** What the cell shows. Defaults to `row[key]`. */
   cell?: (row: T) => React.ReactNode;
-  /** What the column sorts by, when it differs from what it shows. Defaults to `row[key]`. */
   sortValue?: (row: T) => SortValue;
-  /** Right-aligned, tabular figures, and sorts high-to-low first. */
   numeric?: boolean;
-  /** Set false for columns that make no sense to sort (actions, avatars). */
   sortable?: boolean;
-  /** The direction of the first press. Numbers default to "desc", everything else to "asc". */
   firstDirection?: SortDirection;
-  /** CSS width of the column, e.g. 120 or "30%". */
   width?: number | string;
-  /** Extra classes for this column's body cells. */
   className?: string;
 };
 
-// Natural order: "Invoice 9" sorts before "Invoice 10", and case doesn't split the list.
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 function compareValues(a: SortValue, b: SortValue) {
@@ -48,10 +38,6 @@ const read = <T,>(row: T, col: SortableColumn<T>): SortValue =>
 
 const isEmpty = (v: SortValue) => v == null || v === "" || (typeof v === "number" && Number.isNaN(v));
 
-/**
- * Sorts rows the way people expect: stable (ties keep their original order),
- * natural for text, and empty values always last whichever way you sort.
- */
 export function useSortedRows<T>(rows: readonly T[], columns: readonly SortableColumn<T>[], sort: SortState) {
   return useMemo(() => {
     const col = sort && columns.find((c) => c.key === sort.column);
@@ -68,36 +54,26 @@ export function useSortedRows<T>(rows: readonly T[], columns: readonly SortableC
       .map((e) => e.row);
   }, [rows, columns, sort]);
 }
-
-/** The next state in the header's cycle: first direction, the other one, then unsorted. */
 export function nextSort<T>(sort: SortState, col: SortableColumn<T>): SortState {
   const first = col.firstDirection ?? (col.numeric ? "desc" : "asc");
   if (!sort || sort.column !== col.key) return { column: col.key, direction: first };
   if (sort.direction === first) return { column: col.key, direction: first === "asc" ? "desc" : "asc" };
   return null;
 }
-
 export type SortableTableProps<T> = Omit<React.ComponentProps<"div">, "children" | "defaultValue"> & {
   columns: SortableColumn<T>[];
   rows: T[];
-  /** A stable id per row. Rows are tracked by it as they move. */
   getRowId: (row: T) => string;
   sort?: SortState;
   defaultSort?: SortState;
   onSortChange?: (sort: SortState) => void;
-  /** Names the table for assistive tech. Shown only to screen readers. */
   caption: string;
   size?: "sm" | "md";
-  /** No rows yet: skeleton rows. Rows already on screen: they stay, with a thin bar under the header. */
   loading?: boolean;
-  /** Shown inside the table body when there are no rows. */
   empty?: React.ReactNode;
-  /** Past this many rows the reorder is instant; animating hundreds of rows costs more than it tells. */
   animateLimit?: number;
-  /** Below this width the table scrolls sideways instead of crushing its columns. */
   minWidth?: number;
 };
-
 export function SortableTable<T>({
   columns,
   rows,
@@ -123,11 +99,7 @@ export function SortableTable<T>({
   const scroller = useRef<HTMLDivElement>(null);
   const [announcement, setAnnouncement] = useState("");
   const captionId = useId();
-
   const signature = sort ? `${sort.column}:${sort.direction}` : "none";
-
-  // Remember where each row sat before this sort, so rows traveling up can pass over the
-  // rows traveling down. Without it the row bound for the top slides underneath everything.
   const ids = sorted.map(getRowId);
   const [order, setOrder] = useState({ signature, ids, before: new Map<string, number>() });
   if (order.signature !== signature) {
@@ -135,15 +107,12 @@ export function SortableTable<T>({
   }
   const animate = !reduce && sorted.length <= animateLimit;
   const showSkeleton = loading && rows.length === 0;
-
   const press = (col: SortableColumn<T>) => {
     const next = nextSort(sort, col);
     setSort(next);
     const name = col.label ?? (typeof col.header === "string" ? col.header : col.key);
     setAnnouncement(next ? `Sorted by ${name}, ${next.direction === "asc" ? "ascending" : "descending"}` : "Sort cleared");
   };
-
-  // Which sides have more table hidden past them, for the edge fades on narrow screens.
   const measure = (el: HTMLDivElement) => {
     setScrolled(el.scrollTop > 0);
     const left = el.scrollLeft > 1;
@@ -157,7 +126,6 @@ export function SortableTable<T>({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
   return (
     <div
       data-size={size}
@@ -195,7 +163,6 @@ export function SortableTable<T>({
                     aria-sort={active ? (sort!.direction === "asc" ? "ascending" : "descending") : undefined}
                     className={cn(
                       "sticky top-0 z-(--z-sticky) whitespace-nowrap border-b border-line bg-frame p-0 font-medium",
-                      // Once rows slide under the header it earns a soft shade; at rest it's just a hairline.
                       "before:pointer-events-none before:absolute before:inset-x-0 before:top-full before:h-2 before:bg-linear-to-b before:from-overlay before:to-transparent before:opacity-0 before:transition-opacity before:duration-200 before:content-[''] in-data-scrolled:before:opacity-40",
                       col.numeric ? "text-right" : "text-left",
                     )}
@@ -233,7 +200,6 @@ export function SortableTable<T>({
                     layout={animate ? "position" : false}
                     layoutDependency={signature}
                     transition={spring.soft}
-                    // Opaque rows, so rows passing each other mid-sort slide over one another instead of blending.
                     className="group/row relative bg-frame transition-colors duration-150 hover:bg-hover"
                   >
                     {columns.map((col) => (
@@ -261,25 +227,19 @@ export function SortableTable<T>({
           </tbody>
         </table>
       </div>
-
-      {/* More columns past the edge: a soft shadow says so without a scrollbar that phones hide. */}
       <div aria-hidden className={cn("pointer-events-none absolute inset-y-0 left-0 z-(--z-sticky) w-4 bg-linear-to-r from-overlay to-transparent transition-opacity duration-200", edges.left ? "opacity-50" : "opacity-0")} />
       <div aria-hidden className={cn("pointer-events-none absolute inset-y-0 right-0 z-(--z-sticky) w-4 bg-linear-to-l from-overlay to-transparent transition-opacity duration-200", edges.right ? "opacity-50" : "opacity-0")} />
-
-      {/* Refetching keeps the rows on screen and says so with a hairline under the header, not a spinner over the data. */}
       {loading && rows.length > 0 && (
         <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 z-(--z-sticky) h-px overflow-hidden", size === "sm" ? "top-8" : "top-9")}>
           <div className="h-full w-full origin-left bg-fg-3 motion-safe:animate-indeterminate motion-reduce:opacity-40" />
         </div>
       )}
-
       <span role="status" aria-live="polite" className="sr-only">
         {loading ? "Loading" : announcement}
       </span>
     </div>
   );
 }
-
 function SortButton<T>({
   col,
   active,
@@ -294,9 +254,7 @@ function SortButton<T>({
   onPress: () => void;
 }) {
   const first = col.firstDirection ?? (col.numeric ? "desc" : "asc");
-  // At rest the arrow previews the first press; once active it shows the real direction.
   const pointing = direction ?? first;
-
   return (
     <button
       type="button"
@@ -309,7 +267,6 @@ function SortButton<T>({
         "text-fg-3 transition-colors duration-150 hover:text-fg-2 data-active:text-fg",
       )}
     >
-      {/* The whole cell is the target; the ring and the press squash hug the words. */}
       <span
         className={cn(
           "-mx-1.5 flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 transition-transform duration-100 ease-out group-active/sort:scale-[0.97]",
@@ -333,7 +290,6 @@ function SortButton<T>({
     </button>
   );
 }
-
 function SortArrow({ pointing }: { pointing: SortDirection }) {
   const reduce = useReducedMotion();
   return (
@@ -347,7 +303,6 @@ function SortArrow({ pointing }: { pointing: SortDirection }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       initial={false}
-      // Up is ascending. Flipping direction turns the same arrow over instead of swapping icons.
       animate={{ rotate: pointing === "asc" ? 0 : 180 }}
       transition={reduce ? { duration: 0 } : spring.snappy}
     >

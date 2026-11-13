@@ -7,7 +7,6 @@ import { ease } from "@/lib/motion";
 
 const noop = () => () => {};
 
-/** The reader's locale on the client, a fixed one on the server, so hydration always matches. */
 export function useLocale(locale?: string) {
   const detected = useSyncExternalStore(
     noop,
@@ -18,17 +17,12 @@ export function useLocale(locale?: string) {
 }
 
 export type NumberFormatShortcuts = {
-  /** ISO 4217 code. Formats as money with the narrow symbol: "$", "€", "¥". */
   currency?: string;
-  /** Short scale: 1.2K, 48.2M. One decimal at most. */
   compact?: boolean;
-  /** Fixed fraction digits, so a value never jumps between "4.1" and "4.10". */
   decimals?: number;
-  /** Any Intl.NumberFormat option, applied last. Scientific notation isn't supported. */
   format?: Format;
 };
 
-/** Turns the shortcuts into one Intl options object. Shared by every number in the data category. */
 export function numberFormatOptions({ currency, compact, decimals, format }: NumberFormatShortcuts): Format {
   return {
     ...(currency ? { style: "currency", currency, currencyDisplay: "narrowSymbol" } : null),
@@ -39,7 +33,6 @@ export function numberFormatOptions({ currency, compact, decimals, format }: Num
 }
 
 const expo = `cubic-bezier(${ease.out.join(",")})`;
-// Everyday changes settle in 600ms; the first count-up from `from` is given longer to travel.
 const timing = (ms: number) => ({
   transformTiming: { duration: ms, easing: expo },
   spinTiming: { duration: ms, easing: expo },
@@ -49,20 +42,13 @@ const timing = (ms: number) => ({
 export type NumberTickerProps = Omit<React.ComponentProps<"span">, "children" | "prefix"> &
   NumberFormatShortcuts & {
     value: number;
-    /** BCP 47 tag. Defaults to the reader's locale. */
     locale?: string;
-    /** Text that sits inside the number and moves with it: "~", "+". */
     prefix?: string;
     suffix?: string;
-    /** Which way digits roll. "auto" rolls up when the value rises and down when it falls. */
     direction?: "auto" | "up" | "down";
-    /** Tint the digits success or danger for a moment after each change. */
     flash?: boolean;
-    /** For values where down is good (latency, churn, cost): falling flashes success. */
     inverse?: boolean;
-    /** Shown until the number first scrolls into view, then it counts to `value`, once. */
     from?: number;
-    /** Set false to swap digits without rolling. Reduced motion does this on its own. */
     animated?: boolean;
   };
 
@@ -102,7 +88,6 @@ export function NumberTicker({
     [ref],
   );
 
-  // Count up once, the first time at least half of it is on screen.
   useEffect(() => {
     if (seen || !el) return;
     const io = new IntersectionObserver(
@@ -119,11 +104,8 @@ export function NumberTicker({
 
   const shown = seen ? value : (from ?? value);
   const rolls = animated && !reduce;
-  // The count-up is over once it has landed, or at once when there's nothing to roll.
   const counted = from == null || (seen && (finished || !rolls || from === value));
 
-  // The tint rides on the Web Animations API so a new change restarts it from
-  // where it is, and nothing re-renders to fade it out.
   useEffect(() => {
     const last = prev.current;
     prev.current = shown;
@@ -135,7 +117,6 @@ export function NumberTicker({
     const good = inverse ? !up : up;
     const tint = `var(--${good ? "success" : "danger"})`;
     for (const a of target.getAnimations()) if (a.id === "ticker-tint") a.cancel();
-    // No final keyframe: the color eases back to whatever the text inherits.
     const anim = target.animate(
       [
         { color: tint, offset: 0 },

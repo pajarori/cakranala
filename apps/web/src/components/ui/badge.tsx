@@ -9,8 +9,6 @@ export type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 export type BadgeVariant = "soft" | "outline" | "solid";
 export type BadgeSize = "sm" | "md" | "lg";
 
-// Soft is the default: a wash of the tone with the tone as text. Outline keeps the page quiet
-// in dense tables. Solid is for the one badge on screen that has to be seen.
 const tones: Record<BadgeVariant, Record<BadgeTone, string>> = {
   soft: {
     neutral: "bg-fg/[0.07] text-fg-2",
@@ -26,8 +24,6 @@ const tones: Record<BadgeVariant, Record<BadgeTone, string>> = {
     danger: "border-danger/35 text-danger",
     info: "border-info/35 text-info",
   },
-  // Text on the solid fills is picked per theme for contrast: the pale dark-theme fills take the
-  // frame color; in light, green and amber are too pale for it and take the foreground instead.
   solid: {
     neutral: "bg-fg text-frame",
     success: "bg-success text-frame in-data-[theme=light]:text-fg",
@@ -43,24 +39,15 @@ const sizes: Record<BadgeSize, string> = {
   lg: "h-6 rounded-md text-[12.5px]",
 };
 
-// Padding lives on the inner span, so the width the badge glides to includes it.
 const pads: Record<BadgeSize, string> = { sm: "gap-1 px-1.5", md: "gap-1.5 px-1.5", lg: "gap-1.5 px-2" };
 
-/* -------------------------------------------------------------------------------------------------
- * Dot
- * -----------------------------------------------------------------------------------------------*/
-
 export type BadgeDotProps = React.ComponentProps<"span"> & {
-  /** "current" follows the text color, for dots on solid fills. */
+
   tone?: BadgeTone | "current";
-  /** A soft ring pulses out from the dot: for live and in-progress states only. */
   pulse?: boolean;
-  /** Diameter in px. */
   size?: number;
-  /** Spoken instead of shown, e.g. "Unread". Leave empty when a visible label says it. */
   label?: string;
 };
-
 const dotTone: Record<BadgeTone | "current", string> = {
   current: "bg-current",
   neutral: "bg-fg-3",
@@ -69,8 +56,6 @@ const dotTone: Record<BadgeTone | "current", string> = {
   danger: "bg-danger",
   info: "bg-info",
 };
-
-/** A status dot on its own: unread markers, service health, the dot inside a badge. */
 export function BadgeDot({ tone = "neutral", pulse = false, size = 6, label, className, style, ...rest }: BadgeDotProps) {
   return (
     <span
@@ -87,34 +72,18 @@ export function BadgeDot({ tone = "neutral", pulse = false, size = 6, label, cla
     </span>
   );
 }
-
-/* -------------------------------------------------------------------------------------------------
- * Badge
- * -----------------------------------------------------------------------------------------------*/
-
 export type BadgeProps = React.ComponentProps<"span"> & {
   tone?: BadgeTone;
   variant?: BadgeVariant;
   size?: BadgeSize;
-  /** A leading dot in the tone. */
   dot?: boolean;
-  /** Pulse the dot, for states that are live or still running. */
   pulse?: boolean;
-  /** A leading icon, drawn at 12px (14px in lg). Replaces the dot. */
   icon?: React.ReactNode;
 };
-
-/**
- * A short status or label. When the label changes (Queued → Building → Ready) the old word
- * lifts out, the new one rises in, the width glides to fit and the color follows, so a
- * status that updates in place is noticed without a flash.
- */
 export function Badge({ tone = "neutral", variant = "soft", size = "md", dot = false, pulse = false, icon, className, children, ...rest }: BadgeProps) {
   const reduce = useReducedMotion();
   const inner = useRef<HTMLSpanElement>(null);
   const [width, setWidth] = useState<number | null>(null);
-
-  // Track the content's width so the badge can glide to it instead of snapping.
   useLayoutEffect(() => {
     const el = inner.current;
     if (!el) return;
@@ -122,7 +91,6 @@ export function Badge({ tone = "neutral", variant = "soft", size = "md", dot = f
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
   const swapKey = typeof children === "string" || typeof children === "number" ? String(children) : "node";
   const lead = icon ? (
     <span aria-hidden className={cn("grid shrink-0 place-items-center [&_svg]:size-full", size === "lg" ? "size-3.5" : "size-3")}>
@@ -131,7 +99,6 @@ export function Badge({ tone = "neutral", variant = "soft", size = "md", dot = f
   ) : dot || pulse ? (
     <BadgeDot tone={variant === "solid" ? "current" : tone} pulse={pulse} size={size === "lg" ? 6 : 5} />
   ) : null;
-
   return (
     <motion.span
       data-tone={tone}
@@ -168,33 +135,17 @@ export function Badge({ tone = "neutral", variant = "soft", size = "md", dot = f
     </motion.span>
   );
 }
-
-/* -------------------------------------------------------------------------------------------------
- * Count
- * -----------------------------------------------------------------------------------------------*/
-
 export type BadgeCountProps = Omit<React.ComponentProps<"span">, "children"> & {
   count: number;
-  /** Above this the badge reads "99+". */
   max?: number;
-  /** Keep the badge at 0 instead of letting it go. */
   showZero?: boolean;
   tone?: BadgeTone;
   variant?: "soft" | "solid";
   size?: "sm" | "md";
-  /** What the number counts, for screen readers: (n) => `${n} unread`. */
+
   label?: (count: number) => string;
-  /**
-   * Pin the count to the top-right corner of this element (an icon button, an avatar). The
-   * count gets a ring in `--badge-ring`, the surface behind it, `--frame` by default.
-   */
   children?: React.ReactNode;
 };
-
-/**
- * A number in a pill. Digits roll rather than swap, the pill pops once when the count goes up,
- * and it scales in from nothing and back out when it reaches zero.
- */
 export function BadgeCount({
   count,
   max = 99,
@@ -212,15 +163,12 @@ export function BadgeCount({
   const prev = useRef(count);
   const visible = count > 0 || showZero;
   const over = count > max;
-
-  // A single small pop when the number grows: the signal that something new arrived.
   useEffect(() => {
     const grew = count > prev.current;
     prev.current = count;
     if (!grew || reduce || !scope.current) return;
     animate(scope.current, { scale: [1, 1.14, 1] }, { duration: 0.32, ease: ease.out });
   }, [count, reduce, animate, scope]);
-
   const pill = (
     <AnimatePresence initial={false}>
       {visible && (
@@ -256,7 +204,6 @@ export function BadgeCount({
       )}
     </AnimatePresence>
   );
-
   if (!children) return pill;
   return (
     <span className="relative inline-flex">

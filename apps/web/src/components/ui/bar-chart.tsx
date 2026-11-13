@@ -10,7 +10,6 @@ function useLocale(locale?: string) {
   return locale ?? detected;
 }
 
-/** Tracks an element's content width. 0 until the browser has measured it. */
 function useWidth() {
   const [node, setNode] = useState<HTMLElement | null>(null);
   const [width, setWidth] = useState(0);
@@ -23,7 +22,6 @@ function useWidth() {
   return [setNode, width] as const;
 }
 
-/** Round tick values (0, 2.5k, 5k…) that cover [min, max], always including zero. */
 export function niceTicks(min: number, max: number, count = 4) {
   const lo0 = Math.min(0, min);
   let hi0 = Math.max(0, max);
@@ -39,8 +37,6 @@ export function niceTicks(min: number, max: number, count = 4) {
   return ticks;
 }
 
-// A bar from its baseline edge to its data end, rounded only at the data end.
-// The command structure never changes, so Motion can morph one bar into another.
 function barPath(vertical: boolean, band0: number, band1: number, base: number, end: number, radius: number) {
   const size = Math.abs(end - base);
   const r = Math.max(0, Math.min(radius, size, (band1 - band0) / 2));
@@ -53,48 +49,32 @@ function barPath(vertical: boolean, band0: number, band1: number, base: number, 
   return `M${f(base)} ${f(band0)}L${f(er)} ${f(band0)}Q${f(e)} ${f(band0)} ${f(e)} ${f(band0 + r)}L${f(e)} ${f(band1 - r)}Q${f(e)} ${f(band1)} ${f(er)} ${f(band1)}L${f(base)} ${f(band1)}Z`;
 }
 
-// Series share one ink, stepped by opacity. Override per series with className (e.g. "text-info").
 const inks = [0.9, 0.5, 0.28, 0.14];
 
 export type BarSeries = {
-  /** The field in each datum that holds this series' value. */
   key: string;
   label: string;
-  /** Text-color class for this series' ink, e.g. "text-info". Defaults to the foreground at a stepped opacity. */
   className?: string;
 };
 
 export type BarChartProps<T extends Record<string, unknown>> = Omit<React.ComponentProps<"div">, "children" | "onSelect"> & {
   data: T[];
-  /** The field that names each bar or group: a month, a referrer, a region. */
   categoryKey: keyof T & string;
   series: BarSeries[];
-  /** vertical draws columns up from the x axis; horizontal draws ranked rows. */
   layout?: "vertical" | "horizontal";
-  /** Stack series on top of each other instead of side by side. Positive values only. */
   stacked?: boolean;
-  /** Names the chart for screen readers. */
   label: string;
-  /** Plot height in pixels for vertical charts. Horizontal charts grow with their rows. */
   height?: number;
-  /** Row height in pixels for horizontal charts. */
   rowHeight?: number;
   formatValue?: (value: number) => string;
   formatCategory?: (category: string) => string;
   locale?: string;
-  /** Print each bar's value at its end. Defaults on for horizontal, off for vertical. */
   valueLabels?: boolean;
-  /** A target or average line across the plot. */
   reference?: { value: number; label: string };
-  /** Bars become buttons: Enter, Space or a click calls this with the datum. */
   onBarClick?: (datum: T, index: number) => void;
-  /** Loading: a skeleton with no data, or the last data dimmed while it refreshes. */
   loading?: boolean;
-  /** Shown in the plot when data is empty. */
   emptyLabel?: string;
-  /** Grow the bars from the baseline the first time the chart scrolls into view. */
   animated?: boolean;
-  /** A key above the plot. Defaults on when there is more than one series. */
   legend?: boolean;
 };
 
@@ -146,15 +126,12 @@ export function BarChart<T extends Record<string, unknown>>({
   const lo = stacked ? 0 : Math.min(0, ...values);
   const hi = stacked ? Math.max(0, ...totals) : Math.max(0, ...values, reference?.value ?? 0);
   const ticks = niceTicks(lo, Math.max(hi, reference?.value ?? 0), vertical ? 4 : 3);
-  // Rows that print their own values don't need an axis: direct labels beat gridlines.
   const axis = vertical || !showValues;
   const t0 = ticks[0];
   const t1 = ticks[ticks.length - 1];
 
-  // Layout, in pixels. Gutters are estimated from the longest label rather than measured.
   const tickWidth = Math.max(...ticks.map((t) => fmt(t).length)) * 6.4 + 10;
   const catNeed = vertical ? 0 : Math.max(...data.map((d) => formatCategory(String(d[categoryKey])).length), 4) * 6.6 + 14;
-  // On a narrow chart, row names move above their bars instead of truncating.
   const labelsAbove = !vertical && width > 0 && catNeed > width * 0.34;
   const catWidth = vertical || labelsAbove ? 0 : catNeed;
   const valueWidth = !vertical && showValues ? Math.max(...values.map((v) => fmt(v).length), stacked ? Math.max(...totals.map((v) => fmt(v).length)) : 0, 3) * 6.6 + 10 : 0;
@@ -174,13 +151,11 @@ export function BarChart<T extends Record<string, unknown>>({
   const bandSize = (vertical ? plotW : plotH) / Math.max(1, data.length);
   const bandStart = (i: number) => (vertical ? m.left : m.top) + i * bandSize;
   const barCenter = (i: number) => bandStart(i) + labelBand + (bandSize - labelBand) / 2;
-  // Bars never fill the band: at most 24px (per series when grouped), the rest is air.
   const groupSlots = stacked ? 1 : series.length;
   const barThick = Math.max(2, Math.min(vertical ? 24 : 16, ((bandSize - labelBand) * (vertical ? 0.62 : 0.6)) / groupSlots));
   const groupThick = barThick * groupSlots + (groupSlots - 1) * 2;
   const gap = 2;
 
-  // d0 is the same bar collapsed onto the baseline: where the first grow starts.
   type Seg = { key: string; si: number; d: string; d0: string; value: number; end: number };
   const bars: Seg[][] = data.map((d, i) => {
     const c = barCenter(i);
@@ -194,7 +169,6 @@ export function BarChart<T extends Record<string, unknown>>({
         const from = scale(acc);
         acc += v;
         const to = scale(acc);
-        // A 2px surface gap between segments, taken from the segment above.
         const start = si > 0 && v > 0 && acc - v > 0 ? from + (vertical ? -gap : gap) : from;
         const end = vertical ? Math.min(start, to) : Math.max(start, to);
         const r = si === topIndex ? 4 : 0;
@@ -212,7 +186,6 @@ export function BarChart<T extends Record<string, unknown>>({
   const empty = !loading && data.length === 0;
   const skeleton = loading && data.length === 0;
   const grown = !animated || inView;
-  // The first grow is staggered and slower; every later change morphs in place.
   const [settled, setSettled] = useState(!animated);
   useEffect(() => {
     if (!grown || settled) return;
@@ -229,7 +202,6 @@ export function BarChart<T extends Record<string, unknown>>({
     return i >= 0 && i < data.length ? i : null;
   };
 
-  // A tap pins the tooltip on touch; the next tap outside the chart lets it go.
   useEffect(() => {
     if (!pinned) return;
     const off = (e: PointerEvent) => {
@@ -242,8 +214,6 @@ export function BarChart<T extends Record<string, unknown>>({
     return () => document.removeEventListener("pointerdown", off);
   }, [pinned]);
 
-  // Tooltip anchor. Columns: beside the bar, on the side with more room, so it never
-  // covers the bar it describes. Rows: above the row, at the bar's end.
   const tx = useMotionValue(0);
   const ty = useMotionValue(0);
   const ts = useMotionValue(0);
@@ -260,7 +230,6 @@ export function BarChart<T extends Record<string, unknown>>({
     const x = Math.min(far, width);
     return { x, y: c - groupThick / 2 - 6, s: Math.min(1, Math.max(0, x / (width || 1))) };
   };
-  // Rows that already print their value only need a tooltip when there's more than one series.
   const tipWanted = vertical || series.length > 1 || !showValues;
   const tipVisible = tipWanted && active != null && !skeleton && !empty && active < data.length;
   const target = tipVisible && active != null ? anchor(active) : null;
@@ -274,7 +243,6 @@ export function BarChart<T extends Record<string, unknown>>({
       wasVisible.current = false;
       return;
     }
-    // The first appearance lands in place; after that it glides between bars. Keys jump.
     if (!wasVisible.current || reduce || keyboard) {
       tx.jump(ax);
       ty.jump(ay);
@@ -295,7 +263,6 @@ export function BarChart<T extends Record<string, unknown>>({
     return `${catLabel(i)}: ${parts.join(", ")}`;
   };
 
-  // Category labels thin out when they'd collide: every 2nd, 3rd… label, always keeping the last.
   const labelEvery = vertical ? Math.max(1, Math.ceil((Math.max(...data.map((_, i) => catLabel(i).length), 1) * 6.4 + 12) / Math.max(bandSize, 1))) : 1;
 
   const onKey = (e: React.KeyboardEvent, i: number) => {
@@ -318,7 +285,6 @@ export function BarChart<T extends Record<string, unknown>>({
     target?.focus();
   };
 
-  // One tab stop for the whole chart: the focused bar, or the first.
   const [rover, setRover] = useState(0);
   const tabbable = Math.min(rover, Math.max(0, data.length - 1));
 
@@ -372,8 +338,6 @@ export function BarChart<T extends Record<string, unknown>>({
               if (i >= 0 && i < data.length) onBarClick(data[i], i);
             }}
           >
-            {/* Grid: hairlines at each tick, the zero line one step stronger. */}
-            {/* Ticks slide with the bars when the scale changes, so the grid never disagrees with the data mid-flight. */}
             <g aria-hidden>
               <AnimatePresence initial={false}>
                 {ticks.filter((t) => axis || (t === 0 && !labelsAbove && data.length > 0)).map((t) => {
@@ -428,7 +392,6 @@ export function BarChart<T extends Record<string, unknown>>({
                   onBlur={() => setFocus(null)}
                   onKeyDown={(e) => onKey(e, i)}
                 >
-                  {/* The hit area is the whole band, not just the painted bar. */}
                   <rect
                     x={vertical ? bandStart(i) : m.left}
                     y={vertical ? m.top : bandStart(i)}
@@ -484,7 +447,6 @@ export function BarChart<T extends Record<string, unknown>>({
             )}
           </svg>
 
-          {/* Text is HTML so it inherits the type, truncates, and never scales with the SVG. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 text-2xs text-fg-3 tabular">
             <AnimatePresence initial={false}>
               {ticks.filter(() => axis && data.length > 0).map((t) => (

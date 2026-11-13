@@ -20,7 +20,6 @@ function useLocale(locale?: string) {
 export type UsageSegment = { label: string; value: number };
 export type UsageState = "ok" | "warning" | "over";
 
-/** Totals and state for a quota, for when the numbers drive something other than the bar. */
 export function getUsage({ value, segments, max, warnAt = 0.8 }: { value?: number; segments?: UsageSegment[]; max: number; warnAt?: number }) {
   const used = segments ? segments.reduce((sum, s) => sum + Math.max(0, s.value), 0) : Math.max(0, value ?? 0);
   const ratio = max > 0 ? used / max : 0;
@@ -28,7 +27,6 @@ export function getUsage({ value, segments, max, warnAt = 0.8 }: { value?: numbe
   return { used, ratio, state, remaining: Math.max(0, max - used), over: Math.max(0, used - max) };
 }
 
-// Categories step down the foreground ramp: nearest first, fading back.
 const ramp = ["bg-fg", "bg-fg-2", "bg-fg-3", "bg-fg-4"];
 const dots = ["bg-fg", "bg-fg-2", "bg-fg-3", "bg-fg-4"];
 
@@ -40,27 +38,16 @@ const timing = {
 };
 
 export type UsageMeterProps = Omit<React.ComponentProps<"div">, "children"> & {
-  /** What is being used: "Storage", "Seats", "API requests". */
   label: string;
-  /** The quota. */
   max: number;
-  /** Total used, when there are no categories. */
   value?: number;
-  /** Used, split by category. Drawn in order; the total is their sum. */
   segments?: UsageSegment[];
-  /** Short unit after the numbers: "GB", "seats". */
   unit?: string;
-  /** Maximum fraction digits in the numbers. */
   decimals?: number;
-  /** Share of the quota at which it turns to the warning state. */
   warnAt?: number;
-  /** sm is a thin bar with the header only, for sidebars and table cells. */
   size?: "sm" | "md";
-  /** Show the category legend. Defaults to on when there is more than one segment (md only). */
   legend?: boolean;
-  /** First load: skeleton in the same shape. */
   loading?: boolean;
-  /** Shown beside the status once it warns or goes over, e.g. an Upgrade button. */
   action?: React.ReactNode;
   locale?: string;
 };
@@ -89,7 +76,6 @@ export function UsageMeter({
   const { used, ratio, state, remaining, over } = getUsage({ value, segments: segmentsProp, max, warnAt });
   const showLegend = size === "md" && (legend ?? !single);
 
-  // Over the limit, the scale stretches to the total and a marker shows where the quota ends.
   const scale = Math.max(max, used) || 1;
   const limitAt = (max / scale) * 100;
 
@@ -155,7 +141,6 @@ export function UsageMeter({
         onPointerLeave={() => setHot(null)}
       >
         {!loading && (
-          // The fill wipes in from the left on first paint, then each segment glides to its new place.
           <div className="absolute inset-0 transition-[clip-path] duration-[900ms] ease-out-expo [clip-path:inset(0_0_0_0)] starting:[clip-path:inset(0_100%_0_0)] motion-reduce:transition-none">
             {bars.map((b) => (
               <div
@@ -168,7 +153,6 @@ export function UsageMeter({
                 )}
                 style={{
                   left: `${b.start}%`,
-                  // A 2px seam between categories, none after the last.
                   width: b.i === last || single ? `${b.width}%` : `max(0px, calc(${b.width}% - 2px))`,
                 }}
               />

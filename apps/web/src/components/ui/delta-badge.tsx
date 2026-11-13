@@ -18,10 +18,6 @@ function useLocale(locale?: string) {
 export type DeltaTrend = "up" | "down" | "flat" | "none";
 export type DeltaTone = "good" | "bad" | "neutral";
 
-/**
- * Where a change points and whether that's good, judged on the number as it
- * will be shown: +0.04% rounds to 0% and reads as flat, not as a green 0%.
- */
 export function getDelta(value: number | null | undefined, { decimals = 1, inverse = false }: { decimals?: number; inverse?: boolean } = {}) {
   if (value == null || !Number.isFinite(value)) return { trend: "none" as DeltaTrend, tone: "neutral" as DeltaTone };
   const f = 10 ** decimals;
@@ -30,36 +26,25 @@ export function getDelta(value: number | null | undefined, { decimals = 1, inver
   const up = value > 0;
   return { trend: (up ? "up" : "down") as DeltaTrend, tone: (up !== inverse ? "good" : "bad") as DeltaTone };
 }
-
 const expo = `cubic-bezier(${ease.out.join(",")})`;
 const timing = {
   transformTiming: { duration: 550, easing: expo },
   spinTiming: { duration: 550, easing: expo },
   opacityTiming: { duration: 200, easing: "ease-out" },
 };
-
-// One arrow, turned: ↗ up, → flat, ↘ down. A flip reads as the same arrow changing its mind.
 const rotation: Record<DeltaTrend, number> = { up: -45, flat: 0, down: 45, none: 0 };
 
 export type DeltaBadgeProps = Omit<React.ComponentProps<"span">, "children"> & {
-  /** The change. Percentage points by default (12.4 shows +12.4%). null, NaN or Infinity shows a dash. */
   value: number | null | undefined;
-  /** percent shows 12.4 as +12.4%; number shows the raw change, formatted with `format`. */
   unit?: "percent" | "number";
-  /** Fraction digits shown, and the precision below which a change counts as flat. */
   decimals?: number;
-  /** Extra Intl options for unit="number", e.g. currency. */
   format?: Format;
-  /** For latency, churn or cost: a fall is good news and turns green. */
   inverse?: boolean;
-  /** Tinted pill, or colored text only for tables and running copy. */
   variant?: "soft" | "plain";
   size?: "sm" | "md";
   locale?: string;
-  /** Shown when there's nothing to compare against (no prior period, or it was zero). */
   emptyLabel?: string;
 };
-
 export function DeltaBadge({
   value,
   unit = "percent",
@@ -77,8 +62,6 @@ export function DeltaBadge({
   const reduce = useReducedMotion();
   const { trend, tone } = getDelta(value, { decimals, inverse });
   const magnitude = trend === "none" ? 0 : Math.abs(value as number);
-
-  // The sign is drawn by us (a true minus, not a hyphen) so Intl only formats the magnitude.
   const options: Format = {
     ...(unit === "percent" ? { style: "percent" } : null),
     minimumFractionDigits: unit === "percent" ? decimals : 0,
@@ -90,7 +73,6 @@ export function DeltaBadge({
   const sign = trend === "up" ? "+" : trend === "down" ? "−" : "";
   const text = new Intl.NumberFormat(locale, options).format(shown);
   const spoken = trend === "none" ? "No comparison" : trend === "flat" ? `No change, ${text}` : `${trend === "up" ? "Up" : "Down"} ${text}`;
-
   return (
     <span
       data-slot="delta-badge"

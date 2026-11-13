@@ -3,8 +3,13 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM"],
-    "types": ["bun"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "bun"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": false,
     "skipLibCheck": true,
@@ -13,5 +18,8 @@
     "jsx": "react-jsx",
     "resolveJsonModule": true
   },
-  "include": ["packages/*/src", "packages/*/test", "apps/*/src"]
+  "include": [
+    "packages/*/src",
+    "packages/*/test"
+  ]
 }
