@@ -35,7 +35,7 @@ async function discover(s: XSession) {
   const bearer = js.match(/"(AAAAAAAAAAAAAAAAAAAAA[^"]+)"/)?.[1];
   const search = queryId("SearchTimeline");
   if (!search || !bearer) throw new Error("x.com query id or bearer not found, the front end may have changed");
-  return { bearer, search };
+  return { bearer, search, detail: queryId("TweetDetail") };
 }
 
 const unwrap = (r: any) => (r?.__typename === "TweetWithVisibilityResults" ? r.tweet : r);
@@ -81,15 +81,13 @@ function toEvent(raw: any): { event: Event; actor: Actor } | undefined {
 }
 
 export async function createXCollector(session: XSession) {
-  const { bearer, search } = await discover(session);
+  const { bearer, search, detail } = await discover(session);
   let tx = await ClientTransaction.create(await fetchXDocument());
-  const path = `/i/api/graphql/${search}/SearchTimeline`;
   const features: Record<string, boolean> = {};
   const rate: XRateState = { remaining: null, reset: null };
 
-  async function page(rawQuery: string, cursor?: string): Promise<any> {
+  async function graphql(path: string, variables: Record<string, unknown>, referer: string): Promise<any> {
     if (rate.remaining === 0 && rate.reset && Date.now() < rate.reset) return { limited: true };
-    const variables = { rawQuery, count: 20, querySource: "typed_query", product: "Latest", ...(cursor ? { cursor } : {}) };
     let renewed = false;
     for (let attempt = 0; attempt < 5; attempt++) {
       const res = await get(`https://x.com${path}?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`, {
@@ -100,7 +98,7 @@ export async function createXCollector(session: XSession) {
         "x-twitter-auth-type": "OAuth2Session",
         "x-twitter-active-user": "yes",
         "x-client-transaction-id": await tx.generateTransactionId("GET", path),
-        referer: "https://x.com/search",
+        referer,
       }).catch((e: Error) => e);
       if (res instanceof Error) {
         await sleep(Math.min(16_000, 1000 * 2 ** attempt));
@@ -123,11 +121,21 @@ export async function createXCollector(session: XSession) {
         await sleep(Math.min(16_000, 1000 * 2 ** attempt));
         continue;
       }
-      if (!res.ok) throw new Error(`x search ${res.status}: ${body.slice(0, 160)}`);
+      if (!res.ok) throw new Error(`x ${res.status}: ${body.slice(0, 160)}`);
       return JSON.parse(body);
     }
-    throw new Error("x search failed after retries");
+    throw new Error("x request failed after retries");
   }
+
+  const page = (rawQuery: string, cursor?: string) =>
+    graphql(`/i/api/graphql/${search}/SearchTimeline`, { rawQuery, count: 20, querySource: "typed_query", product: "Latest", ...(cursor ? { cursor } : {}) }, "https://x.com/search");
+
+  const collected = (actors: Map<string, Actor>, events: Map<string, Event>, query: string, coverage: number): Dataset => ({
+    version: SCHEMA_VERSION,
+    actors: [...actors.values()],
+    events: [...events.values()].sort((a, b) => a.ts - b.ts),
+    meta: { source: "x", query, coverage, collectedAt: Date.now() },
+  });
 
   return {
     rate,
@@ -160,12 +168,42 @@ export async function createXCollector(session: XSession) {
         if (!cursor || !entries.length) break;
         if (p < pages - 1) await sleep(lo + Math.random() * (hi - lo));
       }
-      return {
-        version: SCHEMA_VERSION,
-        actors: [...actors.values()],
-        events: [...events.values()].sort((a, b) => a.ts - b.ts),
-        meta: { source: "x", query: q, coverage: fetched / pages, collectedAt: Date.now() },
-      };
+      return collected(actors, events, q, fetched / pages);
+    },
+    async conversation(id: string, o: Pick<SearchOptions, "pages" | "delayMs"> = {}): Promise<Dataset> {
+      if (!detail) throw new Error("x.com TweetDetail query id not found");
+      const pages = o.pages ?? 5;
+      const [lo, hi] = o.delayMs ?? [2000, 4500];
+      const actors = new Map<string, Actor>();
+      const events = new Map<string, Event>();
+      let cursor: string | undefined;
+      let fetched = 0;
+      for (let p = 0; p < pages; p++) {
+        const json = await graphql(
+          `/i/api/graphql/${detail}/TweetDetail`,
+          { focalTweetId: id, with_rux_injections: false, rankingMode: "Recency", includePromotedContent: false, withCommunity: true, withQuickPromoteEligibilityTweetFields: false, withBirdwatchNotes: false, withVoice: true, ...(cursor ? { cursor, referrer: "tweet" } : {}) },
+          `https://x.com/i/status/${id}`,
+        );
+        if (json.limited) break;
+        fetched++;
+        const entries = (json.data?.threaded_conversation_with_injections_v2?.instructions ?? []).flatMap((i: any) => i.entries ?? []);
+        cursor = undefined;
+        for (const e of entries) {
+          const items = [e.content?.itemContent, ...(e.content?.items ?? []).map((x: any) => x.item?.itemContent)];
+          for (const it of items) {
+            const mapped = toEvent(it?.tweet_results?.result);
+            if (mapped) {
+              actors.set(mapped.actor.id, mapped.actor);
+              events.set(mapped.event.id, mapped.event);
+            }
+            if (it?.cursorType === "Bottom" || it?.cursorType === "ShowMoreThreads") cursor = it.value;
+          }
+          if (e.content?.cursorType === "Bottom") cursor = e.content.value;
+        }
+        if (!cursor) break;
+        if (p < pages - 1) await sleep(lo + Math.random() * (hi - lo));
+      }
+      return collected(actors, events, `conversation:${id}`, fetched / pages);
     },
   };
 }

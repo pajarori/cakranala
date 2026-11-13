@@ -254,6 +254,11 @@ function Evidence() {
                 <Badge variant="outline">Cluster p {k.p <= 0.05 ? "≤ 0.05" : num(k.p)}</Badge>
                 <Badge variant="outline">Score {int(k.score)}</Badge>
                 <Badge variant="outline">Decoy FDR {pct(decoy)}</Badge>
+                {k.families.map((f) => (
+                  <Badge key={f.layers.join()} variant="secondary">
+                    {f.layers.map((l) => LAYERS[l] ?? l).join(" and ")} {int(f.strength)}
+                  </Badge>
+                ))}
               </div>
             </CardHeader>
             <CardContent>

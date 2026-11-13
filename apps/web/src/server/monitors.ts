@@ -44,7 +44,7 @@ async function collect(m: Monitor) {
   }
   if (m.platform === "telegram") return collectTelegram(channels(m.target), m.pages);
   const c = await x();
-  const raw = await c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
+  const raw = m.kind === "post" ? await c.conversation(query(m.kind, m.target).replace("conversation_id:", ""), { pages: m.pages }) : await c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
   Object.assign(rate, c.rate);
   return raw;
 }

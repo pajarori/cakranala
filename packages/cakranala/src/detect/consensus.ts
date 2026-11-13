@@ -52,9 +52,9 @@ function groupEvents(events: Event[], frames: Map<number, number> | undefined, s
   return nearDuplicateGroups(texts, Math.max(0.2, t));
 }
 
-function synchronized(events: Event[], membership: Map<string, Cluster>, window: number) {
+function synchronized(events: Event[], clusterOf: (e: Event) => Cluster | undefined, window: number) {
   const out = new Set<string>();
-  for (const evs of groupBy(events.filter((e) => membership.has(e.actor)), (e) => membership.get(e.actor)!.id).values()) {
+  for (const evs of groupBy(events.filter((e) => clusterOf(e)), (e) => clusterOf(e)!.id).values()) {
     const sorted = [...evs].sort((a, b) => a.ts - b.ts);
     for (let i = 0, j = 0; i < sorted.length; i++) {
       while (sorted[i].ts - sorted[j].ts > window) j++;
@@ -65,11 +65,17 @@ function synchronized(events: Event[], membership: Map<string, Cluster>, window:
   return out;
 }
 
+export interface HeldOut {
+  clusterOf: (e: Event) => Cluster | undefined;
+  baseRate: number;
+}
+
 export function narratives(
   events: Event[],
   clusters: Cluster[],
   frames: Map<number, number> | undefined,
   opts: { minSupporters: number; seed: number; alpha: number; syncSec: number },
+  heldOut?: HeldOut,
 ): Narrative[] {
   const totalActors = new Set(events.map((e) => e.actor)).size;
   const membership = new Map<string, Cluster>();
@@ -96,11 +102,12 @@ export function narratives(
       all[b]++;
       if (!membership.has(e.actor)) organic[b]++;
     }
-    const synced = synchronized(ev, membership, opts.syncSec * 1000);
+    const synced = synchronized(ev, (e) => membership.get(e.actor), opts.syncSec * 1000);
     const perCluster = groupBy([...synced], (a) => membership.get(a)!.id);
     const flagged = clusters.reduce((s, c) => s + c.members.length, 0);
     const coordinated = synced.size;
-    const p = binomialTail(coordinated, supporters.length, flagged / Math.max(1, totalActors));
+    const judged = heldOut ? synchronized(ev, heldOut.clusterOf, opts.syncSec * 1000).size : coordinated;
+    const p = binomialTail(judged, supporters.length, heldOut ? heldOut.baseRate : flagged / Math.max(1, totalActors));
     const sizes = new Map(clusters.map((c) => [c.id, c.members.length]));
     const tags = [...groupBy(ev.flatMap((e) => e.tags ?? []).map((t) => t.toLowerCase()), (t) => t)]
       .sort((a, b) => b[1].length - a[1].length)

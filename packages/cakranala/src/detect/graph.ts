@@ -25,6 +25,7 @@ export interface Cluster {
   rho: number;
   p: number;
   score: number;
+  families: { layers: LayerId[]; strength: number }[];
   layers: LayerEvidence[];
 }
 
@@ -124,7 +125,12 @@ export function detect(results: LayerResult[], o: Fusion & { minClusterSize: num
       }
     const possible = (members.length * (members.length - 1)) / 2;
     const layerIds = [...new Set(intra.flatMap((e) => Object.keys(e.layers) as LayerId[]))];
+    const families = o.families
+      .map((f) => ({ layers: f.filter((l) => layerIds.includes(l)), strength: intra.reduce((sum, e) => sum + strength(cauchyCombine(f.map((l) => e.layers[l]?.p ?? 1))), 0) }))
+      .filter((f) => f.layers.length && f.strength > 0)
+      .sort((a, b) => b.strength - a.strength);
     return {
+      families,
       id: uuidFrom(`cluster:${members.join(",")}`),
       members,
       score,

@@ -11,6 +11,7 @@ export interface ShieldContext {
   report?: Report;
   officialDomains?: string[];
   library?: { claim: string; verdict: string; source?: string; title?: string }[];
+  taxonomy?: { id: string; name: string; description: string }[];
   embedder?: Embedder;
   reasoner?: Reasoner;
 }
@@ -40,7 +41,7 @@ export interface ShieldResult {
   score: number;
   cues: string[];
   urls: UrlFinding[];
-  techniques: { name: string; quote: string; why: string }[];
+  techniques: { id?: string; name: string; quote: string; why: string }[];
   matches: Match[];
   summary?: string;
   advice: string[];
@@ -131,13 +132,15 @@ async function readImage(image: string, reasoner: Reasoner) {
   return reasoner.complete("Salin seluruh teks yang terlihat pada gambar ini apa adanya (termasuk tautan, nomor, nama akun). Jangan menambahkan komentar.", { images: [image] });
 }
 
-async function interpret(text: string, facts: object, reasoner: Reasoner) {
+async function interpret(text: string, facts: object, reasoner: Reasoner, taxonomy?: ShieldContext["taxonomy"]) {
   const prompt = [
     "Kamu adalah Perisai Nalar, pendamping literasi digital untuk warga Indonesia.",
     `Pesan yang diterima warga:\n"""${text}"""`,
     `Temuan otomatis: ${JSON.stringify(facts)}`,
-    "Identifikasi teknik manipulasi psikologis yang dipakai pesan (misal: urgensi palsu, otoritas palsu, iming-iming, menakut-nakuti, bukti sosial palsu, kambing hitam, dikotomi palsu, provokasi identitas). Kutip bagian pesan yang tepat.",
-    'Balas HANYA JSON: {"techniques":[{"name":string,"quote":string,"why":string}],"summary":string,"advice":[string]} dalam Bahasa Indonesia yang ramah dan singkat. Jangan menuduh individu; fokus pada teknik.',
+    taxonomy?.length
+      ? `Identifikasi teknik manipulasi yang dipakai pesan, hanya dari daftar ini:\n${taxonomy.map((t) => `- ${t.id}: ${t.name}, ${t.description}`).join("\n")}\nKutip bagian pesan yang tepat, kata per kata.`
+      : "Identifikasi teknik manipulasi psikologis yang dipakai pesan. Kutip bagian pesan yang tepat, kata per kata.",
+    'Balas HANYA JSON: {"techniques":[{"id":string,"name":string,"quote":string,"why":string}],"summary":string,"advice":[string]} dalam Bahasa Indonesia yang ramah dan singkat. Jangan menuduh individu; fokus pada teknik.',
   ].join("\n\n");
   const raw = await reasoner.complete(prompt, { json: true, system: "Jawab hanya dengan JSON valid." });
   return JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as Pick<ShieldResult, "techniques" | "summary" | "advice">;
@@ -161,9 +164,13 @@ export async function shield(input: ShieldInput, ctx: ShieldContext = {}): Promi
   let advice: string[] = [];
   if (ctx.reasoner && text)
     try {
-      const r = await interpret(text, { urls, cues, matches }, ctx.reasoner);
+      const r = await interpret(text, { urls, cues, matches }, ctx.reasoner, ctx.taxonomy);
       const source = normalize(text);
-      techniques = (r.techniques ?? []).filter((t) => typeof t.quote === "string" && normalize(t.quote).length > 0 && source.includes(normalize(t.quote))).map((t) => ({ name: plain(t.name), quote: t.quote, why: plain(t.why) }));
+      const known = new Map((ctx.taxonomy ?? []).map((t) => [t.id, t.name]));
+      techniques = (r.techniques ?? [])
+        .filter((t) => typeof t.quote === "string" && normalize(t.quote).length > 0 && source.includes(normalize(t.quote)))
+        .filter((t) => !known.size || known.has(String(t.id)))
+        .map((t) => ({ id: known.size ? String(t.id) : undefined, name: known.get(String(t.id)) ?? plain(t.name), quote: t.quote, why: plain(t.why) }));
       summary = r.summary && plain(r.summary);
       advice = (r.advice ?? []).map(plain);
       score += Math.min(0.4, techniques.length * 0.1);

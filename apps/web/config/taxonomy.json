@@ -1,0 +1,11 @@
+[
+  { "id": "urgensi-palsu", "name": "Urgensi palsu", "description": "Mendesak agar bertindak atau membagikan segera tanpa sempat memeriksa" },
+  { "id": "otoritas-palsu", "name": "Otoritas palsu", "description": "Mengatasnamakan lembaga, pejabat atau ahli tanpa bukti" },
+  { "id": "bukti-sosial-palsu", "name": "Bukti sosial palsu", "description": "Menciptakan kesan bahwa banyak orang sudah percaya atau ikut" },
+  { "id": "iming-iming", "name": "Iming-iming", "description": "Menjanjikan keuntungan, hadiah atau jalur khusus" },
+  { "id": "menakut-nakuti", "name": "Menakut-nakuti", "description": "Membangkitkan rasa takut atau ancaman agar pembaca bereaksi" },
+  { "id": "dikotomi-palsu", "name": "Dikotomi palsu", "description": "Menyajikan hanya dua pilihan seolah tidak ada kemungkinan lain" },
+  { "id": "kambing-hitam", "name": "Kambing hitam", "description": "Menyalahkan satu kelompok atas masalah yang kompleks" },
+  { "id": "provokasi-identitas", "name": "Provokasi identitas", "description": "Mengadu domba berdasarkan suku, agama, ras atau golongan" },
+  { "id": "corong-pembayaran", "name": "Corong pembayaran", "description": "Mengarahkan ke transfer uang, nomor pribadi atau tautan pendaftaran" }
+]

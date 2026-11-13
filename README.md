@@ -12,7 +12,7 @@ Built for the Kartika Cyber Hackathon 2026, Cognitive Domain category.
 2. **Detect.** Every 15 seconds the server collects due monitors and analyzes the last 24 hours with the `cakranala` engine.
 3. **Investigate.** Coordinated clusters and the narratives they push become threat cases with severity, status, evidence, a network graph and the accounts involved.
 4. **Respond.** Each case carries an escalation level (watch, alert, urgent) with a response checklist, exports as a STIX 2.1 bundle, and becomes a printable commander report with SHA-256 evidence hashes and a draft public message that uses prebunking.
-5. **Protect.** Citizens paste a message or screenshot into Perisai and see the manipulation techniques used (each quote checked against the message), link impersonation, matching fact checks from TurnBackHoax.id by MAFINDO, and how much real support the narrative has.
+5. **Protect.** Citizens paste a message or screenshot into Perisai and see the manipulation techniques used (from a configurable taxonomy in `apps/web/config/taxonomy.json`, each quote checked against the message), link impersonation, matching fact checks from TurnBackHoax.id by MAFINDO, and how much real support the narrative has.
 
 ### Detection engine
 
@@ -39,7 +39,7 @@ Every account also gets a coordination score, so analysts can rank accounts even
 SIE = organic + Σ n_c / (1 + (n_c − 1) · ρ_c)
 ```
 
-A narrative is flagged only when its synchronized coordinated share is far above the dataset base rate (binomial test).
+A narrative is flagged only when its synchronized coordinated share is far above the base rate (binomial test). The verdict is time split: events in each half of the window are judged by clusters detected only in the other half, so the same data never both finds and convicts a cluster. The Evidence tab shows each cluster's permutation p value, score, decoy false discovery rate and the strength of every evidence family.
 
 All thresholds are data driven or configurable, and the engine has no training step and no labels.
 

@@ -2,6 +2,7 @@ import { analyze, evaluate, shield, simulate, LAYERS, type Evaluation, type Laye
 import seruni from "cakranala/scenarios/seruni.json";
 import { sessionFromEnv } from "@cakranala/collect-x";
 import registry from "../../config/registry.json";
+import taxonomy from "../../config/taxonomy.json";
 import { library } from "./library";
 import { embedder, reasoner, snapshot, SEVERITY } from "./analysis";
 
@@ -12,6 +13,7 @@ export const runShield = async (input: ShieldInput) =>
     report: snapshot().report ?? undefined,
     officialDomains: registry.officialDomains,
     library: library().map((l) => ({ claim: l.claim, verdict: l.verdict, source: l.url, title: l.title })),
+    taxonomy,
     embedder: await embedder(),
     reasoner,
   });

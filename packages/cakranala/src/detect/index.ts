@@ -5,7 +5,7 @@ import { rng } from "../util";
 import { LAYERS, LAYER_DEFAULTS, runLayers, type LayerId, type LayerOptions } from "./layers";
 import { detect, type Cluster, type Edge } from "./graph";
 import { forensics, type Forensics } from "./forensics";
-import { narratives, type Narrative } from "./consensus";
+import { narratives, type HeldOut, type Narrative } from "./consensus";
 
 export interface AnalyzeOptions extends LayerOptions {
   layers: LayerId[];
@@ -20,6 +20,7 @@ export interface AnalyzeOptions extends LayerOptions {
   minSupporters: number;
   verdictAlpha: number;
   syncSec: number;
+  verdictFolds: 1 | 2;
   embedder?: Embedder;
   reasoner?: Reasoner;
 }
@@ -54,6 +55,7 @@ export const DEFAULTS: AnalyzeOptions = {
   minSupporters: 5,
   verdictAlpha: 0.001,
   syncSec: 1800,
+  verdictFolds: 2,
 };
 
 async function frameEvents(ds: Dataset, seed: number, embedder?: Embedder) {
@@ -92,6 +94,30 @@ function scores(pairs: Map<string, number>, k: number) {
   return Object.fromEntries([...byActor].map(([a, ss]) => [a, ss.sort((x, y) => y - x)[k - 1] ?? 0]));
 }
 
+function significantClusters(ds: Dataset, o: AnalyzeOptions, frames?: Map<number, number>) {
+  return detect(runLayers(ds, o, o.layers, frames), o).clusters.filter((c) => c.p <= o.clusterAlpha && c.rho >= o.minClusterRho);
+}
+
+function heldOut(ds: Dataset, o: AnalyzeOptions, frames?: Map<number, number>): HeldOut | undefined {
+  if (o.verdictFolds !== 2) return undefined;
+  const order = ds.events.map((e, i) => ({ e, i })).sort((a, b) => a.e.ts - b.e.ts);
+  const cut = order[Math.floor(order.length / 2)]?.e.ts;
+  if (cut === undefined) return undefined;
+  const halves = [order.filter((x) => x.e.ts < cut), order.filter((x) => x.e.ts >= cut)];
+  if (halves.some((h) => h.length < 2)) return undefined;
+  const found = halves.map((h) => {
+    const sub: Dataset = { ...ds, events: h.map((x) => x.e) };
+    const remapped = frames && new Map(h.flatMap((x, j) => (frames.has(x.i) ? [[j, frames.get(x.i)!] as [number, number]] : [])));
+    const membership = new Map<string, Cluster>();
+    for (const c of significantClusters(sub, o, remapped)) for (const m of c.members) membership.set(m, c);
+    return { membership, actors: new Set(h.map((x) => x.e.actor)).size };
+  });
+  return {
+    clusterOf: (e) => found[e.ts < cut ? 1 : 0].membership.get(e.actor),
+    baseRate: (found[0].membership.size + found[1].membership.size) / Math.max(1, found[0].actors + found[1].actors),
+  };
+}
+
 export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}): Promise<Report> {
   const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined)) as Partial<AnalyzeOptions>;
   const o: AnalyzeOptions = { ...DEFAULTS, ...given, windowSec: { ...DEFAULTS.windowSec, ...given.windowSec } };
@@ -115,7 +141,7 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
     null: { replicates: results[0]?.replicates.length ?? 0, alpha: found.alpha, decoyFdr: found.decoyFdr },
     edges,
     clusters: reports,
-    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha, syncSec: o.syncSec }),
+    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha, syncSec: o.syncSec }, heldOut(ds, o, frames)),
     scores: scores(evidence(results), Math.max(1, o.minClusterSize - 1)),
   };
 }
