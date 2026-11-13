@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ensureState, useCreateReport, useOps, useSetStatus } from "@/lib/queries";
-import { LAYERS, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, ratio, short } from "@/lib/format";
+import { LAYERS, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, pct, ratio, short } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
 import type { CaseStatus } from "@/lib/api";
 
@@ -201,7 +201,8 @@ function Summary() {
 }
 
 function Evidence() {
-  const { clusters } = useCase();
+  const { state, clusters } = useCase();
+  const decoy = state.report?.null.decoyFdr ?? 0;
   return (
     <div className="flex flex-col gap-4">
       {clusters.map((k) => {
@@ -210,7 +211,11 @@ function Evidence() {
           <Card key={k.id}>
             <CardHeader>
               <CardTitle title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></CardTitle>
-              <CardDescription>How often these accounts act together, against what chance would produce</CardDescription>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">Cluster p {k.p <= 0.05 ? "≤ 0.05" : num(k.p)}</Badge>
+                <Badge variant="outline">Score {int(k.score)}</Badge>
+                <Badge variant="outline">Decoy FDR {pct(decoy)}</Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-hidden rounded-lg border">

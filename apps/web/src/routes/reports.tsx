@@ -151,6 +151,23 @@ function ReportView() {
           <Section title="Confidence">
             <p className="capitalize">{c.confidence}</p>
           </Section>
+          {c.evidence && (
+            <Section title="Integrity">
+              <dl className="grid gap-y-2 text-sm">
+                {[
+                  ["Report SHA-256", r.hash],
+                  ["Evidence root", c.evidence.root],
+                  ["Evidence posts", String(c.evidence.events)],
+                  ...r.custody.map((a) => [`${a.action} ${date(a.ts)}`, a.hash]),
+                ].map(([label, value]) => (
+                  <div key={label} className="flex flex-wrap justify-between gap-x-4 border-b py-1.5">
+                    <dt className="text-muted-foreground print:text-black">{label}</dt>
+                    <dd className="font-mono text-xs break-all">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Section>
+          )}
           {r.counter && (
             <Section title="Draft public message">
               <blockquote className="rounded-lg border-l-4 border-primary bg-muted/50 p-4 print:bg-white">{r.counter}</blockquote>

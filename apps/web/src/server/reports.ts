@@ -1,5 +1,5 @@
 import { plain } from "cakranala";
-import { reports, type ReportRow } from "./db";
+import { audit, reports, sha256, store, type ReportRow } from "./db";
 import { caseView, reasoner, snapshot } from "./analysis";
 
 export interface ReportContent {
@@ -11,13 +11,19 @@ export interface ReportContent {
   actions: string[];
   confidence: string;
   facts: { label: string; value: string }[];
+  evidence: { events: number; root: string; items: { id: string; sha256: string }[] };
 }
 
 const clean = (s: unknown) => plain(String(s ?? ""));
 
+function evidence(members: string[], since: number) {
+  const items = store.rows(members, since).map((r) => ({ id: r.id, sha256: sha256(r.json) }));
+  return { events: items.length, root: sha256(items.map((i) => i.sha256).join("")), items };
+}
+
 function facts(id: string) {
   const c = caseView(id);
-  const { report } = snapshot();
+  const { report, window } = snapshot();
   if (!c || !report) throw new Error("case is not active in the current analysis window");
   const narratives = report.narratives.filter((n) => c.narratives.includes(n.id));
   const clusters = report.clusters.filter((k) => c.clusters.includes(k.id));
@@ -25,6 +31,7 @@ function facts(id: string) {
     c,
     narratives,
     clusters,
+    evidence: evidence([...new Set(clusters.flatMap((k) => k.members))], window.from),
     table: [
       { label: "Severity", value: c.severity },
       { label: "Apparent supporters", value: String(c.apparent) },
@@ -37,7 +44,7 @@ function facts(id: string) {
 }
 
 export async function createReport(caseId: string): Promise<ReportRow<ReportContent>> {
-  const { c, narratives, clusters, table } = facts(caseId);
+  const { c, narratives, clusters, table, evidence } = facts(caseId);
   let content: ReportContent = {
     title: c.title,
     threatLevel: c.severity,
@@ -47,6 +54,7 @@ export async function createReport(caseId: string): Promise<ReportRow<ReportCont
     actions: [],
     confidence: "moderate",
     facts: table,
+    evidence,
   };
   if (reasoner) {
     const prompt = [
@@ -73,8 +81,9 @@ export async function createReport(caseId: string): Promise<ReportRow<ReportCont
     } catch {}
   }
   const row: ReportRow<ReportContent> = { id: crypto.randomUUID(), caseId, createdAt: Date.now(), content, counter: null };
-  reports.insert(row);
-  return row;
+  const hash = reports.insert(row);
+  audit.add("report.created", row.id, { caseId, sha256: hash, evidenceRoot: evidence.root, events: evidence.events });
+  return { ...row, hash };
 }
 
 export async function counterNarrative(reportId: string) {
@@ -90,5 +99,6 @@ export async function counterNarrative(reportId: string) {
   ].join("\n\n");
   const text = clean(await reasoner.complete(prompt));
   reports.setCounter(reportId, text);
+  audit.add("report.counter", reportId, { sha256: sha256(text) });
   return text;
 }

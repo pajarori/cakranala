@@ -24,8 +24,6 @@ const KINDS: Record<MonitorKind, { label: string; icon: typeof Hash; target: str
   simulation: { label: "Demo feed", icon: Clapperboard, target: "Scenario seed", placeholder: "1", hint: "Replays the fictional Pulau Seruni scenario as if it were live" },
 };
 
-let token = "";
-
 function Row({ m }: { m: MonitorState }) {
   const toggle = useToggleMonitor();
   const remove = useDeleteMonitor();
@@ -56,10 +54,10 @@ function Row({ m }: { m: MonitorState }) {
       <TableCell className="text-muted-foreground">{m.kind === "simulation" ? "every 20 s" : `every ${m.intervalMin} min`}</TableCell>
       <TableCell>
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" aria-label={m.active ? "Pause" : "Resume"} onClick={() => toggle.mutate({ id: m.id, active: !m.active, token }, { onError: err })}>
+          <Button variant="ghost" size="icon" aria-label={m.active ? "Pause" : "Resume"} onClick={() => toggle.mutate({ id: m.id, active: !m.active }, { onError: err })}>
             {m.active ? <Pause /> : <Play />}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => remove.mutate({ id: m.id, token }, { onSuccess: () => toast.success("Monitor deleted"), onError: err })}>
+          <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => remove.mutate(m.id, { onSuccess: () => toast.success("Monitor deleted"), onError: err })}>
             <Trash2 />
           </Button>
         </div>
@@ -131,7 +129,6 @@ function NewMonitor() {
   const [interval, setInterval_] = useState("15");
   const [pages, setPages] = useState("3");
   const [speed, setSpeed] = useState("60");
-  const [secret, setSecret] = useState(token);
   const K = KINDS[kind];
   const live = kind !== "simulation";
   const blocked = live && !caps.data?.live;
@@ -141,9 +138,8 @@ function NewMonitor() {
         className="max-w-2xl"
         onSubmit={(e) => {
           e.preventDefault();
-          token = secret;
           create.mutate(
-            { body: { kind, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) }, token: live ? secret : undefined },
+            { kind, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
             { onSuccess: () => (toast.success("Monitor created"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
           );
         }}
@@ -204,10 +200,6 @@ function NewMonitor() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex flex-col gap-2 sm:col-span-2">
-                  <Label htmlFor="token">Operator token</Label>
-                  <Input id="token" type="password" required value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="off" />
                 </div>
               </div>
             ) : (

@@ -15,7 +15,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, title TEXT NOT NULL, brief TEXT, status TEXT NOT NULL, members TEXT NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, peak INTEGER NOT NULL, created_at INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT NOT NULL, case_id TEXT NOT NULL, text TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, case_id TEXT NOT NULL, created_at INTEGER NOT NULL, json TEXT NOT NULL, counter TEXT);
+  CREATE TABLE IF NOT EXISTS audit (seq INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, action TEXT NOT NULL, subject TEXT NOT NULL, detail TEXT NOT NULL, prev TEXT NOT NULL, hash TEXT NOT NULL);
 `);
+
+export const sha256 = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
 
 export type MonitorKind = "topic" | "account" | "post" | "simulation";
 
@@ -83,6 +86,10 @@ export const store = {
     const actors = db.query("SELECT json FROM actors").all().map((r: any) => JSON.parse(r.json) as Actor).filter((a) => ids.has(a.id));
     return { actors, events };
   },
+  rows: (actors: string[], since: number) => {
+    const set = new Set(actors);
+    return (db.query("SELECT id, json FROM events WHERE ts >= ? ORDER BY id").all(since) as { id: string; json: string }[]).filter((r) => set.has((JSON.parse(r.json) as Event).actor));
+  },
   monitorOf: () => new Map(db.query("SELECT id, monitor FROM events").all().map((r: any) => [r.id as string, r.monitor as string])),
 };
 
@@ -134,11 +141,53 @@ export interface ReportRow<T = unknown> {
   createdAt: number;
   content: T;
   counter: string | null;
+  hash?: string;
 }
 
 export const reports = {
-  all: () => db.query("SELECT id, case_id, created_at, json, counter FROM reports ORDER BY created_at DESC").all().map((r: any) => ({ id: r.id, caseId: r.case_id, createdAt: r.created_at, content: JSON.parse(r.json), counter: r.counter }) as ReportRow),
+  all: () => db.query("SELECT id, case_id, created_at, json, counter FROM reports ORDER BY created_at DESC").all().map((r: any) => ({ id: r.id, caseId: r.case_id, createdAt: r.created_at, content: JSON.parse(r.json), counter: r.counter, hash: sha256(r.json) }) as ReportRow),
   get: (id: string) => reports.all().find((r) => r.id === id),
-  insert: (r: ReportRow) => db.query("INSERT INTO reports (id, case_id, created_at, json, counter) VALUES (?, ?, ?, ?, ?)").run(r.id, r.caseId, r.createdAt, JSON.stringify(r.content), r.counter),
+  insert: (r: ReportRow) => {
+    const json = JSON.stringify(r.content);
+    db.query("INSERT INTO reports (id, case_id, created_at, json, counter) VALUES (?, ?, ?, ?, ?)").run(r.id, r.caseId, r.createdAt, json, r.counter);
+    return sha256(json);
+  },
   setCounter: (id: string, counter: string) => db.query("UPDATE reports SET counter = ? WHERE id = ?").run(counter, id),
+};
+
+export interface AuditEntry {
+  seq: number;
+  ts: number;
+  action: string;
+  subject: string;
+  detail: Record<string, unknown>;
+  prev: string;
+  hash: string;
+}
+
+const GENESIS = "0".repeat(64);
+const link = (prev: string, ts: number, action: string, subject: string, detail: string) => sha256(`${prev}\n${JSON.stringify([ts, action, subject, detail])}`);
+const toEntry = (r: any): AuditEntry => ({ seq: r.seq, ts: r.ts, action: r.action, subject: r.subject, detail: JSON.parse(r.detail), prev: r.prev, hash: r.hash });
+
+export const audit = {
+  add(action: string, subject: string, detail: Record<string, unknown> = {}) {
+    db.transaction(() => {
+      const prev = (db.query("SELECT hash FROM audit ORDER BY seq DESC LIMIT 1").get() as { hash: string } | null)?.hash ?? GENESIS;
+      const ts = Date.now();
+      const d = JSON.stringify(detail);
+      db.query("INSERT INTO audit (ts, action, subject, detail, prev, hash) VALUES (?, ?, ?, ?, ?, ?)").run(ts, action, subject, d, prev, link(prev, ts, action, subject, d));
+    })();
+  },
+  recent: (limit = 50) => db.query("SELECT * FROM audit ORDER BY seq DESC LIMIT ?").all(limit).map(toEntry),
+  of: (subject: string) => db.query("SELECT * FROM audit WHERE subject = ? ORDER BY seq").all(subject).map(toEntry),
+  verify() {
+    let prev = GENESIS;
+    let entries = 0;
+    for (const r of db.query("SELECT * FROM audit ORDER BY seq").all() as any[]) {
+      if (r.prev !== prev || r.hash !== link(prev, r.ts, r.action, r.subject, r.detail)) return { entries, valid: false, brokenAt: r.seq as number };
+      prev = r.hash;
+      entries++;
+    }
+    return { entries, valid: true, brokenAt: null };
+  },
 };

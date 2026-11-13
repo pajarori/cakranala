@@ -3,13 +3,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useAblation, useCapabilities, useLiveState } from "@/lib/queries";
-import { pct } from "@/lib/format";
+import { useAblation, useAudit, useCapabilities, useLiveState } from "@/lib/queries";
+import { date, pct, short } from "@/lib/format";
 
 const config = {
   botfarm: { label: "Bot farm", color: "var(--chart-1)" },
@@ -84,6 +84,44 @@ function Accuracy() {
   );
 }
 
+function AuditLog() {
+  const { data } = useAudit();
+  if (!data) return <Skeleton className="h-48 rounded-xl" />;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Audit chain</CardTitle>
+        <CardDescription>{data.entries} entries</CardDescription>
+        <CardAction>{data.valid ? <Badge>Verified</Badge> : <Badge variant="destructive">Broken at {data.brokenAt}</Badge>}</CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead className="text-right">Hash</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.recent.map((a) => (
+                <TableRow key={a.seq}>
+                  <TableCell className="text-muted-foreground">{date(a.ts)}</TableCell>
+                  <TableCell className="font-medium">{a.action}</TableCell>
+                  <TableCell className="font-mono" title={a.subject}>{short(a.subject)}</TableCell>
+                  <TableCell className="text-right font-mono" title={a.hash}>{a.hash.slice(0, 12)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function System() {
   const caps = useCapabilities();
   const { data: state } = useLiveState();
@@ -115,6 +153,7 @@ function System() {
         </Card>
       </div>
       <Accuracy />
+      <AuditLog />
     </div>
   );
 }

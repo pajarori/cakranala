@@ -11,6 +11,7 @@ export const useOps = () => useSuspenseQuery(stateQuery).data;
 export const useLiveState = () => useQuery(stateQuery);
 export const ensureState = () => queryClient.ensureQueryData(stateQuery);
 export const useCapabilities = () => useQuery({ queryKey: ["capabilities"], queryFn: api.capabilities, staleTime: Infinity });
+export const useAudit = () => useQuery({ queryKey: ["audit"], queryFn: api.audit, refetchInterval: 15_000 });
 export const useAblation = () => useQuery({ queryKey: ["ablation"], queryFn: api.ablation, staleTime: Infinity, retry: 0 });
 export const useReports = () => useSuspenseQuery(reportsQuery).data;
 export const useReport = (id: string) => useSuspenseQuery(reportQuery(id)).data;
@@ -22,15 +23,15 @@ function useInvalidate(...keys: string[][]) {
 
 export const useCreateMonitor = () => {
   const done = useInvalidate(["state"]);
-  return useMutation({ mutationFn: (a: { body: { kind: MonitorKind; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }; token?: string }) => api.createMonitor(a.body, a.token), onSuccess: done });
+  return useMutation({ mutationFn: (body: { kind: MonitorKind; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => api.createMonitor(body), onSuccess: done });
 };
 export const useToggleMonitor = () => {
   const done = useInvalidate(["state"]);
-  return useMutation({ mutationFn: (a: { id: string; active: boolean; token?: string }) => api.toggleMonitor(a.id, a.active, a.token), onSuccess: done });
+  return useMutation({ mutationFn: (a: { id: string; active: boolean }) => api.toggleMonitor(a.id, a.active), onSuccess: done });
 };
 export const useDeleteMonitor = () => {
   const done = useInvalidate(["state"]);
-  return useMutation({ mutationFn: (a: { id: string; token?: string }) => api.deleteMonitor(a.id, a.token), onSuccess: done });
+  return useMutation({ mutationFn: (id: string) => api.deleteMonitor(id), onSuccess: done });
 };
 export const useSetStatus = () => {
   const done = useInvalidate(["state"]);
