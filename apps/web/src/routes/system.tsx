@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAblation, useAudit, useCapabilities, useLiveState } from "@/lib/queries";
-import { date, pct, short } from "@/lib/format";
+import { date, int, pct, short } from "@/lib/format";
+import validation from "@/lib/validation.json";
 
 const config = {
   botfarm: { label: "Bot farm", color: "var(--chart-1)" },
@@ -84,6 +85,55 @@ function Accuracy() {
   );
 }
 
+function Validation() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Real data validation</CardTitle>
+        <CardDescription>Labeled state influence operation archives, average precision over {validation[0].seeds} seeds</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead>Archive</TableHead>
+                <TableHead className="text-right">Accounts</TableHead>
+                <TableHead className="text-right">Operation</TableHead>
+                <TableHead className="text-right">Cakra Nala</TableHead>
+                <TableHead className="text-right">95% CI</TableHead>
+                <TableHead className="text-right">Post volume</TableHead>
+                <TableHead className="text-right">Co-share</TableHead>
+                <TableHead className="text-right">Random</TableHead>
+                <TableHead className="text-right">Top 10 precision</TableHead>
+                <TableHead className="text-right">False accusations</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {validation.map((v) => (
+                <TableRow key={v.release}>
+                  <TableCell className="font-medium">{v.release}</TableCell>
+                  <TableCell className="text-right tabular-nums">{int(v.accounts)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{int(v.operation)}</TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">{v.ap.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {v.ci[0].toFixed(2)} to {v.ci[1].toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{v.volume.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{v.coshare.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{v.random.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{pct(v.precisionAt10)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{v.falseAccusations}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AuditLog() {
   const { data } = useAudit();
   if (!data) return <Skeleton className="h-48 rounded-xl" />;
@@ -152,6 +202,7 @@ function System() {
           </CardHeader>
         </Card>
       </div>
+      <Validation />
       <Accuracy />
       <AuditLog />
     </div>

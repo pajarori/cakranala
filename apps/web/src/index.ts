@@ -6,6 +6,7 @@ import { refresh, snapshot } from "./server/analysis";
 import { createMonitor } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
+import { stixBundle } from "./server/stix";
 
 class HttpError extends Error {
   constructor(
@@ -98,6 +99,15 @@ const server = serve({
         await refresh(true);
         return { ok: true };
       }),
+    },
+    "/api/cases/:id/stix": {
+      GET: (req) => {
+        try {
+          return new Response(JSON.stringify(stixBundle(req.params.id), null, 2), { headers: { "content-type": "application/stix+json;version=2.1", "content-disposition": `attachment; filename="case-${req.params.id}.stix.json"` } });
+        } catch (e) {
+          return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 404 });
+        }
+      },
     },
     "/api/cases/:id/reports": { POST: json((req) => (operator(req), createReport(req.params.id))) },
     "/api/reports": { GET: json(() => reports.all()) },

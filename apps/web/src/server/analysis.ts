@@ -23,9 +23,21 @@ export const embedder = () =>
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
+export type Escalation = "watch" | "alert" | "urgent";
+
+export const ESCALATION = { urgentInflation: 3, alertInflation: 2 };
+
+const escalation = (severity: Severity, apparent: number, independent: number): Escalation => {
+  const inflation = apparent / Math.max(independent, 1);
+  if (severity === "critical" || (severity === "high" && inflation >= ESCALATION.urgentInflation)) return "urgent";
+  if (severity === "high" || (severity === "medium" && inflation >= ESCALATION.alertInflation)) return "alert";
+  return "watch";
+};
+
 export interface CaseView extends CaseRow {
   active: boolean;
   severity: Severity;
+  escalation: Escalation;
   narratives: string[];
   clusters: string[];
   apparent: number;
@@ -126,13 +138,13 @@ async function track(report: Report, now: number, monitorOf: Map<string, string>
     seen.add(row.id);
     const memberSet = new Set(row.members);
     const mons = [...new Set(events.filter((e) => memberSet.has(e.actor)).map((e) => monitorOf.get(e.id)).filter(Boolean) as string[])];
-    views.push({ ...row, active: true, severity: severity(manufactured), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons });
+    views.push({ ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons });
   }
   return order([...views, ...dormant(seen)]);
 }
 
 const dormant = (seen = new Set<string>()): CaseView[] =>
-  cases.all().filter((c) => !seen.has(c.id)).map((c) => ({ ...c, active: false, severity: severity(c.peak), narratives: [], clusters: [], apparent: 0, independent: 0, monitors: [] }));
+  cases.all().filter((c) => !seen.has(c.id)).map((c) => ({ ...c, active: false, severity: severity(c.peak), escalation: "watch" as Escalation, narratives: [], clusters: [], apparent: 0, independent: 0, monitors: [] }));
 
 function order(views: CaseView[]) {
   const rank = { critical: 0, high: 1, medium: 2, low: 3 };

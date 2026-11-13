@@ -62,6 +62,10 @@ export const monitors = {
     db.query("INSERT INTO monitors (id, kind, target, label, interval_min, pages, speed, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(m.id, m.kind, m.target, m.label, m.intervalMin, m.pages, m.speed, m.active ? 1 : 0, m.createdAt),
   setActive: (id: string, active: boolean) => db.query("UPDATE monitors SET active = ? WHERE id = ?").run(active ? 1 : 0, id),
   ran: (id: string, at: number, error: string | null, added: number) => db.query("UPDATE monitors SET last_run_at = ?, last_error = ?, collected = collected + ? WHERE id = ?").run(at, error, added, id),
+  replay: (id: string, at: number) => {
+    db.query("DELETE FROM events WHERE monitor = ?").run(id);
+    db.query("UPDATE monitors SET created_at = ?, collected = 0 WHERE id = ?").run(at, id);
+  },
   remove: (id: string) => {
     db.query("DELETE FROM events WHERE monitor = ?").run(id);
     db.query("DELETE FROM monitors WHERE id = ?").run(id);

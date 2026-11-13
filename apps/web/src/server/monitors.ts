@@ -1,7 +1,7 @@
 import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
 import { createXCollector, sessionFromEnv } from "@cakranala/collect-x";
-import { monitors, store, type Monitor, type MonitorKind } from "./db";
+import { audit, monitors, store, type Monitor, type MonitorKind } from "./db";
 
 const scenario = seruni as Scenario;
 const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
@@ -36,6 +36,8 @@ export function query(kind: MonitorKind, target: string) {
 
 const sims = new Map<string, Dataset>();
 
+const REPLAY_AFTER = 12 * 3_600_000;
+
 function revealSimulation(m: Monitor, now: number) {
   const seed = Number(m.target) || 1;
   const ds = sims.get(m.id) ?? simulate(scenario, seed);
@@ -55,6 +57,11 @@ function revealSimulation(m: Monitor, now: number) {
 export async function runMonitor(m: Monitor, now = Date.now()) {
   try {
     if (m.kind === "simulation") {
+      if (now - m.createdAt > REPLAY_AFTER) {
+        monitors.replay(m.id, now);
+        audit.add("monitor.replayed", m.id);
+        m = { ...m, createdAt: now };
+      }
       const { actors, events } = revealSimulation(m, now);
       monitors.ran(m.id, now, null, store.add(m.id, actors, events));
       return;
@@ -76,7 +83,7 @@ export const simulationProgress = (m: Monitor, at = Date.now()) => Math.min(1, (
 export function due(m: Monitor, now = Date.now()) {
   if (!m.active) return false;
   if (m.lastRunAt === null) return true;
-  if (m.kind === "simulation") return simulationProgress(m, m.lastRunAt) < 1 && now - m.lastRunAt >= 20_000;
+  if (m.kind === "simulation") return now - m.createdAt > REPLAY_AFTER || (simulationProgress(m, m.lastRunAt) < 1 && now - m.lastRunAt >= 20_000);
   return now - m.lastRunAt >= m.intervalMin * 60_000;
 }
 

@@ -1,10 +1,10 @@
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { FileText } from "lucide-react";
+import { CircleCheck, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Counterfactual } from "@/components/counterfactual";
@@ -50,6 +50,11 @@ function ThreatLayout() {
             <Badge variant={SEVERITY_VARIANT[c.severity]} className="capitalize">
               {c.severity}
             </Badge>
+            {c.active && (
+              <Badge variant={c.escalation === "urgent" ? "destructive" : c.escalation === "alert" ? "default" : "secondary"} className="capitalize">
+                {c.escalation}
+              </Badge>
+            )}
             {!c.active && <Badge variant="outline">Dormant</Badge>}
             <span>First seen {date(c.firstSeen)}</span>
             <span>Last activity {ago(c.lastSeen)}</span>
@@ -69,6 +74,14 @@ function ThreatLayout() {
               ))}
             </SelectContent>
           </Select>
+          {c.active && (
+            <Button variant="outline" asChild>
+              <a href={`/api/cases/${c.id}/stix`} download>
+                <Download />
+                STIX
+              </a>
+            </Button>
+          )}
           <Button disabled={!c.active || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: (e) => toast.error(e.message) })}>
             {report.isPending ? <Spinner /> : <FileText />}
             Create report
@@ -101,6 +114,12 @@ function ThreatLayout() {
   );
 }
 
+const RESPONSE = {
+  watch: ["Keep monitoring", "Review evidence"],
+  alert: ["Assign an analyst", "Create a commander report", "Prepare a public clarification"],
+  urgent: ["Brief the commander now", "Publish a clarification on official channels", "Report the accounts to the platform", "Create a commander report"],
+};
+
 function Summary() {
   const { c, narratives, clusters } = useCase();
   const lead = narratives[0];
@@ -123,6 +142,26 @@ function Summary() {
           </Card>
         ))}
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Response</CardTitle>
+          <CardAction>
+            <Badge variant="outline" className="capitalize">
+              {c.escalation}
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <ul className="grid gap-2 @xl/main:grid-cols-2">
+            {RESPONSE[c.escalation].map((r) => (
+              <li key={r} className="flex items-center gap-2">
+                <CircleCheck className="size-4 text-muted-foreground" />
+                {r}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
       {c.brief && (
         <Card>
           <CardHeader>

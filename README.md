@@ -11,7 +11,7 @@ Built for the Kartika Cyber Hackathon 2026, Cognitive Domain category.
 1. **Monitor.** Operators register what to watch: a topic, an account (replies and mentions aimed at it), a single post, or a demo feed that replays a simulated scenario.
 2. **Detect.** Every 15 seconds the server collects due monitors and analyzes the last 24 hours with the `cakranala` engine.
 3. **Investigate.** Coordinated clusters and the narratives they push become threat cases with severity, status, evidence, a network graph and the accounts involved.
-4. **Respond.** A case becomes a printable commander report and a draft public message that uses prebunking.
+4. **Respond.** Each case carries an escalation level (watch, alert, urgent) with a response checklist, exports as a STIX 2.1 bundle, and becomes a printable commander report with SHA-256 evidence hashes and a draft public message that uses prebunking.
 5. **Protect.** Citizens paste a message or screenshot into Perisai and see the manipulation techniques used, link impersonation, and how much real support the narrative has.
 
 ### Detection engine
@@ -26,7 +26,14 @@ Built for the Kartika Cyber Hackathon 2026, Cognitive Domain category.
 | Rhythm | Activity slots shared beyond chance |
 | Account lifecycle | Accounts created the same day with the same handle pattern |
 
-Each account pair is tested against what chance would produce, given how rare the shared content is and how active both accounts are (Poisson tail, Benjamini Hochberg FDR). A pair must be significant on at least two layers and in at least two separate episodes, which keeps one-off viral crowds out. Louvain groups the pairs into clusters. Forensics recover the start time, waves, the account order across waves (a sign of scripts), cadence, seeders and talking points. Narrative support is discounted with a Kish style design effect:
+Each layer counts how often two accounts act together and compares it with a null model built from the data itself:
+
+- **Content layers** (co-action, copypasta, co-framing) shuffle which account touched which object inside short time strata. Common shocks such as breaking news stay intact, and only persistent pair identity is broken.
+- **Rhythm** shifts each account's whole timeline by whole days (or hours for short windows) and counts distinct co-active periods, so one shared live event is not mistaken for a habit.
+- Pair counts are tested with a negative binomial tail whose overdispersion is estimated from the replicates. Layers are merged into evidence families with the Cauchy combination and a Bonferroni partial conjunction.
+- The cluster forming threshold is chosen from the data so that the decoy false discovery rate, measured on the replicates, stays at or below 5 percent. Clusters are found with Louvain, pruned to a minimum degree, and kept only when their score beats the maximum score in every replicate (cluster level permutation test).
+
+Every account also gets a coordination score, so analysts can rank accounts even below the cluster threshold. Narrative support is discounted with a Kish style design effect:
 
 ```
 SIE = organic + Σ n_c / (1 + (n_c − 1) · ρ_c)
@@ -71,7 +78,8 @@ Stack: Bun, React 19, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui
 | `/monitors`, `/monitors/new` | What is being watched, and adding new monitors |
 | `/reports`, `/reports/:id` | Commander reports, print or save as PDF, counter narrative drafts |
 | `/perisai` | Public message and screenshot checker |
-| `/system` | Detection accuracy by operation type and configuration |
+| `/system` | Real data validation, simulated accuracy, audit chain |
+| `/operator` | Operator sign in for actions that change state |
 
 On first start with an empty database the server creates a demo feed that replays the fictional Pulau Seruni scenario (8 hours in 8 minutes), so the dashboard comes alive without any external data.
 
@@ -92,14 +100,31 @@ Run the tests inside Docker:
 docker compose --profile test run --rm test
 ```
 
+### Deploy to a server
+
+1. Point a DNS record at the server and install Docker with Compose.
+2. Clone the repository, `cp .env.example .env`, and set `DOMAIN`, `OPERATOR_TOKEN` (a long random string) and `PSEUDONYM_SECRET`.
+3. Start it with automatic HTTPS:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+4. Back up `./data` regularly. It holds the SQLite database with cases, reports and the audit chain.
+5. Update with `git pull` followed by the same `up -d --build` command.
+
+Only Caddy is exposed (ports 80 and 443). Anyone can view the dashboard and use Perisai (rate limited per address). Creating monitors, changing case status and writing reports require signing in at `/operator` with the operator token.
+
 ### Configuration
 
 | Variable | Purpose |
 |---|---|
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Language model for case titles, briefs, reports, counter narratives and Perisai. Any OpenAI compatible endpoint works, including a self hosted model. Optional. |
 | `X_AUTH_TOKEN`, `X_CT0`, `X_USER_AGENT` | Session cookies of a dedicated X account for live monitors. Optional. |
-| `OPERATOR_TOKEN` | Required to create, pause or delete live monitors. |
+| `OPERATOR_TOKEN` | Required to change monitors, case status and reports. |
 | `PSEUDONYM_SECRET` | HMAC key used to pseudonymize collected accounts. |
+| `DOMAIN` | Public domain for HTTPS in the production compose file. |
+| `SHIELD_PER_MINUTE` | Perisai requests allowed per address per minute, 20 by default. |
 | `PORT` | HTTP port, 3000 by default. |
 
 Collected data and the SQLite database live in `./data`, mounted as a volume.
@@ -120,4 +145,5 @@ bun run dev
 - Only public data is collected. Handles are replaced with HMAC pseudonyms before storage.
 - Results are indicative patterns of coordinated behavior, never accusations against individuals.
 - Live collection relies on unofficial endpoints of X. It respects rate limits, backs off when limited, and never attempts to bypass CAPTCHAs or bot protection.
-- Quantitative accuracy is measured on simulated scenarios with known ground truth. On those, precision is 100 percent, bot farms and paid buzzers are mostly caught, and patient LLM swarms remain the hardest case.
+- Every state change (monitors, case status, reports) is written to an append only audit log where each entry carries the SHA-256 of the previous one. The System page verifies the chain.
+- Accuracy is measured on labeled archives of real state influence operations and on simulated scenarios. On the real archives, account ranking reaches an average precision of 0.76 and 0.94, against 0.22 and 0.75 for ranking by post volume, with no control account placed in a cluster and no clusters on time shifted data. On simulations, bot farms and paid buzzers are caught almost completely with no organic or viral account flagged, and patient LLM swarms remain the hardest case.

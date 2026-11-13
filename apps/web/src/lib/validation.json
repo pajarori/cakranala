@@ -1,0 +1,38 @@
+[
+  {
+    "release": "Armenia",
+    "accounts": 578,
+    "operation": 31,
+    "posts": 94604,
+    "ap": 0.763,
+    "ci": [
+      0.617,
+      0.885
+    ],
+    "precisionAt10": 1,
+    "volume": 0.215,
+    "coshare": 0.054,
+    "random": 0.055,
+    "falseAccusations": 0,
+    "nullClusters": 0,
+    "seeds": 5
+  },
+  {
+    "release": "Ghana and Nigeria",
+    "accounts": 405,
+    "operation": 60,
+    "posts": 52918,
+    "ap": 0.936,
+    "ci": [
+      0.882,
+      0.983
+    ],
+    "precisionAt10": 1,
+    "volume": 0.751,
+    "coshare": 0.397,
+    "random": 0.15,
+    "falseAccusations": 0,
+    "nullClusters": 0,
+    "seeds": 5
+  }
+]
