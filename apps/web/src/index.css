@@ -1,12 +1,48 @@
 @import "tailwindcss";
 @import "./styles/stealth.css";
 
-:root {
-  --font-geist-sans: "Geist";
-  --font-geist-mono: "Geist Mono";
+@theme inline {
+  --font-display: "IBM Plex Sans Condensed", var(--font-sans);
+}
+
+:root,
+[data-theme="dark"] {
+  --font-geist-sans: "IBM Plex Sans";
+  --font-geist-mono: "IBM Plex Mono";
+  --page: #0c0d0a;
+  --frame: #11130f;
+  --raised: #171a14;
+  --hover: #1c1f18;
+  --line: #22261d;
+  --line-2: #2f3428;
+  --fg: #e9e7dc;
+  --fg-2: #b0ae9e;
+  --fg-3: #7f7e6e;
+  --fg-4: #55574a;
+  --danger: #e4574f;
+  --danger-soft: rgba(228, 87, 79, 0.12);
+  --success: #8fc09a;
+  --success-soft: rgba(143, 192, 154, 0.12);
+  --warning: #d6a64f;
+  --warning-soft: rgba(214, 166, 79, 0.12);
+  --info: #93abc9;
+  --info-soft: rgba(147, 171, 201, 0.12);
+  color-scheme: dark;
 }
 
 body {
   background: var(--page);
   min-height: 100vh;
+  font-size: 13.5px;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+.react-sigma {
+  position: relative;
+  overflow: hidden;
 }

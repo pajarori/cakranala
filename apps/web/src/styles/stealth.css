@@ -118,7 +118,6 @@ body {
   letter-spacing: -0.003em;
 }
 ::selection { background: var(--fg); color: var(--frame); }
-
 :root { --z-sticky: 10; --z-dropdown: 20; --z-overlay: 30; --z-dialog: 31; --z-popover: 40; --z-toast: 45; --z-tooltip: 50; }
 
 @layer base { :focus-visible { outline: 1px solid var(--fg-2); outline-offset: 2px; border-radius: 4px; } }

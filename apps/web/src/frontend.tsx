@@ -1,10 +1,21 @@
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { App } from "./App";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
+import { ToastProvider } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { queryClient } from "@/lib/queries";
+import { router } from "@/router";
 
 const app = (
   <StrictMode>
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
+      </ToastProvider>
+    </QueryClientProvider>
   </StrictMode>
 );
 
