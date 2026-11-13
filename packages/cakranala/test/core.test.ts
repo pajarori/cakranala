@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { analyze, evaluate, shield, simulate, validate, type Scenario } from "../src";
+import { analyze, evaluate, pseudonymize, shield, simulate, validate, type Scenario } from "../src";
 import scenario from "../scenarios/seruni.json";
 
 const ds = simulate(scenario as Scenario, 1);
@@ -35,6 +35,12 @@ describe("perisai", () => {
     expect(r.urls[0].imitates).toBe("ad.rekrutmen-tni.mil.id");
     expect(r.cues).toContain("menyebut nominal uang");
     expect(r.risk).not.toBe("rendah");
+  });
+  test("pseudonymisasi menyamarkan handle tanpa mengubah struktur", async () => {
+    const p = await pseudonymize(ds, "rahasia");
+    expect(p.actors[0].handle).toMatch(/^akun_[0-9a-f]{10}$/);
+    expect(p.events.length).toBe(ds.events.length);
+    expect(new Set(p.actors.map((a) => a.id)).size).toBe(ds.actors.length);
   });
   test("domain resmi tidak ditandai", async () => {
     const r = await shield({ text: "Info resmi di https://ad.rekrutmen-tni.mil.id, gratis." }, { officialDomains: official });
