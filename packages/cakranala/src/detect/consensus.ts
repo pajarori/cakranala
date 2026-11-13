@@ -1,7 +1,7 @@
 import type { Event } from "../schema";
 import type { Cluster } from "./graph";
 import { jaccard, nearDuplicateGroups, shingles } from "../text";
-import { binomialTail, groupBy, quantile, randomPairQuantile, rng } from "../util";
+import { binomialTail, groupBy, quantile, randomPairQuantile, rng, uuidFrom } from "../util";
 
 export interface Sie {
   value: number;
@@ -106,7 +106,7 @@ export function narratives(
       .slice(0, 5)
       .map(([t]) => t);
     out.push({
-      id: "",
+      id: uuidFrom(`narrative:${ev.map((e) => e.id).sort().join(",")}`),
       sample: (ev.find((e) => synced.has(e.actor) && (e.text ?? "").length > 30) ?? ev.find((e) => (e.text ?? "").length > 30) ?? ev[0]).text ?? "",
       tags,
       supporters: supporters.length,
@@ -123,5 +123,5 @@ export function narratives(
       counterfactual: { binSec: binMs / 1000, start: t0, all, organic },
     });
   }
-  return out.sort((a, b) => b.supporters * b.iks - a.supporters * a.iks).map((n, i) => ({ ...n, id: `N${i + 1}` }));
+  return out.sort((a, b) => b.supporters * b.iks - a.supporters * a.iks);
 }

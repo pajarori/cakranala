@@ -121,7 +121,12 @@
   }
 }
 
-.react-sigma {
+div.react-sigma {
   position: relative;
   overflow: hidden;
+}
+
+div.sigma-container {
+  height: 100%;
+  width: 100%;
 }

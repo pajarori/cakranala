@@ -19,8 +19,9 @@ export function ago(ts: number, now = Date.now()) {
 }
 
 const GRAPH = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
-export const graphColor = (id: string) => GRAPH[(Number(id.replace(/\D/g, "")) - 1 + GRAPH.length) % GRAPH.length];
-export const chartVar = (id: string) => `var(--chart-${((Number(id.replace(/\D/g, "")) - 1) % 5) + 1})`;
+const bucket = (id: string, n: number) => [...id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7) % n;
+export const graphColor = (id: string) => GRAPH[bucket(id, GRAPH.length)];
+export const short = (id: string) => id.slice(0, 8);
 
 export const LAYERS: Record<string, string> = {
   coaction: "Co-action",

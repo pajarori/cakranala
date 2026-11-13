@@ -50,7 +50,7 @@ function StatusSelect({ c }: { c: Case }) {
   const set = useSetStatus();
   return (
     <Select value={c.status} onValueChange={(v) => set.mutate({ id: c.id, status: v as CaseStatus })}>
-      <SelectTrigger size="sm" className="w-36" aria-label={`Status of ${c.id}`}>
+      <SelectTrigger size="sm" className="w-36" aria-label={`Status of ${c.title}`}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
@@ -79,7 +79,7 @@ function QuickView({ c, state }: { c: Case; state: State }) {
         <DrawerHeader className="gap-1">
           <DrawerTitle>{c.title}</DrawerTitle>
           <DrawerDescription>
-            {c.id}, first seen {ago(c.firstSeen)}
+            First seen {ago(c.firstSeen)}
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">

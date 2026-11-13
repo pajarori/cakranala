@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ensureState, useCreateReport, useOps, useSetStatus } from "@/lib/queries";
-import { LAYERS, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, ratio } from "@/lib/format";
+import { LAYERS, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, ratio, short } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
 import type { CaseStatus } from "@/lib/api";
 
@@ -46,7 +46,7 @@ function ThreatLayout() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{c.id}</span>
+            <span className="font-mono text-foreground" title={c.id}>{short(c.id)}</span>
             <Badge variant={SEVERITY_VARIANT[c.severity]} className="capitalize">
               {c.severity}
             </Badge>
@@ -172,7 +172,7 @@ function Summary() {
               <div key={k.id} className="rounded-lg border p-4">
                 <div className="flex items-center gap-2">
                   <span className="size-2.5 rounded-full" style={{ background: graphColor(k.id) }} />
-                  <span className="font-medium">Cluster {k.id}</span>
+                  <span className="font-medium" title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></span>
                   <Badge variant="outline">{profile(k)}</Badge>
                   <span className="ml-auto text-sm text-muted-foreground tabular-nums">{k.members.length} accounts</span>
                 </div>
@@ -209,7 +209,7 @@ function Evidence() {
         return (
           <Card key={k.id}>
             <CardHeader>
-              <CardTitle>Cluster {k.id}</CardTitle>
+              <CardTitle title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></CardTitle>
               <CardDescription>How often these accounts act together, against what chance would produce</CardDescription>
             </CardHeader>
             <CardContent>
@@ -270,7 +270,7 @@ function Network() {
       <Card>
         <CardHeader>
           <CardTitle>{a?.handle ?? "Select an account"}</CardTitle>
-          <CardDescription>{a ? state.report?.clusters.find((k) => k.members.includes(a.id))?.id ?? "organic" : "Click a node to inspect it"}</CardDescription>
+          <CardDescription>{a ? (() => { const k = state.report?.clusters.find((x) => x.members.includes(a.id)); return k ? `Cluster ${short(k.id)}` : "Organic account"; })() : "Click a node to inspect it"}</CardDescription>
         </CardHeader>
         {a && (
           <CardContent className="flex flex-col gap-3 text-sm">
@@ -326,7 +326,7 @@ function Accounts() {
                     {handle(m)}
                   </Link>
                 </TableCell>
-                <TableCell>{k.id}</TableCell>
+                <TableCell className="font-mono" title={k.id}>{short(k.id)}</TableCell>
                 <TableCell className="text-muted-foreground">{seeders.has(m) ? `Seeder, posts first ${Math.round(seeders.get(m)! * 100)}% of the time` : "Amplifier"}</TableCell>
               </TableRow>
             ));

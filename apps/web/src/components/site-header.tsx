@@ -6,7 +6,9 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { useLiveState } from "@/lib/queries";
+import { useQuery } from "@tanstack/react-query";
+import { reportsQuery, useLiveState } from "@/lib/queries";
+import { short } from "@/lib/format";
 
 const PAGES = [
   { to: "/", label: "Situation" },
@@ -56,9 +58,9 @@ function Search_() {
           {!!data?.cases.length && (
             <CommandGroup heading="Threats">
               {data.cases.map((c) => (
-                <CommandItem key={c.id} value={`${c.id} ${c.title}`} onSelect={() => go(`/threats/${c.id}`)}>
-                  <span className="font-medium">{c.id}</span>
-                  <span className="truncate text-muted-foreground">{c.title}</span>
+                <CommandItem key={c.id} value={`${c.title} ${c.id}`} onSelect={() => go(`/threats/${c.id}`)}>
+                  <span className="truncate">{c.title}</span>
+                  <span className="ml-auto text-muted-foreground capitalize">{c.severity}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -75,9 +77,12 @@ export function SiteHeader() {
   const leaf = matches.at(-1);
   const title = leaf?.staticData?.title ?? "";
   const base = `/${leaf?.fullPath.split("/")[1] ?? ""}`;
+  const { data } = useLiveState();
+  const { data: reports } = useQuery(reportsQuery);
+  const entity = params.id && (data?.cases.find((c) => c.id === params.id)?.title ?? reports?.find((r) => r.id === params.id)?.content.title ?? short(params.id));
   useEffect(() => {
-    document.title = [params.id, title, "Cakra Nala"].filter(Boolean).join(" | ");
-  }, [params.id, title]);
+    document.title = [entity, title, "Cakra Nala"].filter(Boolean).join(" | ");
+  }, [entity, title]);
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
@@ -98,7 +103,7 @@ export function SiteHeader() {
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbPage className="font-medium">{params.id}</BreadcrumbPage>
+                  <BreadcrumbPage className="max-w-[40ch] truncate font-medium">{entity}</BreadcrumbPage>
                 </BreadcrumbItem>
               </>
             )}

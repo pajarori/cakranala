@@ -108,7 +108,6 @@ export const cases = {
     const r = db.query("SELECT * FROM cases WHERE id = ?").get(id);
     return r ? toCase(r) : undefined;
   },
-  nextId: () => `THR-${String(((db.query("SELECT COUNT(*) AS n FROM cases").get() as any).n as number) + 1).padStart(3, "0")}`,
   upsert: (c: CaseRow) =>
     db
       .query("INSERT OR REPLACE INTO cases (id, title, brief, status, members, first_seen, last_seen, peak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -142,5 +141,4 @@ export const reports = {
   get: (id: string) => reports.all().find((r) => r.id === id),
   insert: (r: ReportRow) => db.query("INSERT INTO reports (id, case_id, created_at, json, counter) VALUES (?, ?, ?, ?, ?)").run(r.id, r.caseId, r.createdAt, JSON.stringify(r.content), r.counter),
   setCounter: (id: string, counter: string) => db.query("UPDATE reports SET counter = ? WHERE id = ?").run(counter, id),
-  nextId: () => `RPT-${String(((db.query("SELECT COUNT(*) AS n FROM reports").get() as any).n as number) + 1).padStart(3, "0")}`,
 };

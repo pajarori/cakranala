@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { queryClient, reportQuery, reportsQuery, useCounter, useReport, useReports } from "@/lib/queries";
-import { date } from "@/lib/format";
+import { date, short } from "@/lib/format";
 
 function Reports() {
   const reports = useReports();
@@ -37,11 +37,11 @@ function Reports() {
                     <Link to="/reports/$id" params={{ id: r.id }} className="font-medium hover:underline">
                       {r.content.title}
                     </Link>
-                    <div className="text-sm text-muted-foreground">{r.id}</div>
+                    <div className="font-mono text-sm text-muted-foreground" title={r.id}>{short(r.id)}</div>
                   </TableCell>
                   <TableCell>
-                    <Link to="/threats/$id" params={{ id: r.caseId }} className="hover:underline">
-                      {r.caseId}
+                    <Link to="/threats/$id" params={{ id: r.caseId }} className="font-mono hover:underline" title={r.caseId}>
+                      {short(r.caseId)}
                     </Link>
                   </TableCell>
                   <TableCell>
@@ -90,7 +90,7 @@ function ReportView() {
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Button variant="outline" asChild>
           <Link to="/threats/$id" params={{ id: r.caseId }}>
-            Back to {r.caseId}
+            Back to threat
           </Link>
         </Button>
         <Button onClick={() => window.print()}>
@@ -101,8 +101,8 @@ function ReportView() {
       <article className="mx-auto w-full max-w-3xl rounded-xl border bg-card p-8 print:max-w-none print:border-0 print:bg-white print:p-0 print:text-black">
         <header className="border-b pb-5">
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground print:text-black">
-            <span>{r.id}</span>
-            <span>Case {r.caseId}</span>
+            <span className="font-mono" title={r.id}>Report {short(r.id)}</span>
+            <span className="font-mono" title={r.caseId}>Case {short(r.caseId)}</span>
             <span>{date(r.createdAt)}</span>
             <Badge variant="destructive" className="capitalize">
               {c.threatLevel}

@@ -119,7 +119,7 @@ async function track(report: Report, now: number, monitorOf: Map<string, string>
       if (manufactured >= Math.max(match.c.peak * 1.5, match.c.peak + 5)) alerts.add({ ts: now, kind: "escalated", caseId: row.id, text: `${row.title} grew to ${apparent} apparent supporters` });
     } else {
       const d = await describe(report, g.narratives, g.clusters);
-      row = { id: cases.nextId(), title: d.title, brief: d.brief, status: "new", members: [...members], firstSeen: now, lastSeen: now, peak: manufactured, createdAt: now };
+      row = { id: crypto.randomUUID(), title: d.title, brief: d.brief, status: "new", members: [...members], firstSeen: now, lastSeen: now, peak: manufactured, createdAt: now };
       alerts.add({ ts: now, kind: "new", caseId: row.id, text: `New coordinated operation: ${row.title}` });
     }
     cases.upsert(row);

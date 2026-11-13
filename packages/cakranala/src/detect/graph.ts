@@ -1,7 +1,7 @@
 import Graph from "graphology";
 import louvain from "graphology-communities-louvain";
 import type { LayerId, LayerResult, PairStat } from "./layers";
-import { mean, pairKey, quantile, rng, splitPair } from "../util";
+import { mean, pairKey, quantile, rng, splitPair, uuidFrom } from "../util";
 
 export interface Edge {
   a: string;
@@ -80,5 +80,5 @@ export function cluster(edges: Edge[], minSize: number, seed: number): Cluster[]
       }),
     });
   }
-  return clusters.sort((x, y) => y.rho * y.members.length - x.rho * x.members.length).map((c, i) => ({ ...c, id: `K${i + 1}` }));
+  return clusters.sort((x, y) => y.rho * y.members.length - x.rho * x.members.length).map((c) => ({ ...c, id: uuidFrom(`cluster:${c.members.join(",")}`) }));
 }

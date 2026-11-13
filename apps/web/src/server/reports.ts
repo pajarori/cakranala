@@ -72,7 +72,7 @@ export async function createReport(caseId: string): Promise<ReportRow<ReportCont
       };
     } catch {}
   }
-  const row: ReportRow<ReportContent> = { id: reports.nextId(), caseId, createdAt: Date.now(), content, counter: null };
+  const row: ReportRow<ReportContent> = { id: crypto.randomUUID(), caseId, createdAt: Date.now(), content, counter: null };
   reports.insert(row);
   return row;
 }

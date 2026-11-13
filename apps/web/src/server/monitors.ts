@@ -85,7 +85,7 @@ export function createMonitor(input: { kind: MonitorKind; target: string; label?
   if (!input.target?.trim() || input.target.length > 200) throw new Error("target must be 1 to 200 characters");
   if (input.kind !== "simulation") query(input.kind, input.target);
   const m = {
-    id: `MON-${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
+    id: crypto.randomUUID(),
     kind: input.kind,
     target: input.target.trim(),
     label: input.label?.trim() || (input.kind === "simulation" ? `Demo feed, seed ${input.target.trim()}` : input.target.trim()),
