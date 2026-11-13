@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { analyze, evaluate, pseudonymize, shield, simulate, validate, type Scenario } from "../src";
+import { analyze, evaluate, pseudonymize, ranking, shield, simulate, validate, type Scenario } from "../src";
 import scenario from "../scenarios/seruni.json";
 
 const ds = simulate(scenario as Scenario, 1);
@@ -50,4 +50,11 @@ describe("perisai", () => {
     const r = await shield({ text: "cek http://xn--tniad-9ya.com sekarang" }, { officialDomains: official });
     expect(r.urls[0].flags.some((f) => f.includes("punycode"))).toBe(true);
   });
+});
+
+test("ranking metrics handle perfect order and ties", () => {
+  const truth = { a: "op:x:io", b: "op:x:io", c: "organic:control", d: "organic:control" };
+  expect(ranking({ a: 3, b: 2, c: 1 }, truth).ap).toBe(1);
+  expect(ranking({}, truth).ap).toBeCloseTo(0.6, 2);
+  expect(ranking({ c: 3, d: 2 }, truth).precisionAt.R).toBe(0);
 });

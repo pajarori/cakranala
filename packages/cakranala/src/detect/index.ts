@@ -31,6 +31,7 @@ export interface Report {
   edges: Edge[];
   clusters: ClusterReport[];
   narratives: Narrative[];
+  scores: Record<string, number>;
 }
 
 export const DEFAULTS: AnalyzeOptions = {
@@ -63,6 +64,19 @@ async function brief(c: ClusterReport, reasoner: Reasoner) {
   return plain(await reasoner.complete(prompt));
 }
 
+function scores(edges: Edge[], k: number) {
+  const byActor = new Map<string, number[]>();
+  for (const e of edges) {
+    const s = Object.values(e.layers).reduce((acc, l) => acc - Math.log(Math.max(l!.p, 1e-300)), 0);
+    for (const a of [e.a, e.b]) {
+      const list = byActor.get(a);
+      if (list) list.push(s);
+      else byActor.set(a, [s]);
+    }
+  }
+  return Object.fromEntries([...byActor].map(([a, ss]) => [a, ss.sort((x, y) => y - x)[k - 1] ?? 0]));
+}
+
 export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}): Promise<Report> {
   const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined)) as Partial<AnalyzeOptions>;
   const o: AnalyzeOptions = { ...DEFAULTS, ...given, windowSec: { ...DEFAULTS.windowSec, ...given.windowSec } };
@@ -84,5 +98,6 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
     edges,
     clusters: reports,
     narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha, syncSec: o.syncSec }),
+    scores: scores(edges, Math.max(1, o.minClusterSize - 1)),
   };
 }

@@ -46,8 +46,6 @@ packages/
   reasoner-openai/    Reasoner: any OpenAI compatible chat API (DeepSeek by default)
 apps/
   web/                operations dashboard: Bun.serve API, SQLite, React
-docs/
-  research-plan.md    original research and planning notes
 ```
 
 The engine never imports the other packages. Applications inject an `Embedder` and a `Reasoner` when they want the semantic layer, briefs and Perisai explanations; without them it still runs.

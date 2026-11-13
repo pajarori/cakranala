@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this repository.
 
 ## Project
 
-Cakra Nala detects coordinated influence operations (buzzers, bot farms, LLM swarms) and turns them into an operations dashboard for TNI AD cyber analysts. See `README.md` for the product and `docs/research-plan.md` for the original research.
+Cakra Nala detects coordinated influence operations (buzzers, bot farms, LLM swarms) and turns them into an operations dashboard for TNI AD cyber analysts. See `README.md` for the product.
 
 ## Layout
 
