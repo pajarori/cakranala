@@ -88,7 +88,14 @@ async function collect(m: Monitor) {
   if (m.platform === "youtube") return youtube((c) => (m.kind === "post" ? c.video(videoId(m.target)!, { pages: m.pages }) : c.search(m.target, { videos: m.pages, pages: 2 })));
   if (m.platform === "telegram") return collectTelegram(channels(m.target), m.pages);
   if (m.platform === "tiktok") return tiktokRun((c, identity) => (m.kind === "post" ? c.video(tiktokVideo(m.target)!, { pages: m.pages, identity }) : c.search(m.target, { videos: m.pages, pages: 2, identity })));
-  return xSearch((c) => (m.kind === "post" ? c.conversation(query(m.kind, m.target).replace("conversation_id:", ""), { pages: m.pages }) : c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined })));
+  return xSearch(async (c) => {
+    if (m.kind !== "post") return c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
+    const id = query(m.kind, m.target).replace("conversation_id:", "");
+    const ds = await c.conversation(id, { pages: m.pages });
+    const known = new Set(ds.actors.map((a) => a.id));
+    const profiles = (await c.retweeters(id).catch(() => [])).filter((a) => !known.has(a.id));
+    return { ...ds, actors: [...ds.actors, ...profiles] };
+  });
 }
 
 export const rateState = () => ({ ...rate });

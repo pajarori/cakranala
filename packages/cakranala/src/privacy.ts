@@ -1,3 +1,4 @@
+import { handleShape } from "./detect/layers";
 import type { Dataset } from "./schema";
 
 async function hmac(key: CryptoKey, value: string) {
@@ -12,7 +13,7 @@ export async function pseudonymize(ds: Dataset, secret: string): Promise<Dataset
   const mention = /@\w+/g;
   return {
     ...ds,
-    actors: ds.actors.map((a) => ({ ...a, id: ids.get(a.id)!, handle: ids.get(a.id)! })),
+    actors: ds.actors.map((a) => ({ ...a, id: ids.get(a.id)!, handle: ids.get(a.id)!, shape: a.shape ?? handleShape(a.handle) })),
     events: ds.events.map((e) => ({ ...e, actor: ids.get(e.actor)!, text: e.text?.replace(mention, "@akun") })),
     truth: ds.truth && Object.fromEntries(Object.entries(ds.truth).map(([k, v]) => [ids.get(k) ?? k, v])),
   };

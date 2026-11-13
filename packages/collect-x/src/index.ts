@@ -35,7 +35,19 @@ async function discover(s: XSession) {
   const bearer = js.match(/"(AAAAAAAAAAAAAAAAAAAAA[^"]+)"/)?.[1];
   const search = queryId("SearchTimeline");
   if (!search || !bearer) throw new Error("x.com query id or bearer not found, the front end may have changed");
-  return { bearer, search, detail: queryId("TweetDetail") };
+  const lazy = async (op: string, hint: RegExp) => {
+    const names = new Map<string, string>();
+    const hashes = new Map<string, string>();
+    for (const m of html.matchAll(/(\d+):"([^"]+)"/g)) (/^[a-f0-9]{5,}$/.test(m[2]) ? hashes : names).set(m[1], m[2]);
+    for (const [id, name] of names) {
+      if (!hashes.has(id) || !hint.test(name)) continue;
+      const chunk = await (await get(`https://abs.twimg.com/responsive-web/client-web/${name}.${hashes.get(id)}a.js`, { "user-agent": userAgent })).text();
+      const found = chunk.match(new RegExp(`queryId:"([^"]+)",operationName:"${op}"`))?.[1];
+      if (found) return found;
+    }
+    return undefined;
+  };
+  return { bearer, search, detail: queryId("TweetDetail"), retweeters: queryId("Retweeters") ?? (await lazy("Retweeters", /Tweet|Engagement|Retweet/i)) };
 }
 
 const unwrap = (r: any) => (r?.__typename === "TweetWithVisibilityResults" ? r.tweet : r);
@@ -81,7 +93,7 @@ function toEvent(raw: any): { event: Event; actor: Actor } | undefined {
 }
 
 export async function createXCollector(session: XSession) {
-  const { bearer, search, detail } = await discover(session);
+  const { bearer, search, detail, retweeters } = await discover(session);
   let tx = await ClientTransaction.create(await fetchXDocument());
   const features: Record<string, boolean> = {};
   const rate: XRateState = { remaining: null, reset: null };
@@ -169,6 +181,23 @@ export async function createXCollector(session: XSession) {
         if (p < pages - 1) await sleep(lo + Math.random() * (hi - lo));
       }
       return collected(actors, events, q, fetched / pages);
+    },
+    async retweeters(id: string, pages = 1): Promise<Actor[]> {
+      if (!retweeters) throw new Error("x.com Retweeters query id not found");
+      const actors = new Map<string, Actor>();
+      let cursor: string | undefined;
+      for (let p = 0; p < pages; p++) {
+        const json = await graphql(`/i/api/graphql/${retweeters}/Retweeters`, { tweetId: id, count: 100, includePromotedContent: false, ...(cursor ? { cursor } : {}) }, `https://x.com/i/status/${id}/retweets`);
+        if (json.limited) break;
+        cursor = undefined;
+        for (const e of (json.data?.retweeters_timeline?.timeline?.instructions ?? []).flatMap((i: any) => i.entries ?? [])) {
+          const a = toActor(e.content?.itemContent?.user_results?.result);
+          if (a) actors.set(a.id, { ...a, reshared: [`x:${id}`] });
+          if (e.content?.cursorType === "Bottom") cursor = e.content.value;
+        }
+        if (!cursor) break;
+      }
+      return [...actors.values()];
     },
     async conversation(id: string, o: Pick<SearchOptions, "pages" | "delayMs"> = {}): Promise<Dataset> {
       if (!detail) throw new Error("x.com TweetDetail query id not found");

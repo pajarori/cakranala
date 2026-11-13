@@ -79,12 +79,17 @@ export const monitors = {
 
 const putEvent = db.query("INSERT OR IGNORE INTO events (id, monitor, ts, json) VALUES (?, ?, ?, ?)");
 const putActor = db.query("INSERT OR REPLACE INTO actors (id, json) VALUES (?, ?)");
+const getActor = db.query("SELECT json FROM actors WHERE id = ?");
 
 export const store = {
   add(monitor: string, actors: Actor[], events: Event[]) {
     let added = 0;
     db.transaction(() => {
-      for (const a of actors) putActor.run(a.id, JSON.stringify(a));
+      for (const a of actors) {
+        const prev = getActor.get(a.id) as { json: string } | null;
+        const reshared = [...new Set([...((prev && (JSON.parse(prev.json) as Actor).reshared) || []), ...(a.reshared ?? [])])];
+        putActor.run(a.id, JSON.stringify(reshared.length ? { ...a, reshared } : a));
+      }
       for (const e of events) added += putEvent.run(e.id, monitor, e.ts, JSON.stringify(e)).changes;
     })();
     return added;
@@ -92,7 +97,8 @@ export const store = {
   window(since: number) {
     const events = db.query("SELECT json FROM events WHERE ts >= ? ORDER BY ts").all(since).map((r: any) => JSON.parse(r.json) as Event);
     const ids = new Set(events.map((e) => e.actor));
-    const actors = db.query("SELECT json FROM actors").all().map((r: any) => JSON.parse(r.json) as Actor).filter((a) => ids.has(a.id));
+    const posts = new Set(events.map((e) => e.id));
+    const actors = db.query("SELECT json FROM actors").all().map((r: any) => JSON.parse(r.json) as Actor).filter((a) => ids.has(a.id) || a.reshared?.some((t) => posts.has(t)));
     return { actors, events };
   },
   rows: (actors: string[], since: number) => {

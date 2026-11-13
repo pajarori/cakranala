@@ -162,6 +162,24 @@ function Summary() {
           </ul>
         </CardContent>
       </Card>
+      {!!c.disarm.length && (
+        <Card>
+          <CardHeader>
+            <CardTitle>DISARM techniques</CardTitle>
+            <CardDescription>DISARM Framework, CC BY-SA 4.0</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {c.disarm.map((t) => (
+              <Badge key={t.id} variant="outline" asChild>
+                <a href={t.url} target="_blank" rel="noreferrer">
+                  <span className="font-mono">{t.id}</span>
+                  {t.name}
+                </a>
+              </Badge>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       {c.brief && (
         <Card>
           <CardHeader>

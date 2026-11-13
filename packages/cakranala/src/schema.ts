@@ -11,6 +11,8 @@ export interface Actor {
   followers?: number;
   following?: number;
   posts?: number;
+  reshared?: string[];
+  shape?: string;
 }
 
 export interface Event {

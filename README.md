@@ -8,10 +8,10 @@ Built for the Kartika Cyber Hackathon 2026, Cognitive Domain category.
 
 ## How it works
 
-1. **Monitor.** Operators register what to watch on X (a topic, replies and mentions aimed at an account, or one conversation), YouTube (comments on videos found by a search, or on one video), Telegram (public channels, with forwards traced to their origin), TikTok (comments on videos found by a search, or on one video), or a demo feed that replays a simulated scenario.
+1. **Monitor.** Operators register what to watch on X (a topic, replies and mentions aimed at an account, or one conversation plus the profiles of accounts that reposted it, which feed the account lifecycle layer), YouTube (comments on videos found by a search, or on one video), Telegram (public channels, with forwards traced to their origin), TikTok (comments on videos found by a search, or on one video), or a demo feed that replays a simulated scenario.
 2. **Detect.** Every 15 seconds the server collects due monitors and analyzes the last 24 hours with the `cakranala` engine.
 3. **Investigate.** Coordinated clusters and the narratives they push become threat cases with severity, status, evidence, a network graph and the accounts involved.
-4. **Respond.** Each case carries an escalation level (watch, alert, urgent) with a response checklist, exports as a STIX 2.1 bundle, and becomes a printable commander report with SHA-256 evidence hashes and a draft public message that uses prebunking.
+4. **Respond.** Each case carries an escalation level (watch, alert, urgent) with a response checklist and the DISARM techniques its evidence supports (DISARM Framework, CC BY-SA 4.0, mapping in `apps/web/config/disarm.json`), exports as a STIX 2.1 bundle, and becomes a printable commander report with SHA-256 evidence hashes and a draft public message that uses prebunking.
 5. **Protect.** Citizens paste a message or screenshot into Perisai and see the manipulation techniques used (from a configurable taxonomy in `apps/web/config/taxonomy.json`, each quote checked against the message), link impersonation, matching fact checks from TurnBackHoax.id by MAFINDO, and how much real support the narrative has.
 
 ### Detection engine

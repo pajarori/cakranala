@@ -39,6 +39,7 @@ function facts(id: string) {
       { label: "Coordinated accounts", value: String(clusters.reduce((s, k) => s + k.members.length, 0)) },
       { label: "Clusters", value: clusters.map((k) => k.id).join(", ") },
       { label: "First seen", value: new Date(c.firstSeen).toISOString() },
+      { label: "DISARM techniques", value: c.disarm.map((t) => `${t.id} ${t.name}`).join(", ") || "none" },
     ],
   };
 }

@@ -1,0 +1,48 @@
+{
+  "source": "DISARM Framework, DISARM Foundation, CC BY-SA 4.0",
+  "commit": "49df5f649e16dfbf11e3859913c256c875c02692",
+  "rules": {
+    "copypasta": {
+      "id": "T0084.001",
+      "name": "Use Copypasta",
+      "stix": "attack-pattern--4cd719a9-e817-4acc-9581-6b6a60e42f35",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0084.001.md"
+    },
+    "coaction": {
+      "id": "T0118",
+      "name": "Amplify Existing Narrative",
+      "stix": "attack-pattern--836e9eef-b446-4f68-805f-0f10116d6e7f",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0118.md"
+    },
+    "scripted": {
+      "id": "T0049.003",
+      "name": "Bots Amplify via Automated Forwarding and Reposting",
+      "stix": "attack-pattern--e6ab2793-a059-4354-bb60-045afb019833",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0049.003.md"
+    },
+    "hashtag": {
+      "id": "T0049.002",
+      "name": "Flood Existing Hashtag",
+      "stix": "attack-pattern--bfce790b-dfd6-46ca-8fab-c2d72f21bba2",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0049.002.md"
+    },
+    "reply": {
+      "id": "T0116",
+      "name": "Comment or Reply on Content",
+      "stix": "attack-pattern--318f2a34-07b6-4c4b-9bb0-58f5bca681fc",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0116.md"
+    },
+    "manufactured": {
+      "id": "T0049.005",
+      "name": "Conduct Swarming",
+      "stix": "attack-pattern--ce5b400c-6f82-4095-936b-617857800da8",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0049.005.md"
+    },
+    "lifecycle": {
+      "id": "T0143.002",
+      "name": "Fabricated Persona",
+      "stix": "attack-pattern--75d11cd8-2f92-4d73-97c5-27356c8a2758",
+      "url": "https://github.com/DISARMFoundation/DISARMframeworks/blob/main/generated_pages/techniques/T0143.002.md"
+    }
+  }
+}

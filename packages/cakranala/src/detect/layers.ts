@@ -201,16 +201,18 @@ function objectLayer(events: Event[], keys: (e: Event, i: number) => string[], w
   return { candidates: real.size, ...test(real, reps, expected, opts.minEpisodes, period !== undefined) };
 }
 
+export const handleShape = (handle?: string) => handle?.toLowerCase().replace(/[a-z]+/g, "a").replace(/\d+/g, (d) => "9".repeat(Math.min(d.length, 6)));
+
 function lifecycleLayer(ds: Dataset, n: number, opts: LayerOptions, replicates: number) {
   const active = new Set(ds.events.map((e) => e.actor));
   const keys = (a: Actor) => {
     const k: string[] = [];
     if (a.createdAt) k.push(`d:${Math.floor(a.createdAt / DAY)}`);
-    const s = a.handle?.toLowerCase().replace(/[a-z]+/g, "a").replace(/\d+/g, (d) => "9".repeat(Math.min(d.length, 6)));
+    const s = a.shape ?? handleShape(a.handle);
     if (s && s.includes("9")) k.push(`s:${s}`);
     return k;
   };
-  const actors = ds.actors.filter((a) => active.has(a.id));
+  const actors = ds.actors.filter((a) => active.has(a.id) || a.reshared?.length);
   const objects = groupBy(actors.flatMap((a) => keys(a).map((k) => ({ k, a: a.id }))), (x) => x.k);
   const prior = new Map(actors.map((a) => [a.id, keys(a).reduce((s, k) => s + (objects.get(k)!.length - 1) / Math.max(1, n - 1), 0)]));
   const pairs = new Map<string, PairStat>();

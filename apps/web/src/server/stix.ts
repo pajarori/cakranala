@@ -1,6 +1,7 @@
 import { uuidFrom } from "cakranala";
 import { caseView, snapshot } from "./analysis";
 import { store } from "./db";
+import { DISARM_SOURCE } from "./disarm";
 
 const iso = (ts: number) => new Date(ts).toISOString();
 const sid = (type: string, key: string) => `${type}--${uuidFrom(`${type}:${key}`)}`;
@@ -24,6 +25,10 @@ export function stixBundle(caseId: string) {
     objective: `Inflate apparent support: ${c.apparent} accounts, about ${c.independent.toFixed(1)} independent voices`,
   };
   const objects: Record<string, unknown>[] = [identity, campaign];
+  for (const t of c.disarm) {
+    objects.push({ type: "attack-pattern", id: t.stix, ...common, name: t.name, external_references: [{ source_name: "DISARM", external_id: t.id, url: t.url, description: DISARM_SOURCE }] });
+    objects.push({ type: "relationship", id: sid("relationship", `${c.id}:${t.id}`), ...common, created_by_ref: identity.id, relationship_type: "uses", source_ref: campaign.id, target_ref: t.stix });
+  }
   for (const k of report.clusters.filter((x) => c.clusters.includes(x.id))) {
     const accounts = k.members.map((m) => ({ type: "user-account", spec_version: "2.1", id: sid("user-account", m), user_id: m, account_type: "social-media" }));
     const posts = store.rows(k.members, window.from).length;

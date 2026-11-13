@@ -3,6 +3,7 @@ import { createE5Embedder } from "@cakranala/embed-e5";
 import { reasonerFromEnv } from "@cakranala/reasoner-openai";
 import { alerts, cases, monitors, store, type Alert, type CaseRow } from "./db";
 import { due, rateState, runMonitor, simulationProgress } from "./monitors";
+import { techniques, type Technique } from "./disarm";
 
 export const reasoner = reasonerFromEnv();
 const WINDOW = 24 * 3600_000;
@@ -23,6 +24,7 @@ export const embedder = () =>
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
+
 export type Escalation = "watch" | "alert" | "urgent";
 
 export const ESCALATION = { urgentInflation: 3, alertInflation: 2 };
@@ -38,6 +40,7 @@ export interface CaseView extends CaseRow {
   active: boolean;
   severity: Severity;
   escalation: Escalation;
+  disarm: Technique[];
   narratives: string[];
   clusters: string[];
   apparent: number;
@@ -138,13 +141,13 @@ async function track(report: Report, now: number, monitorOf: Map<string, string>
     seen.add(row.id);
     const memberSet = new Set(row.members);
     const mons = [...new Set(events.filter((e) => memberSet.has(e.actor)).map((e) => monitorOf.get(e.id)).filter(Boolean) as string[])];
-    views.push({ ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons });
+    views.push({ ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), disarm: techniques(report, g.clusters, g.narratives, events), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons });
   }
   return order([...views, ...dormant(seen)]);
 }
 
 const dormant = (seen = new Set<string>()): CaseView[] =>
-  cases.all().filter((c) => !seen.has(c.id)).map((c) => ({ ...c, active: false, severity: severity(c.peak), escalation: "watch" as Escalation, narratives: [], clusters: [], apparent: 0, independent: 0, monitors: [] }));
+  cases.all().filter((c) => !seen.has(c.id)).map((c) => ({ ...c, active: false, severity: severity(c.peak), escalation: "watch" as Escalation, disarm: [], narratives: [], clusters: [], apparent: 0, independent: 0, monitors: [] }));
 
 function order(views: CaseView[]) {
   const rank = { critical: 0, high: 1, medium: 2, low: 3 };
