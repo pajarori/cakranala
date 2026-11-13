@@ -25,9 +25,18 @@
         "cakranala": "workspace:*",
       },
     },
+    "packages/reasoner-openai": {
+      "name": "@cakranala/reasoner-openai",
+      "version": "0.1.0",
+      "dependencies": {
+        "cakranala": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@cakranala/embed-e5": ["@cakranala/embed-e5@workspace:packages/embed-e5"],
+
+    "@cakranala/reasoner-openai": ["@cakranala/reasoner-openai@workspace:packages/reasoner-openai"],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.11.3", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA=="],
 
