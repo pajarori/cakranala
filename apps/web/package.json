@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@cakranala/collect-telegram": "workspace:*",
+    "@cakranala/collect-tiktok": "workspace:*",
     "@cakranala/collect-x": "workspace:*",
     "@cakranala/collect-youtube": "workspace:*",
     "@cakranala/embed-e5": "workspace:*",

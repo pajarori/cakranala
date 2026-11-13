@@ -14,6 +14,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@cakranala/collect-telegram": "workspace:*",
+        "@cakranala/collect-tiktok": "workspace:*",
         "@cakranala/collect-x": "workspace:*",
         "@cakranala/collect-youtube": "workspace:*",
         "@cakranala/embed-e5": "workspace:*",
@@ -61,6 +62,13 @@
         "cakranala": "workspace:*",
       },
     },
+    "packages/collect-tiktok": {
+      "name": "@cakranala/collect-tiktok",
+      "version": "0.1.0",
+      "dependencies": {
+        "cakranala": "workspace:*",
+      },
+    },
     "packages/collect-x": {
       "name": "@cakranala/collect-x",
       "version": "0.1.0",
@@ -97,6 +105,8 @@
     "@bufbuild/protobuf": ["@bufbuild/protobuf@2.17.0", "", {}, "sha512-hcPkSz6D7MiTU/5VBBhK+kxaYDoOdQ6yJRFJ3kS8Nydp+VZXfg1vrpABKPNod8bXMufsVCmiUJVIKFzCzta4uw=="],
 
     "@cakranala/collect-telegram": ["@cakranala/collect-telegram@workspace:packages/collect-telegram"],
+
+    "@cakranala/collect-tiktok": ["@cakranala/collect-tiktok@workspace:packages/collect-tiktok"],
 
     "@cakranala/collect-x": ["@cakranala/collect-x@workspace:packages/collect-x"],
 

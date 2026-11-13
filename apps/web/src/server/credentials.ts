@@ -6,12 +6,13 @@ export type CredentialPlatform = "x" | "youtube" | "tiktok";
 export const CREDENTIAL_FIELDS: Record<CredentialPlatform, string[]> = {
   x: ["authToken", "ct0", "userAgent"],
   youtube: ["cookie"],
-  tiktok: ["cookie"],
+  tiktok: ["cookie", "userAgent"],
 };
 
 const REQUIRED: Record<CredentialPlatform, string[]> = { x: ["authToken", "ct0"], youtube: ["cookie"], tiktok: ["cookie"] };
 const MAX_FAILURES = 3;
 
+db.exec("CREATE TABLE IF NOT EXISTS sidecar_identities (credential_id TEXT PRIMARY KEY, identity_id TEXT NOT NULL)");
 db.exec(`CREATE TABLE IF NOT EXISTS credentials (id TEXT PRIMARY KEY, platform TEXT NOT NULL, label TEXT NOT NULL, secret TEXT NOT NULL, iv TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, failures INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0, cooldown_until INTEGER, last_used INTEGER, last_error TEXT, created_at INTEGER NOT NULL)`);
 
 const KEY_FILE = `${DIR}credential.key`;
@@ -84,7 +85,12 @@ export const credentials = {
     db.query("INSERT INTO credentials (id, platform, label, secret, iv, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(id, platform, label.trim().slice(0, 80) || platform, secret, iv, Date.now());
     return credentials.get(id)!;
   },
-  remove: (id: string) => db.query("DELETE FROM credentials WHERE id = ?").run(id),
+  remove: (id: string) => {
+    db.query("DELETE FROM sidecar_identities WHERE credential_id = ?").run(id);
+    db.query("DELETE FROM credentials WHERE id = ?").run(id);
+  },
+  sidecarIdentity: (id: string) => (db.query("SELECT identity_id FROM sidecar_identities WHERE credential_id = ?").get(id) as { identity_id: string } | null)?.identity_id,
+  setSidecarIdentity: (id: string, identity: string) => db.query("INSERT OR REPLACE INTO sidecar_identities (credential_id, identity_id) VALUES (?, ?)").run(id, identity),
   setActive: (id: string, active: boolean) => db.query("UPDATE credentials SET active = ?, cooldown_until = NULL, failures = CASE WHEN ? THEN 0 ELSE failures END, last_error = CASE WHEN ? THEN NULL ELSE last_error END WHERE id = ?").run(active ? 1 : 0, active ? 1 : 0, active ? 1 : 0, id),
   rotate: (id: string, until = Date.now() + 15 * 60_000) => db.query("UPDATE credentials SET cooldown_until = ? WHERE id = ?").run(until, id),
   available: (platform: CredentialPlatform, now = Date.now()) =>

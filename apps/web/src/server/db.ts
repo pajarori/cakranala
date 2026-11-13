@@ -23,7 +23,7 @@ if (!(db.query("PRAGMA table_info(monitors)").all() as { name: string }[]).some(
 export const sha256 = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
 
 export type MonitorKind = "topic" | "account" | "post" | "simulation";
-export type Platform = "x" | "youtube" | "telegram";
+export type Platform = "x" | "youtube" | "telegram" | "tiktok";
 
 export interface Monitor {
   id: string;

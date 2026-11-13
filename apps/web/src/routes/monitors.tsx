@@ -28,6 +28,7 @@ const PLATFORMS: Record<Platform, { label: string; kinds: MonitorKind[] }> = {
   x: { label: "X", kinds: ["topic", "account", "post"] },
   youtube: { label: "YouTube", kinds: ["topic", "post"] },
   telegram: { label: "Telegram", kinds: ["account"] },
+  tiktok: { label: "TikTok", kinds: ["topic", "post"] },
 };
 
 const TARGETS: Record<string, { label: string; placeholder: string }> = {
@@ -37,6 +38,8 @@ const TARGETS: Record<string, { label: string; placeholder: string }> = {
   "youtube:topic": { label: "Search query", placeholder: "pulau seruni" },
   "youtube:post": { label: "Video URL or ID", placeholder: "https://youtu.be/abc123def45" },
   "telegram:account": { label: "Public channels", placeholder: "channel_one, channel_two" },
+  "tiktok:topic": { label: "Search query", placeholder: "pulau seruni" },
+  "tiktok:post": { label: "Video URL or ID", placeholder: "https://www.tiktok.com/@user/video/123" },
   "demo:simulation": { label: "Scenario seed", placeholder: "1" },
 };
 
@@ -150,7 +153,7 @@ function NewMonitor() {
   const kind = kinds.includes(picked) ? picked : kinds[0];
   const T = TARGETS[`${source}:${kind}`];
   const live = source !== "demo";
-  const blocked = source === "x" && !caps.data?.live;
+  const blocked = (source === "x" && !caps.data?.live) || (source === "tiktok" && !caps.data?.tiktok);
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
       <form
@@ -214,7 +217,7 @@ function NewMonitor() {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>{source === "youtube" ? "Videos per run" : "Pages per run"}</Label>
+                  <Label>{source === "youtube" || source === "tiktok" ? "Videos per run" : "Pages per run"}</Label>
                   <Select value={pages} onValueChange={setPages}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -222,7 +225,7 @@ function NewMonitor() {
                     <SelectContent>
                       {["1", "3", "5", "10"].map((v) => (
                         <SelectItem key={v} value={v}>
-                          {source === "youtube" ? `${v} videos` : `${v} pages`}
+                          {source === "youtube" || source === "tiktok" ? `${v} videos` : `${v} pages`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -245,7 +248,7 @@ function NewMonitor() {
                 </Select>
               </div>
             )}
-            {blocked && <p className="text-sm text-destructive">X collection is not configured on this server.</p>}
+            {blocked && <p className="text-sm text-destructive">{source === "tiktok" ? "TikTok sidecar is not configured on this server." : "X collection is not configured on this server."}</p>}
           </CardContent>
           <CardFooter className="justify-end gap-2">
             <Button type="button" variant="outline" asChild>

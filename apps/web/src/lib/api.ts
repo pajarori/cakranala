@@ -29,6 +29,7 @@ export interface AblationRow {
 
 export interface Capabilities {
   live: boolean;
+  tiktok: boolean;
   reasoner: boolean;
   scenario: string;
   severity: Record<"critical" | "high" | "medium", number>;

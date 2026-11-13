@@ -8,7 +8,7 @@ Built for the Kartika Cyber Hackathon 2026, Cognitive Domain category.
 
 ## How it works
 
-1. **Monitor.** Operators register what to watch on X (a topic, replies and mentions aimed at an account, or one conversation), YouTube (comments on videos found by a search, or on one video), Telegram (public channels, with forwards traced to their origin), or a demo feed that replays a simulated scenario.
+1. **Monitor.** Operators register what to watch on X (a topic, replies and mentions aimed at an account, or one conversation), YouTube (comments on videos found by a search, or on one video), Telegram (public channels, with forwards traced to their origin), TikTok (comments on videos found by a search, or on one video), or a demo feed that replays a simulated scenario.
 2. **Detect.** Every 15 seconds the server collects due monitors and analyzes the last 24 hours with the `cakranala` engine.
 3. **Investigate.** Coordinated clusters and the narratives they push become threat cases with severity, status, evidence, a network graph and the accounts involved.
 4. **Respond.** Each case carries an escalation level (watch, alert, urgent) with a response checklist, exports as a STIX 2.1 bundle, and becomes a printable commander report with SHA-256 evidence hashes and a draft public message that uses prebunking.
@@ -51,6 +51,7 @@ packages/
   collect-x/          X collector: search through the web GraphQL API with a session
   collect-youtube/    YouTube collector: video search and comments, no login
   collect-telegram/   Telegram collector: public channel previews, no login
+  collect-tiktok/     TikTok collector: thin client for the TikTok sidecar
   embed-e5/           Embedder: multilingual-e5-small through transformers.js
   reasoner-openai/    Reasoner: any OpenAI compatible chat API (DeepSeek by default)
 apps/
@@ -130,6 +131,10 @@ Only Caddy is exposed (ports 80 and 443). Anyone can view the dashboard and use 
 | `PORT` | HTTP port, 3000 by default. |
 
 Collected data and the SQLite database live in `./data`, mounted as a volume.
+
+### TikTok
+
+TikTok is collected through an optional sidecar, [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) (Apache 2.0), with its TimescaleDB, Redis and worker, under the `tiktok` compose profile. Set `TIKTOK_SIDECAR_URL=http://tiktok:8000`, `TIKTOK_SIDECAR_PASSWORD`, `TIKTOK_SECRET_KEY` (at least 32 characters) and `TIKTOK_DB_PASSWORD` in `.env`, then start with `docker compose --profile tiktok up -d --build` (add `-f docker-compose.prod.yml` on a server). The sidecar needs a TikTok session: add one at `/credentials` (the full cookie header including `ttwid`, and the exact user agent it came from). Cakra Nala imports each vault credential into the sidecar once and routes requests through it.
 
 ### Platform credentials
 

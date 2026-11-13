@@ -3,6 +3,7 @@ import seruni from "cakranala/scenarios/seruni.json";
 import { createXCollector, sessionFromEnv } from "@cakranala/collect-x";
 import { createYoutubeCollector } from "@cakranala/collect-youtube";
 import { collectTelegram } from "@cakranala/collect-telegram";
+import { createTiktokCollector, sidecarFromEnv } from "@cakranala/collect-tiktok";
 import { audit, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
 import { credentials, rotating } from "./credentials";
 
@@ -49,21 +50,44 @@ export function importEnvCredential() {
   if (s && !credentials.count("x")) return credentials.add("x", "Imported from environment", { authToken: s.authToken, ct0: s.ct0, userAgent: s.userAgent });
 }
 
-export const PLATFORM_KINDS: Record<Platform, MonitorKind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"] };
+export const PLATFORM_KINDS: Record<Platform, MonitorKind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"], tiktok: ["topic", "post"] };
 
 const videoId = (t: string) => t.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1] ?? t.match(/^[\w-]{11}$/)?.[0];
 const channels = (t: string) => t.split(/[\s,]+/).map((c) => c.replace(/^@/, "").replace(/^https?:\/\/t\.me\/(s\/)?/, "").split(/[/?]/)[0]).filter((c) => /^[A-Za-z0-9_]{4,}$/.test(c));
+
+const tiktokVideo = (t: string) => t.match(/video\/(\d{8,})/)?.[1] ?? t.match(/^\d{8,}$/)?.[0];
+let tiktokClient: ReturnType<typeof createTiktokCollector> | undefined;
+const tiktok = () => {
+  const config = sidecarFromEnv();
+  if (!config) throw new Error("TikTok sidecar is not configured");
+  return (tiktokClient ??= createTiktokCollector(config));
+};
+
+const tiktokRun = (run: (c: ReturnType<typeof createTiktokCollector>, identity?: string) => Promise<Dataset>) =>
+  credentials.count("tiktok")
+    ? rotating("tiktok", async (lease) => {
+        const c = tiktok();
+        let identity = credentials.sidecarIdentity(lease.id);
+        if (!identity) {
+          identity = await c.importIdentity(lease.fields.cookie, lease.fields.userAgent);
+          credentials.setSidecarIdentity(lease.id, identity);
+        }
+        return { value: await run(c, identity) };
+      })
+    : run(tiktok());
 
 function validate(platform: Platform, kind: MonitorKind, target: string) {
   if (!PLATFORM_KINDS[platform]?.includes(kind)) throw new Error(`${platform} does not support ${kind} monitors`);
   if (platform === "x") query(kind, target);
   if (platform === "youtube" && kind === "post" && !videoId(target)) throw new Error("YouTube monitor needs a video URL or ID");
   if (platform === "telegram" && !channels(target).length) throw new Error("Telegram monitor needs public channel names");
+  if (platform === "tiktok" && kind === "post" && !tiktokVideo(target)) throw new Error("TikTok monitor needs a video URL or ID");
 }
 
 async function collect(m: Monitor) {
   if (m.platform === "youtube") return youtube((c) => (m.kind === "post" ? c.video(videoId(m.target)!, { pages: m.pages }) : c.search(m.target, { videos: m.pages, pages: 2 })));
   if (m.platform === "telegram") return collectTelegram(channels(m.target), m.pages);
+  if (m.platform === "tiktok") return tiktokRun((c, identity) => (m.kind === "post" ? c.video(tiktokVideo(m.target)!, { pages: m.pages, identity }) : c.search(m.target, { videos: m.pages, pages: 2, identity })));
   return xSearch((c) => (m.kind === "post" ? c.conversation(query(m.kind, m.target).replace("conversation_id:", ""), { pages: m.pages }) : c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined })));
 }
 

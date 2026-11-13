@@ -1,3 +1,12 @@
+x-dtk: &dtk
+  image: evil0ctal/douyin_tiktok_download_api:5.1.8
+  profiles: ["tiktok"]
+  environment:
+    DTK_SECRET_KEY: ${TIKTOK_SECRET_KEY:-}
+    DTK_DATABASE_URL: postgresql+asyncpg://dtk:${TIKTOK_DB_PASSWORD:-dtk}@tiktok-db:5432/dtk
+    DTK_REDIS_URL: redis://tiktok-redis:6379/0
+  restart: unless-stopped
+
 services:
   web:
     build: .
@@ -13,3 +22,67 @@ services:
     working_dir: /app
     command: bun test
     profiles: ["test"]
+
+  tiktok-db:
+    image: timescale/timescaledb:2.17.2-pg16
+    profiles: ["tiktok"]
+    environment:
+      POSTGRES_USER: dtk
+      POSTGRES_PASSWORD: ${TIKTOK_DB_PASSWORD:-dtk}
+      POSTGRES_DB: dtk
+    volumes:
+      - tiktok_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "dtk"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  tiktok-redis:
+    image: redis:7
+    profiles: ["tiktok"]
+    restart: unless-stopped
+
+  tiktok-migrate:
+    <<: *dtk
+    command: ["migrate"]
+    restart: "no"
+    depends_on:
+      tiktok-db:
+        condition: service_healthy
+
+  tiktok-user:
+    <<: *dtk
+    entrypoint: ["sh", "-c", "printf '%s' \"$$TIKTOK_SIDECAR_PASSWORD\" | dtk user create cakranala --stdin || true"]
+    environment:
+      DTK_SECRET_KEY: ${TIKTOK_SECRET_KEY:-}
+      DTK_DATABASE_URL: postgresql+asyncpg://dtk:${TIKTOK_DB_PASSWORD:-dtk}@tiktok-db:5432/dtk
+      DTK_REDIS_URL: redis://tiktok-redis:6379/0
+      TIKTOK_SIDECAR_PASSWORD: ${TIKTOK_SIDECAR_PASSWORD:-}
+    restart: "no"
+    depends_on:
+      tiktok-migrate:
+        condition: service_completed_successfully
+
+  tiktok:
+    <<: *dtk
+    command: ["api"]
+    expose:
+      - "8000"
+    depends_on:
+      tiktok-user:
+        condition: service_completed_successfully
+      tiktok-redis:
+        condition: service_started
+
+  tiktok-worker:
+    <<: *dtk
+    command: ["worker"]
+    depends_on:
+      tiktok-migrate:
+        condition: service_completed_successfully
+      tiktok-redis:
+        condition: service_started
+
+volumes:
+  tiktok_db:
