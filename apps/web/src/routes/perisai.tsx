@@ -1,16 +1,22 @@
 import { useRef, useState } from "react";
 import { createRoute, Link } from "@tanstack/react-router";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import { rootRoute } from "@/routes/root";
-import { ErrorState, Meter, PageHeader, Panel, Tag, type Tone } from "@/components/primitives";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { useShield } from "@/lib/queries";
 import { approx, int } from "@/lib/format";
 import type { ShieldResult } from "@/lib/api";
 
 const SAMPLE = "PENDAFTARAN BINTARA JALUR KHUSUS!!! Kuota terbatas, dijamin lolos. Transfer biaya admin Rp2.500.000 ke 081234567890, daftar di ad-rekrutmen-tni.com/daftar sebelum besok!!";
-const MAX_IMAGE = 4_000_000;
+
+const RISK = { tinggi: { label: "High risk", variant: "destructive" }, sedang: { label: "Medium risk", variant: "secondary" }, rendah: { label: "Low risk", variant: "outline" } } as const;
 
 function Highlighted({ text, quotes }: { text: string; quotes: string[] }) {
   const parts: { s: string; hit: boolean }[] = [{ s: text, hit: false }];
@@ -22,97 +28,89 @@ function Highlighted({ text, quotes }: { text: string; quotes: string[] }) {
       parts.splice(i, 1, { s: p.slice(0, at), hit: false }, { s: p.slice(at, at + q.length), hit: true }, { s: p.slice(at + q.length), hit: false });
       i++;
     }
-  return (
-    <p className="whitespace-pre-wrap break-words text-[16px] leading-relaxed">
-      {parts.map((p, i) => (p.hit ? <mark key={i} className="rounded-sm bg-warning/20 px-0.5 text-warning">{p.s}</mark> : <span key={i}>{p.s}</span>))}
-    </p>
-  );
+  return <p className="whitespace-pre-wrap break-words leading-relaxed">{parts.map((p, i) => (p.hit ? <mark key={i} className="rounded-sm bg-destructive/20 px-0.5 text-foreground">{p.s}</mark> : <span key={i}>{p.s}</span>))}</p>;
 }
 
-const RISK: Record<ShieldResult["risk"], { label: string; tone: Tone }> = {
-  tinggi: { label: "High risk", tone: "danger" },
-  sedang: { label: "Medium risk", tone: "warning" },
-  rendah: { label: "Low risk", tone: "success" },
-};
-
 function Result({ r }: { r: ShieldResult }) {
-  const risk = RISK[r.risk];
   const consensus = r.matches.filter((m) => m.kind !== "pustaka").slice(0, 2);
   return (
-    <div className="space-y-6">
-      <Panel>
-        <div className="flex flex-wrap items-center gap-4">
-          <Tag tone={risk.tone} className="h-7 text-[14px]">{risk.label}</Tag>
-          <div className="w-44">
-            <Meter value={r.score} tone={risk.tone} />
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <Badge variant={RISK[r.risk].variant}>{RISK[r.risk].label}</Badge>
+            <span className="text-sm font-normal text-muted-foreground tabular-nums">score {Math.round(r.score * 100)} of 100</span>
+          </CardTitle>
+          {r.summary && <CardDescription className="text-base leading-relaxed text-foreground">{r.summary}</CardDescription>}
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border bg-muted/40 p-4">
+            <Highlighted text={r.text} quotes={r.techniques.map((t) => t.quote)} />
           </div>
-          <span className="tabular text-[15px] text-muted-foreground">{Math.round(r.score * 100)} of 100</span>
-        </div>
-        {r.summary && <p className="mt-5 text-[17px] leading-relaxed">{r.summary}</p>}
-        <div className="mt-5 rounded-lg border bg-background p-4">
-          <Highlighted text={r.text} quotes={r.techniques.map((t) => t.quote)} />
-        </div>
-      </Panel>
+        </CardContent>
+      </Card>
       {!!consensus.length && (
-        <Panel title="Consensus context">
-          <ul className="space-y-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Consensus context</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
             {consensus.map((m) => (
-              <li key={`${m.kind}${m.ref}`} className="text-[16px] leading-relaxed">
-                Matches{" "}
-                <Link to={m.kind === "narasi" ? "/narratives/$id" : "/clusters/$id"} params={{ id: m.ref }} className="font-medium underline underline-offset-4">
-                  {m.kind === "narasi" ? "narrative" : "cluster"} {m.ref}
-                </Link>
-                {m.sie !== undefined ? (
-                  <>
-                    {" "}which {int(m.supporters ?? 0)} accounts appear to support, yet only <span className="font-medium text-success">{approx(m.sie)} are independent</span>.
-                  </>
-                ) : (
-                  <> pushed by {m.supporters} coordinated accounts.</>
-                )}
-              </li>
+              <p key={`${m.kind}${m.ref}`}>
+                Matches a narrative that {int(m.supporters ?? 0)} accounts appear to push{m.sie !== undefined ? <>, but only <span className="font-medium">{approx(m.sie)} are independent</span></> : ""}.
+              </p>
             ))}
-          </ul>
-        </Panel>
+          </CardContent>
+        </Card>
       )}
       {!!r.techniques.length && (
-        <Panel title="Techniques" flush>
-          <ul className="divide-y">
+        <Card>
+          <CardHeader>
+            <CardTitle>Manipulation techniques</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col divide-y">
             {r.techniques.map((t) => (
-              <li key={t.name + t.quote} className="px-5 py-4">
-                <div className="text-[16px] font-medium">{t.name}</div>
-                <div className="mt-1 text-[15px] text-warning">“{t.quote}”</div>
-                <div className="mt-1.5 text-[15px] text-muted-foreground">{t.why}</div>
-              </li>
+              <div key={t.name + t.quote} className="py-3 first:pt-0 last:pb-0">
+                <div className="font-medium">{t.name}</div>
+                <div className="text-sm">“{t.quote}”</div>
+                <div className="mt-1 text-sm text-muted-foreground">{t.why}</div>
+              </div>
             ))}
-          </ul>
-        </Panel>
+          </CardContent>
+        </Card>
       )}
       {(!!r.urls.length || !!r.cues.length) && (
-        <Panel title="Signals" flush>
-          <ul className="divide-y text-[15px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Signals</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
             {r.urls.map((u) => (
-              <li key={u.url} className="flex flex-wrap items-center gap-2 px-5 py-3">
+              <div key={u.url} className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{u.host}</span>
-                {u.flags.length ? u.flags.map((f) => <Tag key={f} tone="danger">{f}</Tag>) : <Tag tone="success">no flags</Tag>}
-              </li>
+                {u.flags.length ? u.flags.map((f) => <Badge key={f} variant="destructive">{f}</Badge>) : <Badge variant="outline">no flags</Badge>}
+              </div>
             ))}
             {r.cues.map((c) => (
-              <li key={c} className="px-5 py-3 text-muted-foreground">
+              <div key={c} className="text-muted-foreground">
                 {c}
-              </li>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Advice</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-1.5 pl-5">
+            {r.advice.map((a) => (
+              <li key={a}>{a}</li>
             ))}
           </ul>
-        </Panel>
-      )}
-      <Panel title="Advice" flush>
-        <ul className="divide-y">
-          {r.advice.map((a) => (
-            <li key={a} className="px-5 py-3 text-[16px]">
-              {a}
-            </li>
-          ))}
-        </ul>
-      </Panel>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -125,99 +123,84 @@ const readImage = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-function ImageField({ value, onChange }: { value: { name: string; data: string } | null; onChange: (v: { name: string; data: string } | null) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [over, setOver] = useState(false);
-  const accept = async (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return setError("Images only");
-    if (file.size > MAX_IMAGE) return setError("Image must be under 4 MB");
-    setError(null);
-    onChange({ name: file.name, data: await readImage(file) });
-  };
-  if (value)
-    return (
-      <div className="flex items-center gap-3 rounded-lg border p-2.5">
-        <img src={value.data} alt="" className="size-14 rounded-md object-cover" />
-        <span className="min-w-0 flex-1 truncate text-[15px]">{value.name}</span>
-        <Button variant="ghost" size="icon" onClick={() => onChange(null)} aria-label="Remove image">
-          <X />
-        </Button>
-      </div>
-    );
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => input.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setOver(true);
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setOver(false);
-          accept(e.dataTransfer.files[0]);
-        }}
-        onPaste={(e) => accept(e.clipboardData.files[0])}
-        className={`flex w-full items-center gap-3 rounded-lg border border-dashed px-4 py-4 text-left text-[15px] text-muted-foreground transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${over ? "bg-accent/60" : ""}`}
-      >
-        <ImagePlus className="size-5" />
-        Add a screenshot
-      </button>
-      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => accept(e.target.files?.[0])} />
-      {error && <p className="mt-2 text-[14px] text-destructive">{error}</p>}
-    </>
-  );
-}
-
 function Perisai() {
   const [text, setText] = useState("");
   const [image, setImage] = useState<{ name: string; data: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
   const shield = useShield();
   const ready = !!text.trim() || !!image;
   const run = () => ready && !shield.isPending && shield.mutate({ text: text.trim() || undefined, image: image?.data });
+  const accept = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setError("Images only");
+    if (file.size > 4_000_000) return setError("Image must be under 4 MB");
+    setError(null);
+    setImage({ name: file.name, data: await readImage(file) });
+  };
   return (
-    <>
-      <PageHeader title="Perisai" meta="Check a message before you trust or share it" />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <Panel>
-          <label htmlFor="msg" className="mb-2 block text-[15px] font-medium">
-            Message
-          </label>
-          <Textarea
-            id="msg"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run();
-            }}
-            rows={9}
-            placeholder="Paste a message, link or post…"
-            className="text-[16px] leading-relaxed"
-          />
-          <div className="mt-4">
-            <ImageField value={image} onChange={setImage} />
-          </div>
-          <div className="mt-5 flex items-center gap-3">
-            <Button variant="ghost" onClick={() => setText(SAMPLE)} className="text-[15px] text-muted-foreground">
+    <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
+      <div className="grid gap-4 @5xl/main:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>Check a message</CardTitle>
+            <CardDescription>For the public: paste a message or screenshot you received before trusting or sharing it</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="msg">Message</Label>
+              <Textarea id="msg" rows={8} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && run()} placeholder="Paste a message, link or post…" />
+            </div>
+            {image ? (
+              <div className="flex items-center gap-3 rounded-lg border p-2">
+                <img src={image.data} alt="" className="size-12 rounded-md object-cover" />
+                <span className="min-w-0 flex-1 truncate text-sm">{image.name}</span>
+                <Button variant="ghost" size="icon" onClick={() => setImage(null)} aria-label="Remove image">
+                  <X />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button variant="outline" className="h-14 border-dashed" onClick={() => input.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), accept(e.dataTransfer.files[0]))} onPaste={(e) => accept(e.clipboardData.files[0])}>
+                  <ImagePlus />
+                  Add a screenshot
+                </Button>
+                <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => accept(e.target.files?.[0])} />
+              </>
+            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="ghost" onClick={() => setText(SAMPLE)}>
               Load sample
             </Button>
-            <Button onClick={run} disabled={!ready || shield.isPending} className="ml-auto h-10 px-5 text-[15px]">
-              {shield.isPending && <Loader2 className="animate-spin" />}
+            <Button onClick={run} disabled={!ready || shield.isPending}>
+              {shield.isPending && <Spinner />}
               Check message
             </Button>
-          </div>
-        </Panel>
+          </CardFooter>
+        </Card>
         <div>
-          {shield.error && <ErrorState error={shield.error} title="Check failed" />}
-          {shield.data && <Result r={shield.data} />}
-          {!shield.data && !shield.error && <div className="h-full min-h-56 rounded-xl border border-dashed" />}
+          {shield.error && (
+            <Alert variant="destructive">
+              <AlertTitle>Check failed</AlertTitle>
+              <AlertDescription>{shield.error.message}</AlertDescription>
+            </Alert>
+          )}
+          {shield.data ? (
+            <Result r={shield.data} />
+          ) : (
+            !shield.error && (
+              <Empty className="h-full border">
+                <EmptyHeader>
+                  <EmptyTitle>The analysis appears here</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            )
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

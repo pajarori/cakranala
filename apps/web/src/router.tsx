@@ -1,35 +1,16 @@
 import { createRouter } from "@tanstack/react-router";
 import { rootRoute } from "@/routes/root";
-import { overviewRoute } from "@/routes/overview";
-import { narrativesRoute } from "@/routes/narratives";
-import { narrativeRoute } from "@/routes/narrative";
-import { clustersRoute } from "@/routes/clusters";
-import { clusterRoute, clusterTabs } from "@/routes/cluster";
-import { networkRoute, networkChildren } from "@/routes/network";
+import { situationRoute } from "@/routes/situation";
+import { threatsRoute } from "@/routes/threats";
+import { threatRoute, threatTabs } from "@/routes/threat";
+import { monitorsRoute, newMonitorRoute } from "@/routes/monitors";
+import { reportRoute, reportsRoute } from "@/routes/reports";
 import { perisaiRoute } from "@/routes/perisai";
-import { evaluationRoute } from "@/routes/evaluation";
-import { sourcesRoute } from "@/routes/sources";
-import { ErrorState, PageSkeleton } from "@/components/primitives";
+import { systemRoute } from "@/routes/system";
 
-const routeTree = rootRoute.addChildren([
-  overviewRoute,
-  narrativesRoute,
-  narrativeRoute,
-  clustersRoute,
-  clusterRoute.addChildren(clusterTabs),
-  networkRoute.addChildren(networkChildren),
-  perisaiRoute,
-  evaluationRoute,
-  sourcesRoute,
-]);
+const routeTree = rootRoute.addChildren([situationRoute, threatsRoute, threatRoute.addChildren(threatTabs), monitorsRoute, newMonitorRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute]);
 
-export const router = createRouter({
-  routeTree,
-  defaultPreload: "intent",
-  defaultPendingComponent: PageSkeleton,
-  defaultErrorComponent: ({ error, reset }) => <ErrorState error={error} onRetry={reset} />,
-  scrollRestoration: true,
-});
+export const router = createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
 
 declare module "@tanstack/react-router" {
   interface Register {

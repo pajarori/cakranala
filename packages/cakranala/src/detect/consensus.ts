@@ -51,11 +51,24 @@ function groupEvents(events: Event[], frames: Map<number, number> | undefined, s
   return nearDuplicateGroups(texts, Math.max(0.2, t));
 }
 
+function synchronized(events: Event[], membership: Map<string, Cluster>, window: number) {
+  const out = new Set<string>();
+  for (const evs of groupBy(events.filter((e) => membership.has(e.actor)), (e) => membership.get(e.actor)!.id).values()) {
+    const sorted = [...evs].sort((a, b) => a.ts - b.ts);
+    for (let i = 0, j = 0; i < sorted.length; i++) {
+      while (sorted[i].ts - sorted[j].ts > window) j++;
+      const inWave = new Set(sorted.slice(j, i + 1).map((e) => e.actor));
+      if (inWave.size >= 3) inWave.forEach((a) => out.add(a));
+    }
+  }
+  return out;
+}
+
 export function narratives(
   events: Event[],
   clusters: Cluster[],
   frames: Map<number, number> | undefined,
-  opts: { minSupporters: number; seed: number; alpha: number },
+  opts: { minSupporters: number; seed: number; alpha: number; syncSec: number },
 ): Narrative[] {
   const totalActors = new Set(events.map((e) => e.actor)).size;
   const membership = new Map<string, Cluster>();
@@ -82,9 +95,10 @@ export function narratives(
       all[b]++;
       if (!membership.has(e.actor)) organic[b]++;
     }
-    const perCluster = groupBy(supporters.filter((a) => membership.has(a)), (a) => membership.get(a)!.id);
+    const synced = synchronized(ev, membership, opts.syncSec * 1000);
+    const perCluster = groupBy([...synced], (a) => membership.get(a)!.id);
     const flagged = clusters.reduce((s, c) => s + c.members.length, 0);
-    const coordinated = supporters.filter((a) => membership.has(a)).length;
+    const coordinated = synced.size;
     const p = binomialTail(coordinated, supporters.length, flagged / Math.max(1, totalActors));
     const sizes = new Map(clusters.map((c) => [c.id, c.members.length]));
     const tags = [...groupBy(ev.flatMap((e) => e.tags ?? []).map((t) => t.toLowerCase()), (t) => t)]
@@ -93,7 +107,7 @@ export function narratives(
       .map(([t]) => t);
     out.push({
       id: "",
-      sample: ev.find((e) => (e.text ?? "").length > 30)?.text ?? ev[0].text ?? "",
+      sample: (ev.find((e) => synced.has(e.actor) && (e.text ?? "").length > 30) ?? ev.find((e) => (e.text ?? "").length > 30) ?? ev[0]).text ?? "",
       tags,
       supporters: supporters.length,
       events: ev.length,

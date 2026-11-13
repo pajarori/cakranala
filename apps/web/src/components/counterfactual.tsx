@@ -4,8 +4,8 @@ import type { Narrative } from "@/lib/api";
 import { clock } from "@/lib/format";
 
 const config = {
-  observed: { label: "Observed", color: "var(--chart-1)" },
-  organic: { label: "Without operations", color: "var(--chart-2)" },
+  observed: { label: "Observed", color: "var(--chart-5)" },
+  organic: { label: "Without coordinated accounts", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
 export function Counterfactual({ narrative, height = 260 }: { narrative: Narrative; height?: number }) {
@@ -16,12 +16,12 @@ export function Counterfactual({ narrative, height = 260 }: { narrative: Narrati
     <ChartContainer config={config} className="w-full" style={{ height }}>
       <AreaChart data={data} margin={{ left: 0, right: 8, top: 8 }}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="t" tickLine={false} axisLine={false} minTickGap={32} tick={{ fontSize: 13 }} />
-        <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} tick={{ fontSize: 13 }} />
+        <XAxis dataKey="t" tickLine={false} axisLine={false} minTickGap={32} />
+        <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} />
         <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
         <Area dataKey="observed" type="monotone" stroke="var(--color-observed)" fill="var(--color-observed)" fillOpacity={0.18} strokeWidth={2} />
         <Area dataKey="organic" type="monotone" stroke="var(--color-organic)" fill="var(--color-organic)" fillOpacity={0.25} strokeWidth={2} strokeDasharray="5 4" />
-        <ChartLegend content={<ChartLegendContent className="text-[14px]" />} />
+        <ChartLegend content={<ChartLegendContent />} />
       </AreaChart>
     </ChartContainer>
   );

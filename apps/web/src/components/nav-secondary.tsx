@@ -11,7 +11,7 @@ export function NavSecondary({ items, ...props }: { items: NavItem[] } & React.C
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.url}>
-              <SidebarMenuButton asChild isActive={isActive(item.url)} className="text-[14px]">
+              <SidebarMenuButton asChild isActive={isActive(item.url)}>
                 <Link to={item.url}>
                   <item.icon />
                   <span>{item.title}</span>

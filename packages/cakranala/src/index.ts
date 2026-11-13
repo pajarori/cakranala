@@ -9,3 +9,4 @@ export { simulate, generateScenario, enrichScenario, type Scenario, type Operati
 export { evaluate, type Evaluation } from "./evaluate";
 export { shield, type ShieldInput, type ShieldContext, type ShieldResult, type UrlFinding, type Match } from "./shield";
 export { pseudonymize } from "./privacy";
+export { plain } from "./text";

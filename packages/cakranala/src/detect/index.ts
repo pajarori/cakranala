@@ -14,6 +14,7 @@ export interface AnalyzeOptions extends LayerOptions {
   minClusterRho: number;
   minSupporters: number;
   verdictAlpha: number;
+  syncSec: number;
   embedder?: Embedder;
   reasoner?: Reasoner;
 }
@@ -40,6 +41,7 @@ export const DEFAULTS: AnalyzeOptions = {
   minClusterRho: 0.05,
   minSupporters: 5,
   verdictAlpha: 0.001,
+  syncSec: 1800,
 };
 
 async function frameEvents(ds: Dataset, seed: number, embedder?: Embedder) {
@@ -81,6 +83,6 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
     tests: Object.fromEntries(results.map((r) => [r.id, { candidates: r.candidates, significant: r.pairs.size }])),
     edges,
     clusters: reports,
-    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha }),
+    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha, syncSec: o.syncSec }),
   };
 }

@@ -1,42 +1,25 @@
 import type * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { Boxes, Database, FlaskConical, LayoutDashboard, MessagesSquare, ShieldCheck, Waypoints } from "lucide-react";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { FileText, LayoutDashboard, Radar, ScanEye, Settings, ShieldAlert, ShieldCheck } from "lucide-react";
+import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
-import { useView } from "@/lib/queries";
-import { coordinated } from "@/lib/profile";
-import { int } from "@/lib/format";
-
-function SourceCard() {
-  const { data } = useView();
-  if (!data) return null;
-  const live = data.source.kind === "x";
-  return (
-    <Link to="/sources" className="block rounded-md border bg-background/40 p-3 transition-colors hover:bg-sidebar-accent">
-      <div className="flex items-center gap-2 text-[13px] font-medium">
-        <span className={`size-2 rounded-full ${live ? "bg-chart-4" : "bg-warning"}`} />
-        {live ? "Live data, pseudonymized" : "Simulation"}
-      </div>
-      <div className="tabular mt-1 text-[13px] text-muted-foreground">
-        {int(data.report.stats.actors)} accounts, {int(data.report.stats.events)} posts
-      </div>
-    </Link>
-  );
-}
+import { NavUser } from "@/components/nav-user";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { useLiveState } from "@/lib/queries";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { data } = useView();
-  const narratives = data ? coordinated(data) : [];
-  const clusters = data?.report.clusters ?? [];
+  const { data } = useLiveState();
+  const open = data?.cases.filter((c) => c.active && c.status !== "dismissed").length;
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
               <Link to="/">
-                <span className="font-display text-[22px] font-semibold tracking-wide">CAKRA NALA</span>
+                <Radar className="!size-5" />
+                <span className="text-base font-semibold">Cakra Nala</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -44,25 +27,24 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain
-          label="Intelligence"
           items={[
-            { title: "Overview", url: "/", icon: LayoutDashboard },
-            { title: "Narratives", url: "/narratives", icon: MessagesSquare, items: narratives.slice(0, 6).map((n) => ({ title: `${n.id}  ${n.sample}`, url: `/narratives/${n.id}` })) },
-            { title: "Clusters", url: "/clusters", icon: Boxes, items: clusters.map((c) => ({ title: `${c.id}  ${c.members.length} accounts`, url: `/clusters/${c.id}` })) },
-            { title: "Network", url: "/network", icon: Waypoints },
+            { title: "Situation", url: "/", icon: LayoutDashboard },
+            { title: "Threats", url: "/threats", icon: ShieldAlert, badge: open },
+            { title: "Monitors", url: "/monitors", icon: ScanEye },
+            { title: "Reports", url: "/reports", icon: FileText },
           ]}
         />
-        <NavMain label="Protection" items={[{ title: "Perisai", url: "/perisai", icon: ShieldCheck }]} />
+        <NavDocuments />
         <NavSecondary
           className="mt-auto"
           items={[
-            { title: "Evaluation", url: "/evaluation", icon: FlaskConical },
-            { title: "Sources", url: "/sources", icon: Database },
+            { title: "Perisai", url: "/perisai", icon: ShieldCheck },
+            { title: "System", url: "/system", icon: Settings },
           ]}
         />
       </SidebarContent>
       <SidebarFooter>
-        <SourceCard />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );
