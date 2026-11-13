@@ -135,3 +135,54 @@ export function uuidFrom(input: string) {
   const v = `${hex.slice(0, 12)}5${hex.slice(13, 16)}${((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16)}${hex.slice(17)}`;
   return `${v.slice(0, 8)}-${v.slice(8, 12)}-${v.slice(12, 16)}-${v.slice(16, 20)}-${v.slice(20, 32)}`;
 }
+
+export function lgamma(x: number): number {
+  if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+  const g = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  x -= 1;
+  let a = g[0];
+  const t = x + 7.5;
+  for (let i = 1; i < 9; i++) a += g[i] / (x + i);
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+
+export function nbTail(k: number, mu: number, dispersion: number) {
+  if (k <= 0) return 1;
+  if (mu <= 0) return 0;
+  if (dispersion <= 1e-9) return poissonTail(k, mu);
+  const r = 1 / dispersion;
+  const q = mu / (mu + r);
+  const logPmf = (i: number) => lgamma(i + r) - lgamma(r) - lgamma(i + 1) + r * Math.log(1 - q) + i * Math.log(q);
+  if (k <= mu) {
+    let cdf = 0;
+    let term = Math.exp(logPmf(0));
+    for (let i = 0; i < k; i++) {
+      cdf += term;
+      term *= ((i + r) / (i + 1)) * q;
+    }
+    return Math.max(0, Math.min(1, 1 - cdf));
+  }
+  let tail = 0;
+  let term = Math.exp(logPmf(k));
+  for (let i = k; i < k + 100000 && term > tail * 1e-14 && term > 1e-320; i++) {
+    tail += term;
+    term *= ((i + r) / (i + 1)) * q;
+  }
+  return Math.min(1, tail);
+}
+
+export function cauchyCombine(ps: number[]) {
+  if (!ps.length) return 1;
+  const clipped = ps.map((p) => Math.min(Math.max(p, 1e-300), 0.5));
+  const t = clipped.reduce((s, p) => s + (p < 1e-15 ? 1 / (p * Math.PI) : Math.tan((0.5 - p) * Math.PI)), 0) / ps.length;
+  const acat = t > 1e15 ? 1 / (t * Math.PI) : 0.5 - Math.atan(t) / Math.PI;
+  return Math.min(1, acat, ps.length * Math.min(...clipped));
+}
+
+export function partialConjunction(ps: number[], u: number) {
+  const f = ps.length;
+  if (!f) return 1;
+  const k = Math.max(1, Math.min(u, f));
+  const sorted = [...ps].sort((a, b) => a - b);
+  return Math.min(1, (f - k + 1) * sorted[k - 1]);
+}

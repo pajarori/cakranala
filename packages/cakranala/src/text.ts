@@ -2,11 +2,14 @@ import { UnionFind, hash32 } from "./util";
 
 export function normalize(text: string) {
   return text
-    .toLowerCase()
     .normalize("NFKC")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/[@#]\w+/g, " ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/(?:^|\s)(?:\p{L}\s){2,}\p{L}(?=\s|$)/gu, (m) => ` ${m.replace(/\s/g, "")}`)
     .replace(/(\p{L})\1{2,}/gu, "$1$1")
     .replace(/\s+/g, " ")
     .trim();

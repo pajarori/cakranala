@@ -3,14 +3,19 @@ import type { Embedder, Reasoner } from "../ports";
 import { centered, kmeans, plain } from "../text";
 import { rng } from "../util";
 import { LAYERS, LAYER_DEFAULTS, runLayers, type LayerId, type LayerOptions } from "./layers";
-import { cluster, combine, type Cluster, type Edge } from "./graph";
+import { detect, type Cluster, type Edge } from "./graph";
 import { forensics, type Forensics } from "./forensics";
 import { narratives, type Narrative } from "./consensus";
 
 export interface AnalyzeOptions extends LayerOptions {
   layers: LayerId[];
-  minLayers: number;
+  families: LayerId[][];
+  minFamilies: number;
+  edgeAlphas: number[];
+  fdr: number;
+  clusterAlpha: number;
   minClusterSize: number;
+  minDegree: number;
   minClusterRho: number;
   minSupporters: number;
   verdictAlpha: number;
@@ -27,7 +32,8 @@ export interface ClusterReport extends Cluster {
 export interface Report {
   generatedAt: number;
   stats: { actors: number; events: number; flaggedActors: number; layersRun: LayerId[] };
-  tests: Partial<Record<LayerId, { candidates: number; significant: number }>>;
+  tests: Partial<Record<LayerId, { candidates: number; nominal: number; dispersion: number }>>;
+  null: { replicates: number; alpha: number; decoyFdr: number };
   edges: Edge[];
   clusters: ClusterReport[];
   narratives: Narrative[];
@@ -37,8 +43,13 @@ export interface Report {
 export const DEFAULTS: AnalyzeOptions = {
   ...LAYER_DEFAULTS,
   layers: LAYERS,
-  minLayers: 2,
+  families: [["coaction"], ["rhythm"], ["copypasta", "coframing"], ["lifecycle"]],
+  minFamilies: 1,
+  edgeAlphas: [0.05, 0.01, 0.001, 0.0001],
+  fdr: 0.05,
+  clusterAlpha: 0.05,
   minClusterSize: 3,
+  minDegree: 2,
   minClusterRho: 0.05,
   minSupporters: 5,
   verdictAlpha: 0.001,
@@ -64,16 +75,20 @@ async function brief(c: ClusterReport, reasoner: Reasoner) {
   return plain(await reasoner.complete(prompt));
 }
 
-function scores(edges: Edge[], k: number) {
+function evidence(results: ReturnType<typeof runLayers>) {
+  const out = new Map<string, number>();
+  for (const r of results) for (const [k, s] of r.pairs) if (s.p < 1) out.set(k, (out.get(k) ?? 1) * s.p);
+  return out;
+}
+
+function scores(pairs: Map<string, number>, k: number) {
   const byActor = new Map<string, number[]>();
-  for (const e of edges) {
-    const s = Object.values(e.layers).reduce((acc, l) => acc - Math.log(Math.max(l!.p, 1e-300)), 0);
-    for (const a of [e.a, e.b]) {
+  for (const [key, p] of pairs)
+    for (const a of key.split("\u0001")) {
       const list = byActor.get(a);
-      if (list) list.push(s);
-      else byActor.set(a, [s]);
+      if (list) list.push(-Math.log(Math.max(p, 1e-300)));
+      else byActor.set(a, [-Math.log(Math.max(p, 1e-300))]);
     }
-  }
   return Object.fromEntries([...byActor].map(([a, ss]) => [a, ss.sort((x, y) => y - x)[k - 1] ?? 0]));
 }
 
@@ -82,8 +97,10 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
   const o: AnalyzeOptions = { ...DEFAULTS, ...given, windowSec: { ...DEFAULTS.windowSec, ...given.windowSec } };
   const frames = await frameEvents(ds, o.seed, o.embedder);
   const results = runLayers(ds, o, o.layers, frames);
-  const edges = combine(results, Math.min(o.minLayers, results.length));
-  const clusters = cluster(edges, o.minClusterSize, o.seed).filter((c) => c.rho >= o.minClusterRho);
+  const found = detect(results, o);
+  const clusters = found.clusters.filter((c) => c.p <= o.clusterAlpha && c.rho >= o.minClusterRho);
+  const kept = new Set(clusters.flatMap((c) => c.members));
+  const edges = found.edges.filter((e) => kept.has(e.a) && kept.has(e.b));
   const reports: ClusterReport[] = clusters.map((c) => ({ ...c, forensics: forensics(c.members, ds.events) }));
   if (o.reasoner) await Promise.all(reports.slice(0, 5).map(async (c) => (c.brief = await brief(c, o.reasoner!).catch(() => undefined))));
   return {
@@ -94,10 +111,11 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
       flaggedActors: new Set(clusters.flatMap((c) => c.members)).size,
       layersRun: results.map((r) => r.id),
     },
-    tests: Object.fromEntries(results.map((r) => [r.id, { candidates: r.candidates, significant: r.pairs.size }])),
+    tests: Object.fromEntries(results.map((r) => [r.id, { candidates: r.candidates, nominal: [...r.pairs.values()].filter((s) => s.p <= 0.01).length, dispersion: r.dispersion }])),
+    null: { replicates: results[0]?.replicates.length ?? 0, alpha: found.alpha, decoyFdr: found.decoyFdr },
     edges,
     clusters: reports,
     narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha, syncSec: o.syncSec }),
-    scores: scores(edges, Math.max(1, o.minClusterSize - 1)),
+    scores: scores(evidence(results), Math.max(1, o.minClusterSize - 1)),
   };
 }

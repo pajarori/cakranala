@@ -25,7 +25,7 @@ export function runAblation(seeds = [1, 2, 3]) {
       const runs: Evaluation[] = [];
       for (const seed of seeds) {
         const ds = simulate(scenario, seed);
-        runs.push(evaluate(await analyze(ds, { embedder: e, layers: a.layers, minLayers: Math.min(2, a.layers.length), seed }), ds.truth!));
+        runs.push(evaluate(await analyze(ds, { embedder: e, layers: a.layers, seed }), ds.truth!));
       }
       const avg = (f: (x: Evaluation) => number) => runs.reduce((s, r) => s + f(r), 0) / runs.length;
       const kind = (k: string) => avg((r) => r.operations.find((o) => o.kind === k)?.recall ?? 0);
