@@ -9,7 +9,7 @@ export interface Scenario {
   durationMin: number;
   organic: { actors: number; hubs: number; eventsPerActor: number; narrativeShare: number };
   topics: { texts: string[]; tags?: string[] }[];
-  narratives: { id: string; claims: string[]; organicTakes: string[]; tags: string[] }[];
+  narratives: { id: string; claims: string[]; organicTakes: string[]; tags: string[]; paraphrases?: string[] }[];
   viral?: { atMin: number; size: number; texts: string[]; tags: string[] };
   operations: { id: string; kind: OperationKind; size: number; narrative: string; waves: number }[];
   fillers: { openers: string[]; closers: string[]; emoji: string[] };
@@ -74,7 +74,7 @@ export function simulate(scenario: Scenario, seed = 1): Dataset {
       const onNarrative = r() < o.narrativeShare;
       const nar = pick(r, scenario.narratives);
       const topic = pick(r, scenario.topics);
-      const text = mutate(pick(r, onNarrative ? nar.organicTakes : topic.texts), r, 0.6, scenario.fillers);
+      const text = mutate(pick(r, onNarrative ? nar.organicTakes : topic.texts), r, 0.3, scenario.fillers);
       const tags = r() < 0.25 ? (onNarrative ? nar.tags.slice(0, 1) : topic.tags) : undefined;
       const target = r() < 0.55 ? targetBefore(ts) : undefined;
       emit(a, target ? (r() < 0.85 ? "reply" : "quote") : "post", ts, text, target, tags);
@@ -126,7 +126,7 @@ export function simulate(scenario: Scenario, seed = 1): Dataset {
         for (const m of members.slice(1)) {
           if (r() < 0.2) continue;
           const reciprocal = ids.length && r() < 0.3 ? pick(r, ids) : target;
-          ids.push(emit(m, r() < 0.7 ? "reply" : "post", T + Math.exp(gauss(r, Math.log(600000), 0.9)), mutate(pick(r, nar.claims), r, 0.95, scenario.fillers), r() < 0.85 ? reciprocal : undefined, r() < 0.3 ? nar.tags : undefined));
+          ids.push(emit(m, r() < 0.7 ? "reply" : "post", T + Math.exp(gauss(r, Math.log(600000), 0.9)), (nar.paraphrases?.length ? mutate(pick(r, nar.paraphrases), r, 0.1, scenario.fillers) : mutate(pick(r, nar.claims), r, 0.95, scenario.fillers)), r() < 0.85 ? reciprocal : undefined, r() < 0.3 ? nar.tags : undefined));
         }
       }
     }
@@ -154,4 +154,32 @@ export async function generateScenario(reasoner: Reasoner, theme: string, base: 
     fillers: g.fillers ?? base.fillers,
     operations: base.operations.map((op, i) => ({ ...op, narrative: narratives[i % narratives.length].id })),
   };
+}
+
+async function pool(reasoner: Reasoner, instruction: string, examples: string[], count: number): Promise<string[]> {
+  const prompt = [
+    instruction,
+    `Contoh:\n${examples.slice(0, 4).map((e) => `- ${e}`).join("\n")}`,
+    `Tulis ${count} unggahan media sosial Indonesia yang BERBEDA-BEDA: variasikan persona (umur, daerah, profesi), panjang, gaya (formal, santai, gaul, emosional), dan struktur kalimat. Jangan mengulang frasa pembuka yang sama. Semua nama tempat/tokoh tetap fiktif seperti contoh.`,
+    'Balas HANYA JSON: {"posts": [string, ...]}',
+  ].join("\n\n");
+  const raw = await reasoner.complete(prompt, { json: true });
+  const posts: unknown = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)).posts;
+  const valid = Array.isArray(posts) ? posts.filter((x): x is string => typeof x === "string" && x.length > 10) : [];
+  return valid.length >= count / 3 ? valid : [];
+}
+
+export async function enrichScenario(reasoner: Reasoner, scenario: Scenario, count = 30): Promise<Scenario> {
+  const [topics, narratives, viral] = await Promise.all([
+    Promise.all(scenario.topics.map(async (t) => ({ ...t, texts: [...t.texts, ...(await pool(reasoner, "Buat unggahan warga biasa tentang topik berikut.", t.texts, count))] }))),
+    Promise.all(
+      scenario.narratives.map(async (n) => ({
+        ...n,
+        organicTakes: [...n.organicTakes, ...(await pool(reasoner, "Buat tanggapan warga biasa (skeptis, bertanya, netral, atau menolak) terhadap isu berikut.", n.organicTakes, count))],
+        paraphrases: await pool(reasoner, "Buat parafrase yang mempertahankan MAKNA dan ajakan pesan berikut, seolah ditulis banyak akun berbeda.", n.claims, count),
+      })),
+    ),
+    scenario.viral ? pool(reasoner, "Buat reaksi spontan warga terhadap momen viral berikut.", scenario.viral.texts, count) : Promise.resolve([]),
+  ]);
+  return { ...scenario, topics, narratives, viral: scenario.viral ? { ...scenario.viral, texts: [...scenario.viral.texts, ...viral] } : undefined };
 }
