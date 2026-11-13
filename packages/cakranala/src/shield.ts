@@ -1,6 +1,6 @@
 import type { Embedder, Reasoner } from "./ports";
 import type { Report } from "./detect";
-import { centered, cosine, jaccard, shingles } from "./text";
+import { centered, cosine, jaccard, plain, shingles } from "./text";
 
 export interface ShieldInput {
   text?: string;
@@ -161,9 +161,9 @@ export async function shield(input: ShieldInput, ctx: ShieldContext = {}): Promi
   if (ctx.reasoner && text)
     try {
       const r = await interpret(text, { urls, cues, matches }, ctx.reasoner);
-      techniques = r.techniques ?? [];
-      summary = r.summary;
-      advice = r.advice ?? [];
+      techniques = (r.techniques ?? []).map((t) => ({ name: plain(t.name), quote: t.quote, why: plain(t.why) }));
+      summary = r.summary && plain(r.summary);
+      advice = (r.advice ?? []).map(plain);
       score += Math.min(0.4, techniques.length * 0.1);
     } catch {}
   if (!advice.length) {

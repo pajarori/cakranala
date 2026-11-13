@@ -1,43 +1,39 @@
-import { useNavigate } from "@tanstack/react-router";
-import { SortableTable } from "@/components/ui/sortable-table";
-import { ClusterChip, PageHeader, Pill, VoiceBar } from "@/components/primitives";
-import { ViewGate } from "@/components/view-gate";
-import { clusterColor, int, num, ratio, truncate } from "@/lib/format";
-import { inflation } from "@/lib/profile";
-import type { Narrative, View } from "@/lib/api";
+import { createRoute } from "@tanstack/react-router";
+import { rootRoute } from "@/routes/root";
+import { ClusterChips, EmptyState, PageHeader, Tag } from "@/components/primitives";
+import { DataTable } from "@/components/data-table";
+import { ensureView, useViewData } from "@/lib/queries";
+import { approx, int, ratio, truncate } from "@/lib/format";
+import { coordinated, inflation, isCoordinated } from "@/lib/profile";
+import type { Narrative } from "@/lib/api";
 
-function Table({ view }: { view: View }) {
-  const navigate = useNavigate();
-  const go = (id: string) => navigate({ to: "/narratives/$id", params: { id } });
+function Narratives() {
+  const view = useViewData();
+  const rows = view.report.narratives;
   return (
-    <SortableTable<Narrative>
-      caption="Narratives"
-      rows={view.report.narratives}
-      getRowId={(n) => n.id}
-      defaultSort={{ column: "inflation", direction: "desc" }}
-      columns={[
-        { key: "id", header: "ID", width: 64, cell: (n) => <button onClick={() => go(n.id)} className="font-mono text-[12px] text-fg-2 hover:text-fg">{n.id}</button>, sortValue: (n) => Number(n.id.slice(1)) },
-        { key: "sample", header: "Narrative", cell: (n) => <button onClick={() => go(n.id)} className="block max-w-[520px] truncate text-left text-fg hover:underline">{truncate(n.sample, 120)}</button>, sortable: false },
-        { key: "verdict", header: "Verdict", width: 120, cell: (n) => (n.clusters.length ? <Pill tone="danger">Manufactured</Pill> : <Pill>Organic</Pill>), sortValue: (n) => n.clusters.length },
-        { key: "apparent", header: "Apparent", numeric: true, width: 96, cell: (n) => int(n.supporters), sortValue: (n) => n.supporters },
-        { key: "sie", header: "Independent", numeric: true, width: 120, cell: (n) => `±${num(n.sie.value)}`, sortValue: (n) => n.sie.value },
-        { key: "inflation", header: "Inflation", numeric: true, width: 96, cell: (n) => <span className={n.clusters.length ? "text-danger" : ""}>{ratio(inflation(n))}</span>, sortValue: (n) => inflation(n) },
-        { key: "bar", header: "Voices", width: 140, cell: (n) => <VoiceBar apparent={n.supporters} effective={n.sie.value} size="sm" />, sortable: false },
-        { key: "clusters", header: "Driven by", width: 180, cell: (n) => <div className="flex flex-wrap gap-1">{n.clusters.map((c) => <ClusterChip key={c.id} id={c.id} color={clusterColor(c.id)} />)}</div>, sortValue: (n) => n.clusters.length },
-      ]}
-    />
-  );
-}
-
-export function Narratives() {
-  return (
-    <ViewGate>
-      {(view) => (
-        <>
-          <PageHeader title="Narratives" eyebrow={`${view.report.narratives.length} narratives · ${view.source.label}`} />
-          <Table view={view} />
-        </>
+    <>
+      <PageHeader title="Narratives" meta={`${coordinated(view).length} coordinated of ${rows.length}`} />
+      {rows.length ? (
+        <DataTable<Narrative>
+          rows={rows}
+          rowKey={(n) => n.id}
+          href={(n) => `/narratives/${n.id}`}
+          initialSort={{ key: "inflation", desc: true }}
+          columns={[
+            { key: "id", header: "ID", cell: (n) => <span className="font-medium">{n.id}</span>, sort: (n) => Number(n.id.slice(1)), className: "w-16" },
+            { key: "sample", header: "Narrative", cell: (n) => <span className="block max-w-[560px] truncate">{truncate(n.sample, 140)}</span> },
+            { key: "verdict", header: "Verdict", cell: (n) => (isCoordinated(n) ? <Tag tone="danger">Coordinated</Tag> : <Tag>Organic</Tag>), sort: (n) => (isCoordinated(n) ? 1 : 0), className: "w-32" },
+            { key: "apparent", header: "Apparent", numeric: true, cell: (n) => int(n.supporters), sort: (n) => n.supporters },
+            { key: "sie", header: "Independent", numeric: true, cell: (n) => approx(n.sie.value), sort: (n) => n.sie.value },
+            { key: "inflation", header: "Inflation", numeric: true, cell: (n) => <span className={isCoordinated(n) ? "font-medium text-destructive" : undefined}>{ratio(inflation(n))}</span>, sort: (n) => inflation(n) },
+            { key: "clusters", header: "Driven by", cell: (n) => <ClusterChips ids={n.clusters} max={2} />, className: "w-48" },
+          ]}
+        />
+      ) : (
+        <EmptyState title="No narratives in this source" />
       )}
-    </ViewGate>
+    </>
   );
 }
+
+export const narrativesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/narratives", staticData: { title: "Narratives" }, loader: ensureView, component: Narratives });

@@ -1,29 +1,27 @@
 import { useState } from "react";
-import { AsyncButton } from "@/components/ui/async-button";
-import { useToast } from "@/components/ui/toast";
-import { Card, ErrorState, KeyValue, PageHeader, Pill } from "@/components/primitives";
+import { createRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { rootRoute } from "@/routes/root";
+import { ErrorState, KeyValue, PageHeader, Panel, Tag } from "@/components/primitives";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCapabilities, useLive, useLoadSnapshot, useSimulate, useSnapshots, useView } from "@/lib/queries";
 import { date, int, pct } from "@/lib/format";
 
-const input = "h-9 w-full rounded-md border border-line-2 bg-page px-3 text-[16px] text-fg outline-none placeholder:text-fg-4 focus:border-fg-3 sm:text-[13.5px]";
-
-const stored = (k: string) => {
-  try {
-    return sessionStorage.getItem(k) ?? "";
-  } catch {
-    return "";
-  }
-};
+const field = "h-10 text-[16px]";
 
 function Active() {
   const { data } = useView();
   if (!data) return null;
   const s = data.source;
   return (
-    <Card title="Active source">
+    <Panel title="Active source">
       <KeyValue
         items={[
-          ["Type", s.kind === "sim" ? <Pill tone="warning">Simulation</Pill> : <Pill tone="info">Live, pseudonymized</Pill>],
+          ["Type", s.kind === "sim" ? <Tag tone="warning">Simulation</Tag> : <Tag>Live, pseudonymized</Tag>],
           ["Source", s.label],
           ["Accounts", int(data.report.stats.actors)],
           ["Posts", int(data.report.stats.events)],
@@ -31,131 +29,139 @@ function Active() {
           ...(s.collectedAt ? ([["Collected", date(s.collectedAt)]] as [string, string][]) : []),
         ]}
       />
-    </Card>
+    </Panel>
   );
 }
 
 function Simulation() {
-  const [seed, setSeed] = useState(1);
+  const [seed, setSeed] = useState("1");
   const simulate = useSimulate();
-  const toast = useToast();
+  const value = Math.max(1, Math.floor(Number(seed)) || 1);
   return (
-    <Card title="Simulation">
-      <label className="block text-[12.5px] text-fg-3" htmlFor="seed">
-        Seed
-      </label>
-      <div className="mt-1.5 flex gap-2">
-        <input id="seed" type="number" min={1} inputMode="numeric" value={seed} onChange={(e) => setSeed(Math.max(1, Number(e.target.value) || 1))} className={input} />
-        <AsyncButton pendingLabel="Analyzing…" onClick={() => simulate.mutateAsync(seed).then(() => toast.add({ title: `Simulation seed ${seed} loaded`, tone: "success" }))}>
-          Run
-        </AsyncButton>
-      </div>
-      {simulate.error && <div className="mt-3"><ErrorState error={simulate.error} /></div>}
-    </Card>
+    <Panel title="Simulation">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          simulate.mutate(value, { onSuccess: () => toast.success(`Simulation ${value} loaded`) });
+        }}
+      >
+        <Label htmlFor="seed" className="text-[15px]">
+          Scenario seed
+        </Label>
+        <div className="mt-2 flex gap-3">
+          <Input id="seed" inputMode="numeric" value={seed} onChange={(e) => setSeed(e.target.value.replace(/\D/g, ""))} className={field} />
+          <Button type="submit" disabled={simulate.isPending} className="h-10 px-5 text-[15px]">
+            {simulate.isPending && <Loader2 className="animate-spin" />}
+            Run
+          </Button>
+        </div>
+      </form>
+      {simulate.error && <div className="mt-4"><ErrorState error={simulate.error} title="Run failed" /></div>}
+    </Panel>
   );
 }
 
 function Live() {
   const caps = useCapabilities();
   const [query, setQuery] = useState("");
-  const [pages, setPages] = useState(5);
-  const [token, setToken] = useState(() => stored("operator"));
+  const [pages, setPages] = useState("5");
+  const [token, setToken] = useState("");
   const live = useLive();
-  const toast = useToast();
   const disabled = !caps.data?.live;
-  const submit = () => {
-    try {
-      sessionStorage.setItem("operator", token);
-    } catch {}
-    return live.mutateAsync({ query: query.trim(), pages, token }).then((v) => toast.add({ title: `Collected ${int(v.report.stats.events)} posts`, tone: "success" }));
-  };
   return (
-    <Card title="Live collection · X" action={disabled ? <Pill>Not configured</Pill> : undefined}>
+    <Panel title="Live collection on X" action={disabled ? <Tag>Not configured</Tag> : undefined}>
       <form
-        className="space-y-3"
+        className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (query.trim() && token) submit();
+          if (!query.trim() || !token) return;
+          live.mutate({ query: query.trim(), pages: Number(pages), token }, { onSuccess: (v) => toast.success(`Collected ${int(v.report.stats.events)} posts`) });
         }}
       >
         <div>
-          <label className="block text-[12.5px] text-fg-3" htmlFor="query">
-            Query
-          </label>
-          <input id="query" name="query" autoComplete="off" spellCheck={false} disabled={disabled} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. gibran…" className={`${input} mt-1.5`} />
+          <Label htmlFor="query" className="text-[15px]">
+            Search query
+          </Label>
+          <Input id="query" name="query" autoComplete="off" spellCheck={false} disabled={disabled} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. gibran…" className={`${field} mt-2`} />
         </div>
-        <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3">
+        <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3">
           <div>
-            <label className="block text-[12.5px] text-fg-3" htmlFor="pages">
+            <Label htmlFor="pages" className="text-[15px]">
               Pages
-            </label>
-            <select id="pages" disabled={disabled} value={pages} onChange={(e) => setPages(Number(e.target.value))} className={`${input} mt-1.5 bg-page text-fg`}>
-              {[3, 5, 10, 15].map((p) => (
-                <option key={p} value={p}>
-                  {p} · ~{p * 20}
-                </option>
-              ))}
-            </select>
+            </Label>
+            <Select value={pages} onValueChange={setPages} disabled={disabled}>
+              <SelectTrigger id="pages" className="mt-2 h-10 w-full text-[15px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["3", "5", "10", "15"].map((p) => (
+                  <SelectItem key={p} value={p} className="text-[15px]">
+                    {p} pages, about {Number(p) * 20} posts
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-[12.5px] text-fg-3" htmlFor="token">
+            <Label htmlFor="token" className="text-[15px]">
               Operator token
-            </label>
-            <input id="token" name="token" type="password" autoComplete="current-password" disabled={disabled} value={token} onChange={(e) => setToken(e.target.value)} className={`${input} mt-1.5`} />
+            </Label>
+            <Input id="token" name="token" type="password" autoComplete="off" disabled={disabled} value={token} onChange={(e) => setToken(e.target.value)} className={`${field} mt-2`} />
           </div>
         </div>
         <div className="flex justify-end">
-          <AsyncButton type="submit" disabled={disabled || !query.trim() || !token} pendingLabel="Collecting…" onClick={submit}>
-            Collect
-          </AsyncButton>
+          <Button type="submit" disabled={disabled || !query.trim() || !token || live.isPending} className="h-10 px-5 text-[15px]">
+            {live.isPending && <Loader2 className="animate-spin" />}
+            Collect and analyze
+          </Button>
         </div>
       </form>
-      {live.error && <div className="mt-3"><ErrorState error={live.error} /></div>}
-    </Card>
+      {live.error && <div className="mt-4"><ErrorState error={live.error} title="Collection failed" /></div>}
+    </Panel>
   );
 }
 
 function Snapshots() {
   const { data, error } = useSnapshots();
   const load = useLoadSnapshot();
-  const toast = useToast();
   return (
-    <Card title="Snapshots" flush>
+    <Panel title="Snapshots" flush>
       {error ? (
-        <div className="p-4"><ErrorState error={error} /></div>
+        <div className="p-5"><ErrorState error={error} /></div>
       ) : !data?.length ? (
-        <div className="px-4 py-8 text-center text-[13px] text-fg-4">No snapshots yet</div>
+        <div className="px-5 py-10 text-center text-[15px] text-muted-foreground">No snapshots yet</div>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="divide-y">
           {data.map((s) => (
-            <li key={s.id} className="flex items-center gap-4 px-4 py-3">
+            <li key={s.id} className="flex items-center gap-4 px-5 py-3.5">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13.5px] text-fg">{s.source.label}</div>
-                <div className="tabular text-[12px] text-fg-3">
-                  {date(Number(s.id))} · {int(s.events)} posts
+                <div className="truncate text-[15px]">{s.source.label}</div>
+                <div className="tabular text-[14px] text-muted-foreground">
+                  {date(Number(s.id))}, {int(s.events)} posts
                 </div>
               </div>
-              <AsyncButton size="sm" variant="secondary" pendingLabel="Loading…" onClick={() => load.mutateAsync(s.id).then(() => toast.add({ title: "Snapshot loaded", tone: "success" }))}>
+              <Button variant="outline" disabled={load.isPending} onClick={() => load.mutate(s.id, { onSuccess: () => toast.success("Snapshot loaded") })} className="text-[15px]">
+                {load.isPending && load.variables === s.id && <Loader2 className="animate-spin" />}
                 Load
-              </AsyncButton>
+              </Button>
             </li>
           ))}
         </ul>
       )}
-    </Card>
+    </Panel>
   );
 }
 
-export function Sources() {
+function Sources() {
   return (
     <>
       <PageHeader title="Sources" />
-      <div className="grid gap-5 lg:grid-cols-2">
-        <div className="space-y-5">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
           <Active />
           <Simulation />
         </div>
-        <div className="space-y-5">
+        <div className="space-y-6">
           <Live />
           <Snapshots />
         </div>
@@ -163,3 +169,5 @@ export function Sources() {
     </>
   );
 }
+
+export const sourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/sources", staticData: { title: "Sources" }, component: Sources });

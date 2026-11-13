@@ -1,6 +1,6 @@
 import type { Dataset } from "../schema";
 import type { Embedder, Reasoner } from "../ports";
-import { centered, kmeans } from "../text";
+import { centered, kmeans, plain } from "../text";
 import { rng } from "../util";
 import { LAYERS, LAYER_DEFAULTS, runLayers, type LayerId, type LayerOptions } from "./layers";
 import { cluster, combine, type Cluster, type Edge } from "./graph";
@@ -13,6 +13,7 @@ export interface AnalyzeOptions extends LayerOptions {
   minClusterSize: number;
   minClusterRho: number;
   minSupporters: number;
+  verdictAlpha: number;
   embedder?: Embedder;
   reasoner?: Reasoner;
 }
@@ -38,6 +39,7 @@ export const DEFAULTS: AnalyzeOptions = {
   minClusterSize: 3,
   minClusterRho: 0.05,
   minSupporters: 5,
+  verdictAlpha: 0.001,
 };
 
 async function frameEvents(ds: Dataset, seed: number, embedder?: Embedder) {
@@ -56,7 +58,7 @@ async function brief(c: ClusterReport, reasoner: Reasoner) {
     `Contoh pesan:\n${c.forensics.talkingPoints.map((t) => `- ${t}`).join("\n")}`,
     "Rekonstruksikan dalam 2-3 kalimat Bahasa Indonesia: inti pesan (talking point) yang kemungkinan dibagikan koordinator kepada tim, dan tujuan persuasinya. Gunakan bahasa indikatif, jangan menuduh individu.",
   ].join("\n\n");
-  return (await reasoner.complete(prompt)).trim();
+  return plain(await reasoner.complete(prompt));
 }
 
 export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}): Promise<Report> {
@@ -79,6 +81,6 @@ export async function analyze(ds: Dataset, options: Partial<AnalyzeOptions> = {}
     tests: Object.fromEntries(results.map((r) => [r.id, { candidates: r.candidates, significant: r.pairs.size }])),
     edges,
     clusters: reports,
-    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed }),
+    narratives: narratives(ds.events, clusters, frames, { minSupporters: o.minSupporters, seed: o.seed, alpha: o.verdictAlpha }),
   };
 }

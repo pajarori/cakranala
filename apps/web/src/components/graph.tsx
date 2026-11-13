@@ -5,8 +5,15 @@ import { SigmaContainer, useLoadGraph, useRegisterEvents, useSetSettings, useSig
 import type { View } from "@/lib/api";
 import { clusterColor } from "@/lib/format";
 
-const ORGANIC = "#55574a";
-const FADED = "#262a20";
+const ORGANIC = "#6f7160";
+const FADED = "#23271e";
+const EDGE = "#3a3f32";
+
+const jitter = (id: string, salt: number) => {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return ((h >>> 0) / 4294967296) * 2 - 1;
+};
 
 type Props = {
   view: View;
@@ -29,9 +36,9 @@ function build(view: View, focus?: string) {
     const c = membership.get(id);
     const k = clusterIds.indexOf(c ?? "organic");
     const angle = (2 * Math.PI * k) / Math.max(1, clusterIds.length) + i * 0.01;
-    g.addNode(id, { x: Math.cos(angle) * 10 + Math.random(), y: Math.sin(angle) * 10 + Math.random(), size: 3, label: handles.get(id) ?? id, color: c ? clusterColor(c) : ORGANIC, cluster: c ?? null });
+    g.addNode(id, { x: Math.cos(angle) * 10 + jitter(id, 1), y: Math.sin(angle) * 10 + jitter(id, 2), size: 3, label: handles.get(id) ?? id, color: c ? clusterColor(c) : ORGANIC, cluster: c ?? null });
   });
-  for (const e of edges) g.addEdge(e.a, e.b, { size: 0.4 + e.rho * 1.6, layers: Object.keys(e.layers), color: "#3a3f32" });
+  for (const e of edges) g.addEdge(e.a, e.b, { size: 0.4 + e.rho * 1.6, layers: Object.keys(e.layers), color: EDGE });
   g.forEachNode((n) => g.setNodeAttribute(n, "size", 2.5 + Math.sqrt(g.degree(n)) * 1.4));
   if (g.order > 1) forceAtlas2.assign(g, { iterations: 400, settings: { ...forceAtlas2.inferSettings(g), linLogMode: true, gravity: 1.5 } });
   return g;
@@ -68,7 +75,7 @@ function Behaviour({ graph, layers, selected, onSelect }: { graph: Graph; layers
         const own: string[] = graph.getEdgeAttribute(edge, "layers");
         if (own.filter((l) => layers.includes(l)).length < minLayers) return { ...data, hidden: true };
         if (neighbors && !graph.extremities(edge).every((n) => neighbors.has(n))) return { ...data, hidden: true };
-        return neighbors ? { ...data, color: "#7f7e6e" } : data;
+        return neighbors ? { ...data, color: "#9a9886" } : data;
       },
     });
     sigma.refresh();
@@ -79,16 +86,16 @@ function Behaviour({ graph, layers, selected, onSelect }: { graph: Graph; layers
 
 export function NetworkGraph({ view, layers, focus, selected, onSelect, height = 560 }: Props) {
   const graph = useMemo(() => build(view, focus), [view, focus]);
-  if (!graph.order) return <div className="grid place-items-center text-fg-3" style={{ height }}>No ties</div>;
+  if (!graph.order) return <div className="grid place-items-center text-[15px] text-muted-foreground" style={{ height }}>No ties</div>;
   return (
     <SigmaContainer
       style={{ height, width: "100%", background: "transparent" }}
       settings={{
-        labelColor: { color: "#b0ae9e" },
-        labelFont: "IBM Plex Sans",
-        labelSize: 11,
+        labelColor: { color: "#d9d7cb" },
+        labelFont: "Barlow",
+        labelSize: 13,
         labelRenderedSizeThreshold: 9,
-        defaultEdgeColor: "#3a3f32",
+        defaultEdgeColor: EDGE,
         hideEdgesOnMove: true,
         zIndex: true,
       }}

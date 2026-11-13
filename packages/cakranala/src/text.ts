@@ -142,3 +142,5 @@ export function kmeans(vectors: Float32Array[], k: number, r: () => number, iter
   }
   return Array.from(assign);
 }
+
+export const plain = (s: string) => s.replace(/\s*[—–]\s*/g, ", ").replace(/[*_`#]+/g, "").replace(/\s+/g, " ").trim();

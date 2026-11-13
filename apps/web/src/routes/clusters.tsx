@@ -1,56 +1,51 @@
-import { useNavigate } from "@tanstack/react-router";
-import { SortableTable } from "@/components/ui/sortable-table";
-import { EmptyState, PageHeader, Pill } from "@/components/primitives";
-import { ViewGate } from "@/components/view-gate";
+import { createRoute } from "@tanstack/react-router";
+import { rootRoute } from "@/routes/root";
+import { EmptyState, PageHeader } from "@/components/primitives";
+import { DataTable } from "@/components/data-table";
+import { ensureView, useViewData } from "@/lib/queries";
 import { LAYERS, clock, clusterColor, num } from "@/lib/format";
 import { narrativesOf, profile } from "@/lib/profile";
-import type { Cluster, View } from "@/lib/api";
+import type { Cluster } from "@/lib/api";
 
-function Table({ view }: { view: View }) {
-  const navigate = useNavigate();
-  if (!view.report.clusters.length) return <EmptyState title="No coordinated clusters in this source." />;
+function Clusters() {
+  const view = useViewData();
+  const rows = view.report.clusters;
   return (
-    <SortableTable<Cluster>
-      caption="Clusters"
-      rows={view.report.clusters}
-      getRowId={(c) => c.id}
-      defaultSort={{ column: "members", direction: "desc" }}
-      columns={[
-        {
-          key: "id",
-          header: "Cluster",
-          width: 96,
-          cell: (c) => (
-            <button onClick={() => navigate({ to: "/clusters/$id", params: { id: c.id } })} className="flex items-center gap-2 text-fg hover:underline">
-              <span className="size-2 rounded-full" style={{ background: clusterColor(c.id) }} />
-              {c.id}
-            </button>
-          ),
-          sortValue: (c) => Number(c.id.slice(1)),
-        },
-        { key: "profile", header: "Profile", width: 120, cell: (c) => <Pill tone={profile(c).tone}>{profile(c).label}</Pill>, sortValue: (c) => profile(c).label },
-        { key: "members", header: "Accounts", numeric: true, width: 90, sortValue: (c) => c.members.length, cell: (c) => c.members.length },
-        { key: "rho", header: "ρ", numeric: true, width: 70, cell: (c) => c.rho.toFixed(2), sortValue: (c) => c.rho },
-        { key: "waves", header: "Waves", numeric: true, width: 70, cell: (c) => c.forensics.waves, sortValue: (c) => c.forensics.waves },
-        { key: "t0", header: "T0", numeric: true, width: 70, cell: (c) => clock(c.forensics.onset.ts), sortValue: (c) => c.forensics.onset.ts },
-        { key: "rotation", header: "Rotation τ", numeric: true, width: 96, cell: (c) => (c.forensics.rotation === null ? "—" : c.forensics.rotation.toFixed(2)), sortValue: (c) => c.forensics.rotation ?? -2 },
-        { key: "cadence", header: "Cadence", numeric: true, width: 90, cell: (c) => (c.forensics.cadence ? `${num(c.forensics.cadence.medianSec)}s` : "—"), sortValue: (c) => c.forensics.cadence?.medianSec ?? Infinity },
-        { key: "layers", header: "Evidence", width: 170, sortable: false, cell: (c) => <div className="flex gap-1">{c.layers.map((l) => <span key={l.layer} title={LAYERS[l.layer]?.name} className="rounded border border-line-2 px-1 font-mono text-[10.5px] text-fg-2">{LAYERS[l.layer]?.short ?? l.layer}</span>)}</div> },
-        { key: "narratives", header: "Narratives", width: 110, sortable: false, cell: (c) => <span className="font-mono text-[12px] text-fg-3">{narrativesOf(view, c.id).map((n) => n.id).join(" ") || "—"}</span> },
-      ]}
-    />
-  );
-}
-
-export function Clusters() {
-  return (
-    <ViewGate>
-      {(view) => (
-        <>
-          <PageHeader title="Clusters" eyebrow={`${view.report.clusters.length} coordinated clusters · ${view.report.stats.flaggedActors} accounts`} />
-          <Table view={view} />
-        </>
+    <>
+      <PageHeader title="Clusters" meta={`${rows.length} clusters, ${view.report.stats.flaggedActors} accounts`} />
+      {rows.length ? (
+        <DataTable<Cluster>
+          rows={rows}
+          rowKey={(c) => c.id}
+          href={(c) => `/clusters/${c.id}`}
+          initialSort={{ key: "members", desc: true }}
+          columns={[
+            {
+              key: "id",
+              header: "Cluster",
+              cell: (c) => (
+                <span className="flex items-center gap-2.5 font-medium">
+                  <span className="size-2.5 rounded-full" style={{ background: clusterColor(c.id) }} />
+                  {c.id}
+                </span>
+              ),
+              sort: (c) => Number(c.id.slice(1)),
+            },
+            { key: "profile", header: "Profile", cell: (c) => profile(c), sort: (c) => profile(c) },
+            { key: "members", header: "Accounts", numeric: true, cell: (c) => c.members.length, sort: (c) => c.members.length },
+            { key: "rho", header: "Dependence", numeric: true, cell: (c) => c.rho.toFixed(2), sort: (c) => c.rho },
+            { key: "waves", header: "Waves", numeric: true, cell: (c) => c.forensics.waves, sort: (c) => c.forensics.waves },
+            { key: "t0", header: "Started", numeric: true, cell: (c) => clock(c.forensics.onset.ts), sort: (c) => c.forensics.onset.ts },
+            { key: "cadence", header: "Cadence", numeric: true, cell: (c) => (c.forensics.cadence ? `${num(c.forensics.cadence.medianSec)}s` : "n/a"), sort: (c) => c.forensics.cadence?.medianSec ?? Infinity },
+            { key: "layers", header: "Evidence", cell: (c) => <span className="text-muted-foreground">{c.layers.map((l) => LAYERS[l.layer]?.name ?? l.layer).join(", ")}</span> },
+            { key: "narratives", header: "Narratives", cell: (c) => narrativesOf(view, c.id).map((n) => n.id).join(", ") || "none" },
+          ]}
+        />
+      ) : (
+        <EmptyState title="No coordinated clusters in this source" />
       )}
-    </ViewGate>
+    </>
   );
 }
+
+export const clustersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/clusters", staticData: { title: "Clusters" }, loader: ensureView, component: Clusters });

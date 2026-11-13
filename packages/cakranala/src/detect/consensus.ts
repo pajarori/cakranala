@@ -1,7 +1,7 @@
 import type { Event } from "../schema";
 import type { Cluster } from "./graph";
 import { jaccard, nearDuplicateGroups, shingles } from "../text";
-import { groupBy, quantile, randomPairQuantile, rng } from "../util";
+import { binomialTail, groupBy, quantile, randomPairQuantile, rng } from "../util";
 
 export interface Sie {
   value: number;
@@ -16,7 +16,10 @@ export interface Narrative {
   events: number;
   sie: Sie;
   iks: number;
-  clusters: { id: string; actors: number }[];
+  coordinated: number;
+  verdict: "manufactured" | "organic";
+  p: number;
+  clusters: { id: string; actors: number; p: number }[];
   counterfactual: { binSec: number; start: number; all: number[]; organic: number[] };
 }
 
@@ -52,8 +55,9 @@ export function narratives(
   events: Event[],
   clusters: Cluster[],
   frames: Map<number, number> | undefined,
-  opts: { minSupporters: number; seed: number },
+  opts: { minSupporters: number; seed: number; alpha: number },
 ): Narrative[] {
+  const totalActors = new Set(events.map((e) => e.actor)).size;
   const membership = new Map<string, Cluster>();
   for (const c of clusters) for (const m of c.members) membership.set(m, c);
   const groups = groupEvents(events, frames, opts.seed);
@@ -79,6 +83,10 @@ export function narratives(
       if (!membership.has(e.actor)) organic[b]++;
     }
     const perCluster = groupBy(supporters.filter((a) => membership.has(a)), (a) => membership.get(a)!.id);
+    const flagged = clusters.reduce((s, c) => s + c.members.length, 0);
+    const coordinated = supporters.filter((a) => membership.has(a)).length;
+    const p = binomialTail(coordinated, supporters.length, flagged / Math.max(1, totalActors));
+    const sizes = new Map(clusters.map((c) => [c.id, c.members.length]));
     const tags = [...groupBy(ev.flatMap((e) => e.tags ?? []).map((t) => t.toLowerCase()), (t) => t)]
       .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 5)
@@ -91,7 +99,13 @@ export function narratives(
       events: ev.length,
       sie: { value, ci: bootstrap(supporters, membership, opts.seed) },
       iks: 1 - value / supporters.length,
-      clusters: [...perCluster].map(([id, a]) => ({ id, actors: a.length })).sort((a, b) => b.actors - a.actors),
+      coordinated,
+      verdict: p < opts.alpha ? "manufactured" : "organic",
+      p,
+      clusters: [...perCluster]
+        .map(([id, a]) => ({ id, actors: a.length, p: binomialTail(a.length, supporters.length, sizes.get(id)! / Math.max(1, totalActors)) }))
+        .filter((c) => c.p < opts.alpha)
+        .sort((a, b) => b.actors - a.actors),
       counterfactual: { binSec: binMs / 1000, start: t0, all, organic },
     });
   }

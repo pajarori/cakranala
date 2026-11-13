@@ -1,9 +1,12 @@
-import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { api, type View } from "./api";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: 1, refetchOnWindowFocus: false } } });
 
-export const useView = () => useQuery({ queryKey: ["view"], queryFn: api.view });
+export const viewQuery = queryOptions({ queryKey: ["view"], queryFn: api.view });
+export const useView = () => useQuery(viewQuery);
+export const useViewData = () => useSuspenseQuery(viewQuery).data;
+export const ensureView = () => queryClient.ensureQueryData(viewQuery);
 export const useCapabilities = () => useQuery({ queryKey: ["capabilities"], queryFn: api.capabilities });
 export const useSnapshots = () => useQuery({ queryKey: ["snapshots"], queryFn: api.snapshots, staleTime: 0 });
 export const useAblation = () => useQuery({ queryKey: ["ablation"], queryFn: api.ablation, retry: 0 });

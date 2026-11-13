@@ -56,18 +56,18 @@ function toView(ds: Dataset, report: Report, source: Source): View {
 export async function runSimulation(seed: number) {
   const ds = simulate(scenario, seed);
   const report = await analyze(ds, { embedder: await embedder(), reasoner, seed });
-  current = { dataset: ds, view: toView(ds, report, { kind: "sim", label: `${scenario.name} · seed ${seed}`, coverage: 1 }) };
+  current = { dataset: ds, view: toView(ds, report, { kind: "sim", label: `Simulation, ${scenario.name}, seed ${seed}`, coverage: 1 }) };
   return current.view;
 }
 
 export async function runLive(query: string, pages: number) {
   const session = sessionFromEnv();
-  if (!session) throw new Error("sesi X belum dikonfigurasi di server");
+  if (!session) throw new Error("X session is not configured on the server");
   const x = await createXCollector(session);
   const raw = await x.search(query, { pages: Math.min(Math.max(pages, 1), 15), lang: "in" });
   const ds = await pseudonymize(raw, secret);
   const report = await analyze(ds, { embedder: await embedder(), reasoner });
-  const view = toView(ds, report, { kind: "x", label: `X · "${query}"`, query, coverage: raw.meta?.coverage, collectedAt: raw.meta?.collectedAt });
+  const view = toView(ds, report, { kind: "x", label: `X search "${query}"`, query, coverage: raw.meta?.coverage, collectedAt: raw.meta?.collectedAt });
   current = { dataset: ds, view };
   await mkdir(SNAPSHOTS, { recursive: true });
   await Bun.write(`${SNAPSHOTS}${Date.now()}.json`, JSON.stringify({ source: view.source, dataset: ds }));
@@ -85,7 +85,7 @@ export async function listSnapshots() {
 }
 
 export async function loadSnapshot(id: string) {
-  if (!/^\d+$/.test(id)) throw new Error("snapshot tidak valid");
+  if (!/^\d+$/.test(id)) throw new Error("invalid snapshot");
   const s = await Bun.file(`${SNAPSHOTS}${id}.json`).json();
   const report = await analyze(s.dataset, { embedder: await embedder(), reasoner });
   current = { dataset: s.dataset, view: toView(s.dataset, report, s.source) };
@@ -132,7 +132,10 @@ export function runAblation(seeds = [1, 2, 3]) {
       });
     }
     return { seeds, rows };
-  })();
+  })().catch((e) => {
+    ablation = undefined;
+    throw e;
+  });
   return ablation;
 }
 

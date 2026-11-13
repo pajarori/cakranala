@@ -1,14 +1,19 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { cn } from "@/lib/cn";
-import { int, num } from "@/lib/format";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { approx, clusterColor, int } from "@/lib/format";
 
-export function PageHeader({ eyebrow, title, actions, children }: { eyebrow?: ReactNode; title: ReactNode; actions?: ReactNode; children?: ReactNode }) {
+export type Tone = "neutral" | "danger" | "success" | "warning";
+
+export function PageHeader({ title, meta, actions, children }: { title: ReactNode; meta?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-2 flex flex-wrap items-center gap-2 text-[12.5px] text-fg-3">{eyebrow}</div>}
-        <h1 className="font-display text-[26px] font-semibold leading-tight tracking-[-0.01em] text-fg">{title}</h1>
+        {meta && <div className="mb-3 flex flex-wrap items-center gap-2 text-[14px] text-muted-foreground">{meta}</div>}
+        <h1 className="font-display text-[34px] font-semibold leading-[1.1]">{title}</h1>
         {children}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -16,93 +21,106 @@ export function PageHeader({ eyebrow, title, actions, children }: { eyebrow?: Re
   );
 }
 
-export function Card({ title, action, children, className, flush }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; flush?: boolean }) {
+export function Panel({ title, action, children, className, flush }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; flush?: boolean }) {
   return (
-    <section className={cn("overflow-hidden rounded-lg border border-line bg-frame", className)}>
+    <Card className={cn("gap-0 py-0", className)}>
       {(title || action) && (
-        <header className="flex h-11 items-center justify-between gap-3 border-b border-line px-4">
-          <h2 className="text-[13px] font-medium text-fg">{title}</h2>
-          {action}
-        </header>
+        <CardHeader className="border-b px-5 py-4 [.border-b]:pb-4">
+          <CardTitle className="text-[16px] font-semibold">{title}</CardTitle>
+          {action && <CardAction>{action}</CardAction>}
+        </CardHeader>
       )}
-      <div className={flush ? "" : "p-4"}>{children}</div>
-    </section>
+      <CardContent className={flush ? "p-0" : "p-5"}>{children}</CardContent>
+    </Card>
   );
 }
 
-export function Stat({ label, value, sub, tone, title }: { label: ReactNode; value: ReactNode; sub?: ReactNode; tone?: "danger" | "success" | "warning" | "info"; title?: string }) {
-  const color = tone ? { danger: "text-danger", success: "text-success", warning: "text-warning", info: "text-info" }[tone] : "text-fg";
+const TONE_TEXT: Record<Tone, string> = { neutral: "text-foreground", danger: "text-destructive", success: "text-success", warning: "text-warning" };
+
+export function Stat({ label, value, sub, tone = "neutral", hint }: { label: ReactNode; value: ReactNode; sub?: ReactNode; tone?: Tone; hint?: string }) {
   return (
-    <div title={title}>
-      <div className="text-[11.5px] text-fg-3">{label}</div>
-      <div className={cn("tabular mt-1.5 font-display text-[24px] font-medium leading-none", color)}>{value}</div>
-      {sub && <div className="tabular mt-1.5 text-[11.5px] text-fg-3">{sub}</div>}
+    <div title={hint}>
+      <div className="text-[14px] text-muted-foreground">{label}</div>
+      <div className={cn("tabular mt-2 font-display text-[32px] font-semibold leading-none", TONE_TEXT[tone])}>{value}</div>
+      {sub && <div className="tabular mt-2 text-[14px] text-muted-foreground">{sub}</div>}
     </div>
   );
 }
 
 export function StatRow({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 divide-line overflow-hidden rounded-lg border border-line bg-frame sm:grid-cols-3 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none lg:divide-x [&>*]:p-4">{children}</div>;
+  return <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border md:auto-cols-fr md:grid-flow-col md:grid-cols-none [&>*]:bg-card [&>*]:p-5">{children}</div>;
 }
 
-export function Pill({ children, tone = "neutral", className }: { children: ReactNode; tone?: "neutral" | "danger" | "warning" | "success" | "info"; className?: string }) {
-  const tones = {
-    neutral: "border-line-2 text-fg-2",
-    danger: "border-transparent bg-danger-soft text-danger",
-    warning: "border-transparent bg-warning-soft text-warning",
-    success: "border-transparent bg-success-soft text-success",
-    info: "border-transparent bg-info-soft text-info",
-  };
-  return <span className={cn("inline-flex h-5 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium", tones[tone], className)}>{children}</span>;
-}
+const TAG: Record<Tone, string> = {
+  neutral: "border-border bg-transparent text-muted-foreground",
+  danger: "border-transparent bg-destructive/15 text-destructive",
+  success: "border-transparent bg-success/15 text-success",
+  warning: "border-transparent bg-warning/15 text-warning",
+};
 
-export function ClusterChip({ id, color, count }: { id: string; color: string; count?: number }) {
+export function Tag({ children, tone = "neutral", className }: { children: ReactNode; tone?: Tone; className?: string }) {
   return (
-    <Link to="/clusters/$id" params={{ id }} className="inline-flex h-6 items-center gap-1.5 rounded-md border border-line-2 px-2 text-[12px] text-fg-2 transition-colors hover:border-fg-4 hover:text-fg">
-      <span className="size-2 rounded-full" style={{ background: color }} />
-      {id}
-      {count !== undefined && <span className="tabular text-fg-3">{count}</span>}
+    <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[13px] font-medium", TAG[tone], className)}>
+      {children}
+    </Badge>
+  );
+}
+
+export function ClusterChip({ id, count }: { id: string; count?: number }) {
+  return (
+    <Link to="/clusters/$id" params={{ id }} className="inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-[14px] transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+      <span className="size-2 rounded-full" style={{ background: clusterColor(id) }} />
+      <span className="font-medium">{id}</span>
+      {count !== undefined && <span className="tabular text-muted-foreground">{count}</span>}
     </Link>
   );
 }
 
+export function ClusterChips({ ids, max = 3 }: { ids: { id: string; actors?: number }[]; max?: number }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {ids.slice(0, max).map((c) => (
+        <ClusterChip key={c.id} id={c.id} count={c.actors} />
+      ))}
+      {ids.length > max && <span className="tabular text-[14px] text-muted-foreground">+{ids.length - max}</span>}
+    </div>
+  );
+}
+
 export function VoiceBar({ apparent, effective, ci, size = "md" }: { apparent: number; effective: number; ci?: [number, number]; size?: "sm" | "md" }) {
-  const share = Math.max(0.01, Math.min(1, effective / Math.max(1, apparent)));
-  const lo = ci ? Math.min(1, ci[0] / Math.max(1, apparent)) : share;
-  const hi = ci ? Math.min(1, ci[1] / Math.max(1, apparent)) : share;
+  const at = (x: number) => `${Math.max(0, Math.min(1, x / Math.max(1, apparent))) * 100}%`;
   return (
     <div className="w-full">
-      <div className={cn("relative w-full overflow-hidden rounded-full bg-danger-soft", size === "sm" ? "h-1.5" : "h-2.5")}>
-        <div className="absolute inset-y-0 left-0 bg-[repeating-linear-gradient(135deg,var(--danger)_0_2px,transparent_2px_6px)] opacity-40" style={{ width: "100%" }} />
-        <div className="absolute inset-y-0 left-0 rounded-full bg-success" style={{ width: `${share * 100}%` }} />
-        {ci && <div className="absolute inset-y-0 bg-success/40" style={{ left: `${lo * 100}%`, width: `${Math.max(0, hi - lo) * 100}%` }} />}
+      <div className={cn("relative w-full rounded-sm bg-destructive/20", size === "sm" ? "h-2" : "h-3")}>
+        <div className="absolute inset-y-0 left-0 rounded-sm bg-success" style={{ width: at(Math.max(effective, apparent * 0.01)) }} />
+        {ci && size === "md" && [ci[0], ci[1]].map((x, i) => <span key={i} className="absolute -inset-y-1 w-px bg-foreground/70" style={{ left: at(x) }} />)}
       </div>
       {size === "md" && (
-        <div className="tabular mt-1.5 flex justify-between text-[11.5px]">
-          <span className="text-success">{num(effective)} effective</span>
-          <span className="text-fg-3">{int(apparent)} apparent</span>
+        <div className="tabular mt-2.5 flex justify-between text-[14px]">
+          <span className="text-success">{approx(effective)} independent</span>
+          <span className="text-muted-foreground">{int(apparent)} apparent</span>
         </div>
       )}
     </div>
   );
 }
 
-export function Meter({ value, tone = "neutral" }: { value: number; tone?: "neutral" | "danger" | "success" | "warning" }) {
-  const color = { neutral: "bg-fg-3", danger: "bg-danger", success: "bg-success", warning: "bg-warning" }[tone];
+export function Meter({ value, tone = "neutral" }: { value: number; tone?: Tone }) {
+  const color = { neutral: "bg-muted-foreground", danger: "bg-destructive", success: "bg-success", warning: "bg-warning" }[tone];
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
-      <div className={cn("h-full rounded-full", color)} style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
+    <div className="h-2 w-full overflow-hidden rounded-sm bg-muted">
+      <div className={cn("h-full", color)} style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
     </div>
   );
 }
 
 export function KeyValue({ items }: { items: [ReactNode, ReactNode][] }) {
   return (
-    <dl className="divide-y divide-line">
+    <dl className="divide-y">
       {items.map(([k, v], i) => (
-        <div key={i} className="flex items-center justify-between gap-4 py-2 text-[13px]">
-          <dt className="text-fg-3">{k}</dt>
-          <dd className="tabular text-right text-fg">{v}</dd>
+        <div key={i} className="flex items-center justify-between gap-4 py-2.5 text-[15px]">
+          <dt className="text-muted-foreground">{k}</dt>
+          <dd className="tabular text-right">{v}</dd>
         </div>
       ))}
     </dl>
@@ -111,19 +129,22 @@ export function KeyValue({ items }: { items: [ReactNode, ReactNode][] }) {
 
 export function EmptyState({ title, action }: { title: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-line-2 px-6 py-14 text-center">
-      <div className="text-[13.5px] text-fg-2">{title}</div>
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
+      <div className="text-[16px] text-muted-foreground">{title}</div>
       {action}
     </div>
   );
 }
 
-export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+export function ErrorState({ error, onRetry, title = "Couldn’t load" }: { error: unknown; onRetry?: () => void; title?: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-[13px] text-danger">
-      <span>{error instanceof Error ? error.message : String(error)}</span>
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/10 px-5 py-4 text-[15px]">
+      <span className="min-w-0">
+        <span className="font-medium text-destructive">{title}</span>
+        <span className="ml-2 break-words text-muted-foreground">{error instanceof Error ? error.message : String(error)}</span>
+      </span>
       {onRetry && (
-        <button onClick={onRetry} className="rounded-md border border-danger/40 px-2 py-1 text-[12px] hover:bg-danger/10">
+        <button onClick={onRetry} className="rounded-md border border-destructive/40 px-3 py-1.5 text-[14px] hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           Retry
         </button>
       )}
@@ -131,19 +152,18 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   );
 }
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-lg bg-raised", className)} />;
-}
-
 export function PageSkeleton() {
   return (
-    <div className="space-y-5">
-      <Skeleton className="h-8 w-64" />
-      <Skeleton className="h-24" />
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Skeleton className="h-72" />
-        <Skeleton className="h-72" />
+    <div className="space-y-6">
+      <Skeleton className="h-10 w-96 max-w-full" />
+      <Skeleton className="h-28" />
+      <div className="space-y-px overflow-hidden rounded-xl">
+        {Array.from({ length: 8 }, (_, i) => (
+          <Skeleton key={i} className="h-12 rounded-none" />
+        ))}
       </div>
     </div>
   );
 }
+
+export const linkRow = "transition-colors hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none";

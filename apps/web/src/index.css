@@ -1,45 +1,103 @@
 @import "tailwindcss";
-@import "./styles/stealth.css";
+@import "tw-animate-css";
 
-@theme inline {
-  --font-display: "IBM Plex Sans Condensed", var(--font-sans);
-}
+@custom-variant dark (&:is(.dark *));
 
-:root,
-[data-theme="dark"] {
-  --font-geist-sans: "IBM Plex Sans";
-  --font-geist-mono: "IBM Plex Mono";
-  --page: #0c0d0a;
-  --frame: #11130f;
-  --raised: #171a14;
-  --hover: #1c1f18;
-  --line: #22261d;
-  --line-2: #2f3428;
-  --fg: #e9e7dc;
-  --fg-2: #b0ae9e;
-  --fg-3: #7f7e6e;
-  --fg-4: #55574a;
-  --danger: #e4574f;
-  --danger-soft: rgba(228, 87, 79, 0.12);
+:root {
+  --radius: 0.5rem;
+  --background: #0d0e0b;
+  --foreground: #ecebe2;
+  --card: #131510;
+  --card-foreground: #ecebe2;
+  --popover: #161813;
+  --popover-foreground: #ecebe2;
+  --primary: #dcd8c4;
+  --primary-foreground: #14160f;
+  --secondary: #1d2018;
+  --secondary-foreground: #ecebe2;
+  --muted: #1b1e17;
+  --muted-foreground: #9a9886;
+  --accent: #22261d;
+  --accent-foreground: #ecebe2;
+  --destructive: #e4574f;
+  --border: #272b21;
+  --input: #2f3428;
+  --ring: #6f7160;
   --success: #8fc09a;
-  --success-soft: rgba(143, 192, 154, 0.12);
   --warning: #d6a64f;
-  --warning-soft: rgba(214, 166, 79, 0.12);
-  --info: #93abc9;
-  --info-soft: rgba(147, 171, 201, 0.12);
+  --chart-1: #e4574f;
+  --chart-2: #8fc09a;
+  --chart-3: #c9a66b;
+  --chart-4: #8fa3b8;
+  --chart-5: #b48ead;
+  --sidebar: #10120e;
+  --sidebar-foreground: #d9d7cb;
+  --sidebar-primary: #dcd8c4;
+  --sidebar-primary-foreground: #14160f;
+  --sidebar-accent: #1d2018;
+  --sidebar-accent-foreground: #ecebe2;
+  --sidebar-border: #22261d;
+  --sidebar-ring: #6f7160;
   color-scheme: dark;
 }
 
-body {
-  background: var(--page);
-  min-height: 100vh;
-  font-size: 13.5px;
+@theme inline {
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-h1,
-h2,
-h3 {
-  text-wrap: balance;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-[15px] text-foreground antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .react-sigma {

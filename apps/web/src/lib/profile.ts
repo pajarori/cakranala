@@ -1,16 +1,13 @@
 import type { Cluster, Narrative, View } from "./api";
 
-export type Profile = { label: string; tone: "danger" | "warning" | "info" };
-
-export function profile(c: Cluster): Profile {
-  const layers = new Set(c.layers.map((l) => l.layer));
-  if ((c.forensics.rotation ?? 0) >= 0.7) return { label: "Scripted", tone: "danger" };
-  if (layers.has("copypasta") && !layers.has("coframing")) return { label: "Copy-driven", tone: "warning" };
-  return { label: "Human-paced", tone: "info" };
-}
+export const profile = (c: Cluster) => ((c.forensics.rotation ?? 0) >= 0.7 ? "Scripted" : c.layers.some((l) => l.layer === "coframing") ? "Human-paced" : "Copy-driven");
 
 export const inflation = (n: Narrative) => n.supporters / Math.max(1, n.sie.value);
 
-export const narrativesOf = (view: View, clusterId: string) => view.report.narratives.filter((n) => n.clusters.some((c) => c.id === clusterId));
+export const isCoordinated = (n: Narrative) => n.verdict === "manufactured";
 
-export const manufactured = (view: View) => view.report.narratives.filter((n) => n.clusters.length);
+export const coordinated = (view: View) => view.report.narratives.filter(isCoordinated);
+
+export const narrativesOf = (view: View, clusterId: string) => coordinated(view).filter((n) => n.clusters.some((c) => c.id === clusterId));
+
+export const headline = (view: View) => [...coordinated(view)].sort((a, b) => b.supporters - b.sie.value - (a.supporters - a.sie.value))[0];

@@ -1,157 +1,128 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
-import { Card, ClusterChip, Pill, PageHeader, Stat, StatRow, VoiceBar } from "@/components/primitives";
+import { createRoute, Link } from "@tanstack/react-router";
+import { rootRoute } from "@/routes/root";
+import { ClusterChips, EmptyState, Panel, Stat, StatRow, Tag, VoiceBar, linkRow } from "@/components/primitives";
 import { Counterfactual } from "@/components/counterfactual";
-import { ViewGate } from "@/components/view-gate";
-import { clock, clusterColor, int, num, pct, ratio, truncate } from "@/lib/format";
-import { inflation, manufactured, profile } from "@/lib/profile";
-import type { View } from "@/lib/api";
+import { ensureView, useViewData } from "@/lib/queries";
+import { approx, clock, clusterColor, int, range, ratio, truncate } from "@/lib/format";
+import { coordinated, headline, inflation, isCoordinated, profile } from "@/lib/profile";
+import type { Narrative, View } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-function Verdict({ view }: { view: View }) {
-  const top = [...manufactured(view)].sort((a, b) => inflation(b) - inflation(a))[0];
-  if (!top)
-    return (
-      <Card>
-        <div className="flex items-center gap-3">
-          <Pill tone="success">Organic</Pill>
-          <span className="text-fg-2">No narrative in this source shows coordinated amplification.</span>
-        </div>
-      </Card>
-    );
+function Hero({ n }: { n: Narrative }) {
   return (
-    <Link to="/narratives/$id" params={{ id: top.id }} className="group block rounded-lg border border-danger/25 bg-frame transition-colors hover:border-danger/50">
-      <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-center">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Pill tone="danger">Manufactured</Pill>
-            <span className="text-[12.5px] text-fg-3">{top.id}</span>
-            <ArrowUpRight size={14} className="ml-auto text-fg-4 transition-colors group-hover:text-fg-2 lg:hidden" />
-          </div>
-          <p className="mt-3 line-clamp-2 text-[15px] leading-relaxed text-fg">“{top.sample}”</p>
+    <section className="grid gap-10 border-b pb-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3 text-[15px] text-muted-foreground">
+          <Tag tone="danger">Coordinated</Tag>
+          <Link to="/narratives/$id" params={{ id: n.id }} className="hover:text-foreground">
+            Narrative {n.id}
+          </Link>
         </div>
-        <div>
-          <div className="mb-3 grid grid-cols-3 gap-4">
-            <Stat label="Apparent" value={int(top.supporters)} />
-            <Stat label="Independent" value={`±${num(top.sie.value)}`} tone="success" />
-            <Stat label="Inflation" value={ratio(inflation(top))} tone="danger" />
-          </div>
-          <VoiceBar apparent={top.supporters} effective={top.sie.value} ci={top.sie.ci} />
+        <h1 className="mt-4 font-display text-[40px] font-semibold leading-[1.05]">
+          {int(n.supporters)} accounts push it. {approx(n.sie.value)} are independent.
+        </h1>
+        <p className="mt-4 line-clamp-3 max-w-xl text-[17px] leading-relaxed text-muted-foreground">“{n.sample}”</p>
+        <div className="mt-7 max-w-md">
+          <VoiceBar apparent={n.supporters} effective={n.sie.value} ci={n.sie.ci} />
+        </div>
+        <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-[15px]">
+          <span className="tabular font-medium text-destructive">{ratio(inflation(n))} inflation</span>
+          <span className="tabular text-muted-foreground">CI {range(n.sie.ci)}</span>
+          <ClusterChips ids={n.clusters} />
         </div>
       </div>
-    </Link>
+      <div className="min-w-0 self-end">
+        <Counterfactual narrative={n} height={280} />
+      </div>
+    </section>
   );
 }
 
-function NarrativeRows({ view }: { view: View }) {
-  const rows = [...view.report.narratives].sort((a, b) => b.supporters - b.sie.value - (a.supporters - a.sie.value)).slice(0, 7);
+function Calm({ view }: { view: View }) {
   return (
-    <Card title="Narratives" action={<Link to="/narratives" className="text-[12px] text-fg-3 hover:text-fg">All</Link>} flush>
-      <ul className="divide-y divide-line">
-        {rows.map((n) => (
-          <li key={n.id}>
-            <Link to="/narratives/$id" params={{ id: n.id }} className="grid grid-cols-[44px_minmax(0,1fr)_120px_64px] items-center gap-4 px-4 py-3 transition-colors hover:bg-hover">
-              <span className="font-mono text-[12px] text-fg-3">{n.id}</span>
-              <span className="truncate text-[13px] text-fg-2">{truncate(n.sample, 110)}</span>
-              <VoiceBar apparent={n.supporters} effective={n.sie.value} size="sm" />
-              <span className={`tabular text-right text-[13px] ${n.clusters.length ? "text-danger" : "text-fg-3"}`}>{ratio(inflation(n))}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <section className="border-b pb-10">
+      <Tag tone="success">No coordination found</Tag>
+      <h1 className="mt-4 font-display text-[40px] font-semibold leading-[1.05]">{int(view.report.narratives.length)} narratives, all carried by independent voices.</h1>
+    </section>
+  );
+}
+
+function Narratives({ view }: { view: View }) {
+  const rows = [...view.report.narratives].sort((a, b) => b.supporters - b.sie.value - (a.supporters - a.sie.value)).slice(0, 8);
+  return (
+    <Panel title="Narratives" action={<Link to="/narratives" className="text-[14px] text-muted-foreground hover:text-foreground">View all</Link>} flush>
+      {rows.length ? (
+        <ul className="divide-y">
+          {rows.map((n) => (
+            <li key={n.id}>
+              <Link to="/narratives/$id" params={{ id: n.id }} className={cn("grid grid-cols-[48px_minmax(0,1fr)_110px_64px] items-center gap-4 px-5 py-3.5", linkRow)}>
+                <span className="text-[14px] font-medium text-muted-foreground">{n.id}</span>
+                <span className="truncate text-[15px]">{truncate(n.sample, 120)}</span>
+                <VoiceBar apparent={n.supporters} effective={n.sie.value} size="sm" />
+                <span className={cn("tabular text-right text-[15px]", isCoordinated(n) ? "font-medium text-destructive" : "text-muted-foreground")}>{ratio(inflation(n))}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="p-5">
+          <EmptyState title="No narratives" />
+        </div>
+      )}
+    </Panel>
   );
 }
 
 function Detections({ view }: { view: View }) {
   const rows = [...view.report.clusters].sort((a, b) => a.forensics.onset.ts - b.forensics.onset.ts);
   return (
-    <Card title="Detections" action={<Link to="/clusters" className="text-[12px] text-fg-3 hover:text-fg">All</Link>} flush>
+    <Panel title="Detections" action={<Link to="/clusters" className="text-[14px] text-muted-foreground hover:text-foreground">View all</Link>} flush>
       {rows.length ? (
-        <ol className="divide-y divide-line">
-          {rows.map((c) => {
-            const p = profile(c);
-            return (
-              <li key={c.id}>
-                <Link to="/clusters/$id" params={{ id: c.id }} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
-                  <span className="tabular w-11 text-[12.5px] text-fg-3">{clock(c.forensics.onset.ts)}</span>
-                  <span className="size-2 rounded-full" style={{ background: clusterColor(c.id) }} />
-                  <span className="text-[13px] text-fg">{c.id}</span>
-                  <Pill tone={p.tone}>{p.label}</Pill>
-                  <span className="tabular ml-auto text-[12.5px] text-fg-3">
-                    {c.members.length} accounts · {c.forensics.waves} waves
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+        <ol className="divide-y">
+          {rows.map((c) => (
+            <li key={c.id}>
+              <Link to="/clusters/$id" params={{ id: c.id }} className={cn("grid grid-cols-[52px_auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5", linkRow)}>
+                <span className="tabular text-[15px] text-muted-foreground">{clock(c.forensics.onset.ts)}</span>
+                <span className="flex items-center gap-2 text-[15px] font-medium">
+                  <span className="size-2.5 rounded-full" style={{ background: clusterColor(c.id) }} />
+                  {c.id}
+                </span>
+                <span className="truncate text-[15px] text-muted-foreground">{profile(c)}</span>
+                <span className="tabular text-right text-[15px]">{c.members.length} accounts</span>
+              </Link>
+            </li>
+          ))}
         </ol>
       ) : (
-        <div className="px-4 py-10 text-center text-fg-3">None</div>
-      )}
-    </Card>
-  );
-}
-
-function Control({ view }: { view: View }) {
-  const organic = view.report.narratives.filter((n) => !n.clusters.length).sort((a, b) => b.supporters - a.supporters).slice(0, 3);
-  if (!organic.length) return null;
-  return (
-    <Card title="Organic control" flush>
-      <ul className="divide-y divide-line">
-        {organic.map((n) => (
-          <li key={n.id} className="grid grid-cols-[44px_minmax(0,1fr)_140px] items-center gap-4 px-4 py-3">
-            <span className="font-mono text-[12px] text-fg-3">{n.id}</span>
-            <span className="truncate text-[13px] text-fg-2">{n.sample}</span>
-            <span className="tabular text-right text-[12.5px] text-fg-3">
-              {int(n.supporters)} → ±{num(n.sie.value)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
-
-function Body({ view }: { view: View }) {
-  const { stats, clusters } = view.report;
-  const top = [...manufactured(view)].sort((a, b) => inflation(b) - inflation(a))[0];
-  const e = view.evaluation;
-  return (
-    <>
-      <PageHeader title="Overview" eyebrow={view.source.label} />
-      <div className="space-y-5">
-        <Verdict view={view} />
-        <StatRow>
-          <Stat label="Accounts" value={int(stats.actors)} sub={`${int(stats.events)} posts`} />
-          <Stat label="Coordinated" value={int(stats.flaggedActors)} sub={pct(stats.flaggedActors / Math.max(1, stats.actors))} tone={stats.flaggedActors ? "danger" : undefined} />
-          <Stat label="Clusters" value={clusters.length} sub={`${int(view.report.edges.length)} ties`} />
-          <Stat label="Manufactured narratives" value={manufactured(view).length} sub={`of ${view.report.narratives.length}`} />
-          {e ? <Stat label="Precision" value={pct(e.precision)} sub={`recall ${pct(e.recall)}`} /> : <Stat label="Coverage" value={pct(view.source.coverage ?? 1)} />}
-        </StatRow>
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <NarrativeRows view={view} />
-          <Detections view={view} />
+        <div className="p-5">
+          <EmptyState title="No coordinated clusters" />
         </div>
-        {top && (
-          <Card
-            title={`${top.id} · observed vs without operations`}
-            action={
-              <div className="flex gap-1.5">
-                {top.clusters.map((c) => (
-                  <ClusterChip key={c.id} id={c.id} color={clusterColor(c.id)} count={c.actors} />
-                ))}
-              </div>
-            }
-          >
-            <Counterfactual narrative={top} />
-          </Card>
-        )}
-        <Control view={view} />
-      </div>
-    </>
+      )}
+    </Panel>
   );
 }
 
-export function Overview() {
-  return <ViewGate>{(view) => <Body view={view} />}</ViewGate>;
+function Overview() {
+  const view = useViewData();
+  const { stats, clusters, narratives } = view.report;
+  const top = headline(view);
+  const apparent = narratives.reduce((s, n) => s + n.supporters, 0);
+  const independent = narratives.reduce((s, n) => s + n.sie.value, 0);
+  return (
+    <div className="space-y-10">
+      {top ? <Hero n={top} /> : <Calm view={view} />}
+      <StatRow>
+        <Stat label="Accounts" value={int(stats.actors)} sub={`${int(stats.events)} posts`} />
+        <Stat label="In coordinated clusters" value={int(stats.flaggedActors)} sub={`${clusters.length} clusters`} tone={stats.flaggedActors ? "danger" : "neutral"} />
+        <Stat label="Coordinated narratives" value={coordinated(view).length} sub={`of ${narratives.length}`} />
+        <Stat label="Independent voices" value={approx(independent)} sub={`of ${int(apparent)} apparent`} tone="success" />
+      </StatRow>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+        <Narratives view={view} />
+        <Detections view={view} />
+      </div>
+    </div>
+  );
 }
+
+export const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", staticData: { title: "Overview" }, loader: ensureView, component: Overview });

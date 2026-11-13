@@ -105,3 +105,21 @@ export function shuffle<T>(r: Rng, xs: T[]) {
   }
   return a;
 }
+
+export function binomialTail(k: number, n: number, p: number) {
+  if (k <= 0) return 1;
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  let lg = 0;
+  const logChoose = (i: number) => {
+    let s = 0;
+    for (let j = 1; j <= i; j++) s += Math.log((n - i + j) / j);
+    return s;
+  };
+  let tail = 0;
+  for (let i = k; i <= n; i++) {
+    lg = logChoose(i) + i * Math.log(p) + (n - i) * Math.log(1 - p);
+    tail += Math.exp(lg);
+  }
+  return Math.min(1, tail);
+}
