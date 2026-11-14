@@ -381,7 +381,7 @@ const server = serve({
       }),
     },
   },
-  development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
+  development: process.env.CAKRANALA_HMR === "1" && { hmr: true, console: true },
 });
 
 await importEnvCredential();
