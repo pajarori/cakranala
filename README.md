@@ -181,6 +181,7 @@ DEMO_MODE=1 DEMO_FIXTURE=1 bun run dev
 The fixture is seeded into the local `data/` SQLite database once and is intentionally separate from production mode. Open `/threats` after login to find the four review-status examples, then use `/system` to inspect the audit chain.
 
 `bun run dev` starts the web app with hot reload on http://localhost:3000 and reads `.env` from the repository root.
+Local PDF exports require Typst on `PATH`; the production Docker image bundles it. Alternatively set `TYPST_BIN=/absolute/path/to/typst` when running the web app.
 
 ## Data, privacy and limits
 
