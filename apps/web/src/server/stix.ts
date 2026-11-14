@@ -9,7 +9,7 @@ const sid = (type: string, key: string) => `${type}--${uuidFrom(`${type}:${key}`
 export function stixBundle(caseId: string) {
   const c = caseView(caseId);
   const { report, window } = snapshot();
-  if (!c || !report) throw new Error("case is not active in the current analysis window");
+  if (!c || !report) throw new Error("kasus tidak aktif di jendela analisis saat ini");
   const now = iso(Date.now());
   const common = { spec_version: "2.1", created: now, modified: now };
   const identity = { type: "identity", id: sid("identity", "cakranala"), ...common, name: "Cakra Nala", identity_class: "system" };

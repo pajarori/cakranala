@@ -5,7 +5,7 @@ import type { AuditEntry, ReportRow } from "./db";
 import type { ReportContent } from "./reports";
 
 const TEMPLATE = new URL("../../report/report.typ", import.meta.url).pathname;
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
 const WIB = 7 * 3_600_000;
 
 const short = (s: string) => s.replace(/\b([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "$1");
@@ -32,18 +32,18 @@ export async function reportPdf(r: ReportRow<ReportContent> & { hash?: string },
     title: short(c.title),
     short: r.id.slice(0, 8).toUpperCase(),
     caseShort: r.caseId.slice(0, 8).toUpperCase(),
-    classification: process.env.REPORT_CLASSIFICATION ?? "RESTRICTED",
+    classification: process.env.REPORT_CLASSIFICATION ?? "TERBATAS",
     dtg: dtg(r.createdAt),
     issued: stamp(r.createdAt),
     preparedBy: String(custody.find((a) => a.action === "report.created")?.detail.by ?? "Cakra Nala"),
-    threatLevel: c.threatLevel,
+    threatLevel: ({ critical: "Kritis", high: "Tinggi", medium: "Sedang", low: "Rendah" } as Record<string, string>)[c.threatLevel] ?? c.threatLevel,
     confidence: short(c.confidence),
     bluf: short(c.bluf),
     assessment: short(c.assessment),
-    facts: c.facts.map((f) => ({ label: f.label, value: f.label === "First seen" ? stamp(Date.parse(f.value)) : short(f.value) })),
+    facts: c.facts.map((f) => ({ label: f.label, value: f.label === "Pertama terlihat" || f.label === "First seen" ? stamp(Date.parse(f.value)) : short(f.value) })),
     findings: c.findings.map(short),
     actions: c.actions.map(short),
-    disarm: (c.facts.find((f) => f.label === "DISARM techniques")?.value ?? "")
+    disarm: (c.facts.find((f) => f.label === "Teknik DISARM" || f.label === "DISARM techniques")?.value ?? "")
       .split(", ")
       .filter((x) => /^T\d/.test(x))
       .map((x) => ({ id: x.split(" ")[0], name: x.split(" ").slice(1).join(" ") })),
@@ -52,7 +52,7 @@ export async function reportPdf(r: ReportRow<ReportContent> & { hash?: string },
     evidence: c.evidence ?? { events: 0, root: "" },
     custody: custody.map((a) => ({ time: stamp(a.ts), action: a.action, by: String(a.detail.by ?? "system"), hash: a.hash.slice(0, 16) })),
   };
-  data.facts = data.facts.filter((f) => f.label !== "DISARM techniques");
+  data.facts = data.facts.filter((f) => f.label !== "Teknik DISARM" && f.label !== "DISARM techniques");
   const dir = await mkdtemp(join(tmpdir(), "report-"));
   try {
     await Bun.write(join(dir, "report.typ"), Bun.file(TEMPLATE));

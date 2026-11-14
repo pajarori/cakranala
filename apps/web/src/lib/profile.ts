@@ -1,6 +1,6 @@
 import type { Cluster, Narrative } from "./api";
 
-export const profile = (c: Cluster) => ((c.forensics.rotation ?? 0) >= 0.7 ? "Scripted" : c.layers.some((l) => l.layer === "coframing") ? "Human-paced" : "Copy-driven");
+export const profile = (c: Cluster) => ((c.forensics.rotation ?? 0) >= 0.7 ? "Terskrip" : c.layers.some((l) => l.layer === "coframing") ? "Bertempo manusia" : "Salin tempel");
 
 export const inflation = (n: { supporters: number; sie: { value: number } }) => n.supporters / Math.max(1, n.sie.value);
 

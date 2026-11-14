@@ -96,15 +96,15 @@ function components(report: Report) {
 async function describe(report: Report, narrativeIds: string[], clusterIds: string[]) {
   const samples = report.narratives.filter((n) => narrativeIds.includes(n.id)).map((n) => n.sample);
   const points = report.clusters.filter((c) => clusterIds.includes(c.id)).flatMap((c) => c.forensics.talkingPoints);
-  const fallback = { title: samples[0]?.slice(0, 80) ?? "Coordinated narrative", brief: null as string | null };
+  const fallback = { title: samples[0]?.slice(0, 80) ?? "Narasi terkoordinasi", brief: null as string | null };
   if (!reasoner) return fallback;
   try {
     const raw = await reasoner.complete(
       [
-        "You support military cyber analysts. Coordinated accounts are pushing the narratives below on Indonesian social media.",
-        `Narrative samples:\n${samples.map((s) => `- ${s}`).join("\n")}`,
-        `Talking points from the coordinated accounts:\n${points.slice(0, 6).map((s) => `- ${s}`).join("\n")}`,
-        'Reply with JSON only: {"title": "short English case title, max 8 words, neutral and factual", "brief": "2 to 3 English sentences: the core message the operators appear to push and its persuasion goal. Use indicative language and do not accuse individuals."}',
+        "Kamu membantu analis siber militer. Sejumlah akun terkoordinasi mendorong narasi berikut di media sosial Indonesia.",
+        `Contoh narasi:\n${samples.map((s) => `- ${s}`).join("\n")}`,
+        `Pokok pesan dari akun terkoordinasi:\n${points.slice(0, 6).map((s) => `- ${s}`).join("\n")}`,
+        'Balas HANYA JSON: {"title": "judul kasus singkat dalam Bahasa Indonesia, maksimal 8 kata, netral dan faktual", "brief": "2 sampai 3 kalimat Bahasa Indonesia: inti pesan yang tampaknya didorong operator dan tujuan persuasinya. Gunakan bahasa indikatif dan jangan menuduh individu."}',
       ].join("\n\n"),
       { json: true },
     );
@@ -130,11 +130,11 @@ async function track(report: Report, now: number, monitorOf: Map<string, string>
     let row: CaseRow;
     if (match && match.j >= 0.25) {
       row = { ...match.c, members: [...new Set([...match.c.members, ...members])], lastSeen: now, peak: Math.max(match.c.peak, manufactured) };
-      if (manufactured >= Math.max(match.c.peak * 1.5, match.c.peak + 5)) alerts.add({ ts: now, kind: "escalated", caseId: row.id, text: `${row.title} grew to ${apparent} apparent supporters` });
+      if (manufactured >= Math.max(match.c.peak * 1.5, match.c.peak + 5)) alerts.add({ ts: now, kind: "escalated", caseId: row.id, text: `${row.title} membesar menjadi ${apparent} pendukung tampak` });
     } else {
       const d = await describe(report, g.narratives, g.clusters);
       row = { id: crypto.randomUUID(), title: d.title, brief: d.brief, status: "new", members: [...members], firstSeen: now, lastSeen: now, peak: manufactured, createdAt: now };
-      alerts.add({ ts: now, kind: "new", caseId: row.id, text: `New coordinated operation: ${row.title}` });
+      alerts.add({ ts: now, kind: "new", caseId: row.id, text: `Operasi terkoordinasi baru: ${row.title}` });
     }
     cases.upsert(row);
     seen.add(row.id);

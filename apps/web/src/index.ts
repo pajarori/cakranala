@@ -35,7 +35,7 @@ const json = (fn: Handler) => async (req: Bun.BunRequest, server: Bun.Server<und
 
 const guard = (req: Request): User => {
   const u = currentUser(req);
-  if (!u) throw new HttpError(401, "sign in required");
+  if (!u) throw new HttpError(401, "silakan masuk terlebih dahulu");
   return u;
 };
 
@@ -51,7 +51,7 @@ const limit = (req: Request, server: Bun.Server<undefined>, bucket: string, max:
   if (!w || now - w.start > 60_000) {
     if (windows.size > 10_000) windows.clear();
     windows.set(key, { start: now, count: 1 });
-  } else if (++w.count > max) throw new HttpError(429, "too many requests, try again in a minute");
+  } else if (++w.count > max) throw new HttpError(429, "terlalu banyak permintaan, coba lagi dalam satu menit");
 };
 
 const SHIELD_PER_MINUTE = Number(process.env.SHIELD_PER_MINUTE ?? 20);
@@ -85,7 +85,7 @@ const server = serve({
       POST: async (req, server) => {
         try {
           limit(req, server, "login", 10);
-          if (users.count() > 0) throw new HttpError(403, "already set up");
+          if (users.count() > 0) throw new HttpError(403, "akun pertama sudah dibuat");
           const { username, password } = await req.json();
           const u = await users.create(username, password);
           audit.add("user.created", u.id, { username: u.username, by: u.username });
@@ -112,15 +112,15 @@ const server = serve({
     },
     "/api/users/:id": {
       PATCH: authed(async (req, me) => {
-        if (!users.all().some((u) => u.id === req.params.id)) throw new HttpError(404, "user not found");
+        if (!users.all().some((u) => u.id === req.params.id)) throw new HttpError(404, "pengguna tidak ditemukan");
         await users.setPassword(req.params.id, (await req.json()).password);
         audit.add("user.password", req.params.id, { by: me.username });
         return { ok: true };
       }),
       DELETE: authed((req, me) => {
         const u = users.all().find((x) => x.id === req.params.id);
-        if (!u) throw new HttpError(404, "user not found");
-        if (u.id === me.id) throw new Error("you cannot remove yourself");
+        if (!u) throw new HttpError(404, "pengguna tidak ditemukan");
+        if (u.id === me.id) throw new Error("Anda tidak bisa menghapus akun sendiri");
         users.remove(u.id);
         audit.add("user.removed", u.id, { username: u.username, by: me.username });
         return { ok: true };
@@ -139,7 +139,7 @@ const server = serve({
     "/api/monitors/:id": {
       PATCH: authed(async (req, me) => {
         const m = monitors.get(req.params.id);
-        if (!m) throw new HttpError(404, "monitor not found");
+        if (!m) throw new HttpError(404, "pantauan tidak ditemukan");
         const active = !!(await req.json()).active;
         monitors.setActive(m.id, active);
         audit.add(active ? "monitor.resumed" : "monitor.paused", m.id, { by: me.username });
@@ -147,7 +147,7 @@ const server = serve({
       }),
       DELETE: authed((req, me) => {
         const m = monitors.get(req.params.id);
-        if (!m) throw new HttpError(404, "monitor not found");
+        if (!m) throw new HttpError(404, "pantauan tidak ditemukan");
         monitors.remove(m.id);
         audit.add("monitor.deleted", m.id, { kind: m.kind, target: m.target, by: me.username });
         refresh(true);
@@ -175,7 +175,7 @@ const server = serve({
     "/api/credentials/:id/test": {
       POST: authed(async (req, me) => {
         const c = credentials.get(req.params.id);
-        if (!c) throw new HttpError(404, "credential not found");
+        if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
         const p = await probe(c.platform, await credentials.fields(c.id), sidecarFromEnv());
         credentials.checked(c.id, p);
         audit.add("credential.tested", c.id, { platform: c.platform, ok: p.ok, by: me.username });
@@ -185,7 +185,7 @@ const server = serve({
     "/api/credentials/:id": {
       PATCH: authed(async (req, me) => {
         const c = credentials.get(req.params.id);
-        if (!c) throw new HttpError(404, "credential not found");
+        if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
         const { active, rotate } = await req.json();
         if (typeof active === "boolean") credentials.setActive(c.id, active);
         if (rotate) credentials.rotate(c.id);
@@ -194,7 +194,7 @@ const server = serve({
       }),
       DELETE: authed((req, me) => {
         const c = credentials.get(req.params.id);
-        if (!c) throw new HttpError(404, "credential not found");
+        if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
         credentials.remove(c.id);
         audit.add("credential.removed", c.id, { platform: c.platform, by: me.username });
         return { ok: true };
@@ -203,12 +203,12 @@ const server = serve({
     "/api/cases/:id": {
       PATCH: authed(async (req, me) => {
         const c = cases.get(req.params.id);
-        if (!c) throw new HttpError(404, "case not found");
+        if (!c) throw new HttpError(404, "kasus tidak ditemukan");
         const { status } = await req.json();
-        if (!STATUSES.includes(status)) throw new Error("invalid status");
+        if (!STATUSES.includes(status)) throw new Error("status tidak valid");
         cases.setStatus(c.id, status);
         audit.add("case.status", c.id, { from: c.status, to: status, by: me.username });
-        alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} marked ${status}` });
+        alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
         await refresh(true);
         return { ok: true };
       }),
@@ -228,7 +228,7 @@ const server = serve({
     "/api/reports/:id": {
       GET: authed((req) => {
         const r = reports.get(req.params.id);
-        if (!r) throw new HttpError(404, "report not found");
+        if (!r) throw new HttpError(404, "laporan tidak ditemukan");
         return { ...r, custody: audit.of(r.id) };
       }),
     },
@@ -237,7 +237,7 @@ const server = serve({
         try {
           guard(req);
           const r = reports.get(req.params.id) as Parameters<typeof reportPdf>[0] | undefined;
-          if (!r) throw new HttpError(404, "report not found");
+          if (!r) throw new HttpError(404, "laporan tidak ditemukan");
           const pdf = await reportPdf(r, audit.of(r.id));
           const name = r.content.title.replace(/[^\w ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "report";
           return new Response(pdf, { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${name}.pdf"`, "cache-control": "no-store" } });
@@ -251,9 +251,9 @@ const server = serve({
       POST: json(async (req, server) => {
         limit(req, server, "shield", SHIELD_PER_MINUTE);
         const { text, image } = await req.json();
-        if (!text && !image) throw new Error("send text or an image");
-        if (text !== undefined && (typeof text !== "string" || text.length > 5000)) throw new Error("text must be under 5000 characters");
-        if (image !== undefined && (typeof image !== "string" || !/^data:image\/(png|jpe?g|webp|gif);base64,/.test(image) || image.length > 6_000_000)) throw new Error("image must be a PNG, JPEG, WebP or GIF under 4 MB");
+        if (!text && !image) throw new Error("kirim teks atau gambar");
+        if (text !== undefined && (typeof text !== "string" || text.length > 5000)) throw new Error("teks maksimal 5000 karakter");
+        if (image !== undefined && (typeof image !== "string" || !/^data:image\/(png|jpe?g|webp|gif);base64,/.test(image) || image.length > 6_000_000)) throw new Error("gambar harus PNG, JPEG, WebP, atau GIF di bawah 4 MB");
         return runShield({ text, image });
       }),
     },

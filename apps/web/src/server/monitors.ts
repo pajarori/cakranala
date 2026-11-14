@@ -50,7 +50,7 @@ export async function runMonitor(m: Monitor, now = Date.now()) {
     }
     const raw = await collector.collect({ platform: m.platform, kind: m.kind as Kind, target: m.target, pages: m.pages });
     const ds = await pseudonymize(raw, secret);
-    monitors.ran(m.id, now, raw.meta?.coverage === 0 ? "rate limited" : null, store.add(m.id, ds.actors, ds.events));
+    monitors.ran(m.id, now, raw.meta?.coverage === 0 ? "terkena batas laju" : null, store.add(m.id, ds.actors, ds.events));
   } catch (e) {
     monitors.ran(m.id, now, e instanceof Error ? e.message : String(e), 0);
   }
@@ -68,10 +68,10 @@ export function due(m: Monitor, now = Date.now()) {
 }
 
 export function createMonitor(input: { kind: MonitorKind; platform?: Platform; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) {
-  if (!["topic", "account", "post", "simulation"].includes(input.kind)) throw new Error("unknown monitor type");
-  if (!input.target?.trim() || input.target.length > 200) throw new Error("target must be 1 to 200 characters");
+  if (!["topic", "account", "post", "simulation"].includes(input.kind)) throw new Error("jenis pantauan tidak dikenal");
+  if (!input.target?.trim() || input.target.length > 200) throw new Error("target harus 1 sampai 200 karakter");
   const platform = input.platform ?? "x";
-  if (input.kind === "simulation" && !DEMO_MODE) throw new Error("demo feed is only available in demo mode");
+  if (input.kind === "simulation" && !DEMO_MODE) throw new Error("demo feed hanya tersedia di mode demo");
   if (input.kind !== "simulation") validate({ platform, kind: input.kind as Kind, target: input.target });
   const m = {
     id: crypto.randomUUID(),

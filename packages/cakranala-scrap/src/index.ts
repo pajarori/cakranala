@@ -31,7 +31,7 @@ export async function probe(platform: Platform, fields: Record<string, string>, 
     if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0" })).me() };
     if (platform === "youtube") return { ok: true, profile: await (await createYoutubeCollector(fields.cookie)).me() };
     if (platform === "tiktok") {
-      if (!tiktok) throw new Error("TikTok sidecar is not configured");
+      if (!tiktok) throw new Error("sidecar TikTok belum dikonfigurasi");
       const r = await createTiktokCollector(tiktok).check(fields.cookie, fields.userAgent);
       const account = r.authenticated ? await tiktokAccount(fields.cookie, fields.userAgent).catch(() => undefined) : undefined;
       return { ok: true, profile: account ? { ...account, signedIn: true } : { id: "tiktok", handle: r.authenticated ? "Signed in session" : "Anonymous session", name: r.browser ?? "", signedIn: r.authenticated } };
@@ -80,18 +80,18 @@ export function xQuery(kind: Kind, target: string) {
   }
   if (kind === "post") {
     const id = t.match(/status\/(\d+)/)?.[1] ?? t.match(/^\d+$/)?.[0];
-    if (!id) throw new Error("post monitor needs a post URL or ID");
+    if (!id) throw new Error("pantauan post butuh URL atau ID post");
     return `conversation_id:${id}`;
   }
   return t;
 }
 
 export function validate(t: Pick<Target, "platform" | "kind" | "target">) {
-  if (!PLATFORM_KINDS[t.platform]?.includes(t.kind)) throw new Error(`${t.platform} does not support ${t.kind} monitors`);
+  if (!PLATFORM_KINDS[t.platform]?.includes(t.kind)) throw new Error(`${t.platform} tidak mendukung pantauan ${t.kind}`);
   if (t.platform === "x") xQuery(t.kind, t.target);
-  if (t.platform === "youtube" && t.kind === "post" && !videoId(t.target)) throw new Error("YouTube monitor needs a video URL or ID");
-  if (t.platform === "telegram" && !channels(t.target).length) throw new Error("Telegram monitor needs public channel names");
-  if (t.platform === "tiktok" && t.kind === "post" && !tiktokVideo(t.target)) throw new Error("TikTok monitor needs a video URL or ID");
+  if (t.platform === "youtube" && t.kind === "post" && !videoId(t.target)) throw new Error("pantauan YouTube butuh URL atau ID video");
+  if (t.platform === "telegram" && !channels(t.target).length) throw new Error("pantauan Telegram butuh nama kanal publik");
+  if (t.platform === "tiktok" && t.kind === "post" && !tiktokVideo(t.target)) throw new Error("pantauan TikTok butuh URL atau ID video");
 }
 
 const cache = <T>() => {
@@ -126,7 +126,7 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
         const { value, limitedUntil } = await run(lease);
         if (limitedUntil) {
           o.pool.limited(lease.id, limitedUntil);
-          last = new Error("rate limited");
+          last = new Error("terkena batas laju");
           continue;
         }
         o.pool.ok(lease.id);
@@ -136,7 +136,7 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
         o.pool.failed(lease.id, last.message);
       }
     }
-    throw last ?? new Error(`no ${platform} credential available`);
+    throw last ?? new Error(`tidak ada kredensial ${platform} yang siap`);
   }
 
   const youtube = async (run: (c: Awaited<ReturnType<typeof createYoutubeCollector>>) => Promise<Dataset>) =>
@@ -154,7 +154,7 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
     });
 
   const tiktok = (run: (c: ReturnType<typeof createTiktokCollector>, identity?: string) => Promise<Dataset>) => {
-    if (!o.tiktok) throw new Error("TikTok sidecar is not configured");
+    if (!o.tiktok) throw new Error("sidecar TikTok belum dikonfigurasi");
     const c = (tt ??= createTiktokCollector(o.tiktok));
     if (!o.pool.count("tiktok")) return run(c);
     return rotating("tiktok", async (l) => {

@@ -2,6 +2,8 @@ import { plain } from "cakranala";
 import { audit, reports, sha256, store, type ReportRow } from "./db";
 import { caseView, reasoner, snapshot } from "./analysis";
 
+const SEVERITY = { critical: "Kritis", high: "Tinggi", medium: "Sedang", low: "Rendah" } as const;
+
 export interface ReportContent {
   title: string;
   threatLevel: string;
@@ -24,7 +26,7 @@ function evidence(members: string[], since: number) {
 function facts(id: string) {
   const c = caseView(id);
   const { report, window } = snapshot();
-  if (!c || !report) throw new Error("case is not active in the current analysis window");
+  if (!c || !report) throw new Error("kasus tidak aktif di jendela analisis saat ini");
   const narratives = report.narratives.filter((n) => c.narratives.includes(n.id));
   const clusters = report.clusters.filter((k) => c.clusters.includes(k.id));
   return {
@@ -33,13 +35,13 @@ function facts(id: string) {
     clusters,
     evidence: evidence([...new Set(clusters.flatMap((k) => k.members))], window.from),
     table: [
-      { label: "Severity", value: c.severity },
-      { label: "Apparent supporters", value: String(c.apparent) },
-      { label: "Effective independent voices", value: c.independent.toFixed(1) },
-      { label: "Coordinated accounts", value: String(clusters.reduce((s, k) => s + k.members.length, 0)) },
-      { label: "Clusters", value: clusters.map((k) => k.id).join(", ") },
-      { label: "First seen", value: new Date(c.firstSeen).toISOString() },
-      { label: "DISARM techniques", value: c.disarm.map((t) => `${t.id} ${t.name}`).join(", ") || "none" },
+      { label: "Tingkat ancaman", value: SEVERITY[c.severity] },
+      { label: "Pendukung tampak", value: String(c.apparent) },
+      { label: "Suara independen efektif", value: c.independent.toFixed(1).replace(".", ",") },
+      { label: "Akun terkoordinasi", value: String(clusters.reduce((s, k) => s + k.members.length, 0)) },
+      { label: "Cluster", value: clusters.map((k) => k.id).join(", ") },
+      { label: "Pertama terlihat", value: new Date(c.firstSeen).toISOString() },
+      { label: "Teknik DISARM", value: c.disarm.map((t) => `${t.id} ${t.name}`).join(", ") || "tidak ada" },
     ],
   };
 }
@@ -49,24 +51,24 @@ export async function createReport(caseId: string, by: string): Promise<ReportRo
   let content: ReportContent = {
     title: c.title,
     threatLevel: c.severity,
-    bluf: c.brief ?? `${c.apparent} accounts appear to support this narrative, but they amount to about ${c.independent.toFixed(0)} independent voices.`,
+    bluf: c.brief ?? `${c.apparent} akun tampak mendukung narasi ini, tetapi nilainya hanya setara sekitar ${c.independent.toFixed(0)} suara independen.`,
     assessment: "",
-    findings: clusters.map((k) => `Cluster ${k.id}: ${k.members.length} accounts acting in ${k.forensics.waves} waves, dependence ${k.rho.toFixed(2)}.`),
+    findings: clusters.map((k) => `Cluster ${k.id.slice(0, 8)}: ${k.members.length} akun bergerak dalam ${k.forensics.waves} gelombang, dependensi ${k.rho.toFixed(2)}.`),
     actions: [],
-    confidence: "moderate",
+    confidence: "sedang",
     facts: table,
     evidence,
   };
   if (reasoner) {
     const prompt = [
-      "Write a one page intelligence report for a TNI AD (Indonesian Army) cyber operations commander about a coordinated influence operation detected on social media.",
-      `Case: ${c.title}. Severity: ${c.severity}.`,
-      `Facts: ${JSON.stringify(table)}`,
-      `Narratives pushed:\n${narratives.map((n) => `- ${n.sample} (apparent ${n.supporters}, independent ${n.sie.value.toFixed(1)})`).join("\n")}`,
-      `Clusters:\n${clusters.map((k) => `- ${k.id}: ${k.members.length} accounts, ${k.forensics.waves} waves, rotation ${k.forensics.rotation?.toFixed(2) ?? "n/a"}, cadence ${k.forensics.cadence?.medianSec.toFixed(0) ?? "n/a"}s, talking points: ${k.forensics.talkingPoints.join(" | ")}`).join("\n")}`,
-      c.brief ? `Analyst brief: ${c.brief}` : "",
-      'Reply with JSON only: {"bluf": "bottom line up front, 2 sentences", "assessment": "one paragraph", "findings": ["3 to 5 evidence based findings"], "actions": ["3 to 5 concrete recommended actions for the command, e.g. public clarification via official channels, reporting accounts to the platform, coordination with the information office, continued monitoring"], "confidence": "low, moderate or high, with a short reason"}',
-      "Use English, plain sentences, indicative language, and do not accuse identifiable individuals.",
+      "Tulis laporan intelijen satu halaman untuk komandan operasi siber TNI AD tentang operasi pengaruh terkoordinasi yang terdeteksi di media sosial.",
+      `Kasus: ${c.title}. Tingkat ancaman: ${SEVERITY[c.severity]}.`,
+      `Fakta: ${JSON.stringify(table)}`,
+      `Narasi yang didorong:\n${narratives.map((n) => `- ${n.sample} (tampak ${n.supporters}, independen ${n.sie.value.toFixed(1)})`).join("\n")}`,
+      `Cluster:\n${clusters.map((k) => `- ${k.id.slice(0, 8)}: ${k.members.length} akun, ${k.forensics.waves} gelombang, rotasi ${k.forensics.rotation?.toFixed(2) ?? "n/a"}, kadens ${k.forensics.cadence?.medianSec.toFixed(0) ?? "n/a"} detik, pokok pesan: ${k.forensics.talkingPoints.join(" | ")}`).join("\n")}`,
+      c.brief ? `Ringkasan analis: ${c.brief}` : "",
+      'Balas HANYA JSON: {"bluf": "pokok persoalan, 2 kalimat", "assessment": "satu paragraf penilaian", "findings": ["3 sampai 5 temuan berbasis bukti"], "actions": ["3 sampai 5 saran tindakan konkret untuk komando, misalnya klarifikasi publik lewat kanal resmi, pelaporan akun ke platform, koordinasi dengan Penerangan, pemantauan lanjutan"], "confidence": "rendah, sedang, atau tinggi, dengan alasan singkat"}',
+      "Gunakan Bahasa Indonesia baku yang lugas, bahasa indikatif, dan jangan menuduh individu yang dapat dikenali.",
     ].join("\n\n");
     try {
       const raw = await reasoner.complete(prompt, { json: true });
@@ -89,8 +91,8 @@ export async function createReport(caseId: string, by: string): Promise<ReportRo
 
 export async function counterNarrative(reportId: string, by: string) {
   const r = reports.get(reportId) as ReportRow<ReportContent> | undefined;
-  if (!r) throw new Error("report not found");
-  if (!reasoner) throw new Error("no language model configured");
+  if (!r) throw new Error("laporan tidak ditemukan");
+  if (!reasoner) throw new Error("model bahasa belum dikonfigurasi");
   const prompt = [
     "Tulis draf pesan publik untuk kanal resmi TNI AD (media sosial) yang merespons narasi menyesatkan berikut.",
     `Ringkasan kasus: ${r.content.bluf}`,

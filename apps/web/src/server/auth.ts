@@ -20,13 +20,13 @@ const toUser = (r: any): User => ({ id: r.id, username: r.username, createdAt: r
 
 const validName = (u: unknown) => {
   const name = String(u ?? "").trim().toLowerCase();
-  if (!/^[a-z0-9._-]{3,32}$/.test(name)) throw new Error("username must be 3 to 32 letters, digits, dots, dashes or underscores");
+  if (!/^[a-z0-9._-]{3,32}$/.test(name)) throw new Error("nama pengguna 3 sampai 32 karakter: huruf, angka, titik, garis bawah, atau tanda hubung");
   return name;
 };
 
 const validPassword = (p: unknown) => {
   const pw = String(p ?? "");
-  if (pw.length < 10 || pw.length > 200) throw new Error("password must be 10 to 200 characters");
+  if (pw.length < 10 || pw.length > 200) throw new Error("kata sandi harus 10 sampai 200 karakter");
   return pw;
 };
 
@@ -36,7 +36,7 @@ export const users = {
   async create(username: unknown, password: unknown) {
     const name = validName(username);
     const hash = await Bun.password.hash(validPassword(password));
-    if (db.query("SELECT 1 FROM users WHERE username = ?").get(name)) throw new Error("username already exists");
+    if (db.query("SELECT 1 FROM users WHERE username = ?").get(name)) throw new Error("nama pengguna sudah dipakai");
     const id = crypto.randomUUID();
     db.query("INSERT INTO users (id, username, password, created_at) VALUES (?, ?, ?, ?)").run(id, name, hash, Date.now());
     return toUser(db.query("SELECT id, username, created_at, last_login FROM users WHERE id = ?").get(id));
@@ -54,7 +54,7 @@ export const users = {
 export async function login(username: unknown, password: unknown) {
   const r = db.query("SELECT * FROM users WHERE username = ?").get(String(username ?? "").trim().toLowerCase()) as any;
   const ok = await Bun.password.verify(String(password ?? ""), r?.password ?? (await DUMMY));
-  if (!r || !ok) throw new Error("wrong username or password");
+  if (!r || !ok) throw new Error("nama pengguna atau kata sandi salah");
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
   db.query("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)").run(sha256(token), r.id, Date.now() + TTL);
   db.query("UPDATE users SET last_login = ? WHERE id = ?").run(Date.now(), r.id);

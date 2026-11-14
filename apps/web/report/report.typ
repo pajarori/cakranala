@@ -3,7 +3,7 @@
 #let rule = line(length: 100%, stroke: 0.4pt)
 
 #set document(title: d.title, author: "Cakra Nala")
-#set text(font: "Libertinus Serif", size: 10.5pt, lang: "en")
+#set text(font: "Libertinus Serif", size: 10.5pt, lang: "id")
 #set par(justify: true, leading: 0.62em, spacing: 0.9em)
 #set page(
   paper: "a4",
@@ -20,9 +20,9 @@
     v(-5pt)
     grid(
       columns: (1fr, auto, 1fr),
-      [REPORT #d.short],
+      [LAPORAN #d.short],
       text(tracking: 1.2pt, d.classification),
-      align(right)[PAGE #counter(page).display() OF #counter(page).final().first()],
+      align(right)[HALAMAN #counter(page).display() DARI #counter(page).final().first()],
     )
   },
 )
@@ -41,14 +41,14 @@
   align: (left + bottom, right + bottom),
   [
     #text(13pt, weight: "bold", tracking: 3pt)[CAKRA NALA] \
-    #text(7.5pt, font: mono, tracking: 1pt)[COGNITIVE THREAT INTELLIGENCE]
+    #text(7.5pt, font: mono, tracking: 1pt)[INTELIJEN ANCAMAN KOGNITIF]
   ],
   text(7.5pt, font: mono)[DTG #d.dtg],
 )
 #v(-2pt)
 #line(length: 100%, stroke: 1.4pt)
 #v(10pt)
-#text(7.5pt, font: mono, tracking: 1pt)[INTELLIGENCE REPORT]
+#text(7.5pt, font: mono, tracking: 1pt)[LAPORAN INTELIJEN]
 #v(-6pt)
 #text(18pt, weight: "bold", hyphenate: false)[#d.title]
 #v(4pt)
@@ -57,23 +57,23 @@
   stroke: (x, y) => (top: if y == 0 { 0.4pt }, bottom: 0.4pt),
   inset: (x: 0pt, y: 5pt),
   column-gutter: 10pt,
-  ..meta("Threat level", upper(d.threatLevel)),
-  ..meta("Confidence", d.confidence),
-  ..meta("Report", d.short),
-  ..meta("Case", d.caseShort),
-  ..meta("Issued", d.issued),
-  ..meta("Prepared by", d.preparedBy),
+  ..meta("Tingkat ancaman", upper(d.threatLevel)),
+  ..meta("Keyakinan", d.confidence),
+  ..meta("Laporan", d.short),
+  ..meta("Kasus", d.caseShort),
+  ..meta("Diterbitkan", d.issued),
+  ..meta("Disusun oleh", d.preparedBy),
 )
 
-#section("Bottom line up front")
+#section("Pokok persoalan")
 #text(11.5pt, d.bluf)
 
 #if d.assessment != "" {
-  section("Assessment")
+  section("Penilaian")
   d.assessment
 }
 
-#section("Key facts")
+#section("Fakta kunci")
 #table(
   columns: (1fr, auto),
   stroke: (x, y) => (bottom: 0.3pt + luma(160)),
@@ -82,17 +82,17 @@
 )
 
 #if d.findings.len() > 0 {
-  section("Findings")
+  section("Temuan")
   enum(numbering: "a.", indent: 4pt, ..d.findings)
 }
 
 #if d.actions.len() > 0 {
-  section("Recommended actions")
+  section("Saran tindakan")
   enum(numbering: "a.", indent: 4pt, ..d.actions)
 }
 
 #if d.disarm.len() > 0 {
-  section("Techniques observed")
+  section("Teknik teramati")
   table(
     columns: (auto, 1fr),
     stroke: (x, y) => (bottom: 0.3pt + luma(160)),
@@ -104,18 +104,18 @@
 }
 
 #if d.counter != none {
-  section("Draft public message")
+  section("Draf pesan publik")
   block(inset: (left: 10pt), stroke: (left: 1.2pt), d.counter)
 }
 
 #v(14pt)
 #rule
-#text(8.5pt, style: "italic")[Indicative assessment of coordinated inauthentic behaviour based on public data. It identifies patterns of coordination between accounts and is not an accusation against any individual.]
+#text(8.5pt, style: "italic")[Penilaian indikatif atas perilaku tidak autentik terkoordinasi berdasarkan data publik. Laporan ini mengidentifikasi pola koordinasi antarakun dan bukan tuduhan terhadap individu mana pun.]
 
 #pagebreak(weak: true)
-#text(7.5pt, font: mono, tracking: 1pt)[ANNEX A]
+#text(7.5pt, font: mono, tracking: 1pt)[LAMPIRAN A]
 #v(-6pt)
-#text(14pt, weight: "bold")[Evidence integrity]
+#text(14pt, weight: "bold")[Integritas bukti]
 #v(6pt)
 #set text(9.5pt)
 #table(
@@ -123,17 +123,17 @@
   stroke: (x, y) => (bottom: 0.3pt + luma(160)),
   inset: (x: 0pt, y: 5pt),
   column-gutter: 12pt,
-  [Report content SHA-256], text(8pt, font: mono, d.hash),
-  [Evidence root SHA-256], text(8pt, font: mono, d.evidence.root),
-  [Evidence posts], str(d.evidence.events),
+  [SHA-256 isi laporan], text(8pt, font: mono, d.hash),
+  [SHA-256 akar bukti], text(8pt, font: mono, d.evidence.root),
+  [Post bukti], str(d.evidence.events),
 )
 #v(10pt)
-#text(9pt, weight: "bold", tracking: 1pt)[CHAIN OF CUSTODY]
+#text(9pt, weight: "bold", tracking: 1pt)[RANTAI PENGUASAAN]
 #table(
   columns: (auto, auto, auto, 1fr),
   stroke: (x, y) => (bottom: 0.3pt + luma(160)),
   inset: (x: 0pt, y: 5pt),
   column-gutter: 12pt,
-  ..([Time], [Action], [By], [Entry hash]).map(h => text(7.5pt, font: mono, upper(h))),
+  ..([Waktu], [Tindakan], [Oleh], [Hash entri]).map(h => text(7.5pt, font: mono, upper(h))),
   ..d.custody.map(c => (c.time, c.action, c.by, text(7.5pt, font: mono, c.hash))).flatten(),
 )

@@ -79,10 +79,10 @@ export const credentials = {
     return r ? toCredential(r) : undefined;
   },
   async add(platform: CredentialPlatform, label: string, fields: Record<string, string>) {
-    if (!CREDENTIAL_FIELDS[platform]) throw new Error("unknown platform");
+    if (!CREDENTIAL_FIELDS[platform]) throw new Error("platform tidak dikenal");
     const clean = Object.fromEntries(CREDENTIAL_FIELDS[platform].fields.flatMap((f) => (typeof fields[f] === "string" && fields[f].trim() ? [[f, fields[f].trim()]] : [])));
     const missing = REQUIRED[platform].filter((f) => !clean[f]);
-    if (missing.length) throw new Error(`missing ${missing.join(", ")}`);
+    if (missing.length) throw new Error(`isian wajib belum diisi: ${missing.join(", ")}`);
     const { secret, iv } = await seal(clean);
     const id = crypto.randomUUID();
     db.query("INSERT INTO credentials (id, platform, label, secret, iv, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(id, platform, label.trim().slice(0, 80) || platform, secret, iv, Date.now());
@@ -90,7 +90,7 @@ export const credentials = {
   },
   async fields(id: string) {
     const r = db.query("SELECT secret, iv FROM credentials WHERE id = ?").get(id) as { secret: string; iv: string } | null;
-    if (!r) throw new Error("credential not found");
+    if (!r) throw new Error("kredensial tidak ditemukan");
     return open(r.secret, r.iv);
   },
   checked(id: string, p: Probe) {
@@ -117,7 +117,7 @@ export const credentials = {
     return { id: r.id, fields: await open(r.secret, r.iv) };
   },
   ok: (id: string) => db.query("UPDATE credentials SET failures = 0, last_error = NULL WHERE id = ?").run(id),
-  limited: (id: string, until: number) => db.query("UPDATE credentials SET cooldown_until = ?, last_error = 'rate limited' WHERE id = ?").run(until, id),
+  limited: (id: string, until: number) => db.query("UPDATE credentials SET cooldown_until = ?, last_error = 'terkena batas laju' WHERE id = ?").run(until, id),
   failed: (id: string, error: string) =>
     db.query("UPDATE credentials SET failures = failures + 1, last_error = ?, active = CASE WHEN failures + 1 >= ? THEN 0 ELSE active END WHERE id = ?").run(error.slice(0, 200), MAX_FAILURES, id),
 };
