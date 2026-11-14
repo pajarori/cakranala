@@ -8,6 +8,7 @@ import type { list as listActors, profile as actorProfile, WatchEntry } from "..
 import type templates from "../../config/templates.json";
 import type { summarize as summarizeImport } from "../server/imports";
 import type { overview, Period } from "../server/overview";
+import type { proof } from "../server/proof";
 import type { Probe } from "cakranala-scrap";
 
 export type State = ReturnType<typeof snapshot>;
@@ -25,6 +26,7 @@ export type ActorProfile = NonNullable<ReturnType<typeof actorProfile>>;
 export type Template = (typeof templates)[number];
 export type ImportSummary = ReturnType<typeof summarizeImport>;
 export type Overview = ReturnType<typeof overview>;
+export type Proof = NonNullable<ReturnType<typeof proof>>;
 export type { Period };
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
@@ -73,6 +75,7 @@ export const api = {
   deleteMonitor: (id: string) => call<{ ok: true }>(`/api/monitors/${id}`, send("DELETE")),
   setStatus: (id: string, status: CaseStatus) => call<{ ok: true }>(`/api/cases/${id}`, send("PATCH", { status })),
   evidence: (caseId: string) => call<CaseEvidence>(`/api/cases/${caseId}/evidence`),
+  proof: (caseId: string) => call<Proof>(`/api/cases/${caseId}/proof`),
   redescribe: (caseId: string) => call<{ title: string; brief: string | null }>(`/api/cases/${caseId}/describe`, send("POST")),
   createReport: (caseId: string) => call<ReportItem>(`/api/cases/${caseId}/reports`, send("POST")),
   reports: () => call<ReportItem[]>("/api/reports"),

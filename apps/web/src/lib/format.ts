@@ -6,6 +6,8 @@ export const int = (x: number) => integer.format(x);
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
 export const ratio = (x: number) => `${number.format(x)}×`;
 export const approx = (x: number) => `≈${integer.format(x)}`;
+export const span = (sec: number) =>
+  sec < 1 ? "detik yang sama" : sec < 60 ? `${Math.round(sec)} detik` : sec < 3600 ? `${Math.round(sec / 60)} menit` : sec < 86400 ? `${Math.round(sec / 3600)} jam` : `${Math.round(sec / 86400)} hari`;
 export const day = (ts: number) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" });
 export const clock = (ts: number) => new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
 const thisYear = (ts: number) => new Date(ts).getFullYear() === new Date().getFullYear();

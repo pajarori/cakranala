@@ -47,6 +47,7 @@ export const useWatch = () => {
   return useMutation({ mutationFn: async (a: { id: string; watch: boolean; note?: string }): Promise<unknown> => (a.watch ? api.watch(a.id, a.note ?? "") : api.unwatch(a.id)), onSuccess: done });
 };
 export const evidenceQuery = (id: string) => queryOptions({ queryKey: ["evidence", id], queryFn: () => api.evidence(id), retry: 0 });
+export const proofQuery = (id: string) => queryOptions({ queryKey: ["proof", id], queryFn: () => api.proof(id), staleTime: 60_000 });
 export const useRedescribe = () => {
   const done = useInvalidate(["state"]);
   return useMutation({ mutationFn: api.redescribe, onSuccess: done });

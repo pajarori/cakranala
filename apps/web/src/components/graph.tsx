@@ -64,8 +64,9 @@ function Behaviour({ graph, layers, selected, onSelect }: { graph: Graph; layers
   }, [register, onSelect]);
 
   useEffect(() => {
+    const live = sigma.getGraph();
     const anchor = hovered ?? selected ?? null;
-    const neighbors = anchor && graph.hasNode(anchor) ? new Set([anchor, ...graph.neighbors(anchor)]) : null;
+    const neighbors = anchor && live.hasNode(anchor) ? new Set([anchor, ...live.neighbors(anchor)]) : null;
     const minLayers = Math.min(2, layers.length);
     setSettings({
       nodeReducer: (node, data) => {
@@ -73,9 +74,9 @@ function Behaviour({ graph, layers, selected, onSelect }: { graph: Graph; layers
         return { ...data, zIndex: 1, highlighted: node === selected };
       },
       edgeReducer: (edge, data) => {
-        const own: string[] = graph.getEdgeAttribute(edge, "layers");
+        const own: string[] = live.hasEdge(edge) ? live.getEdgeAttribute(edge, "layers") : [];
         if (own.filter((l) => layers.includes(l)).length < minLayers) return { ...data, hidden: true };
-        if (neighbors && !graph.extremities(edge).every((n) => neighbors.has(n))) return { ...data, hidden: true };
+        if (neighbors && !live.extremities(edge).every((n) => neighbors.has(n))) return { ...data, hidden: true };
         return neighbors ? { ...data, color: "#a1a1aa" } : data;
       },
     });
@@ -86,9 +87,9 @@ function Behaviour({ graph, layers, selected, onSelect }: { graph: Graph; layers
 }
 
 export function NetworkGraph({ view, layers, focus, selected, onSelect, height = 560 }: Props) {
-  const key = focus?.join(",");
-  const graph = useMemo(() => build(view, focus), [view.report, key]);
-  if (!graph.order) return <div className="grid place-items-center text-sm text-muted-foreground" style={{ height }}>No ties</div>;
+  const key = `${view.report?.generatedAt}:${view.report?.edges.length}:${focus?.join(",")}`;
+  const graph = useMemo(() => build(view, focus), [key]);
+  if (!graph.order) return <div className="grid place-items-center text-sm text-muted-foreground" style={{ height }}>Tidak ada keterkaitan antar akun</div>;
   return (
     <SigmaContainer
       style={{ height, width: "100%", background: "transparent" }}

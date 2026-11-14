@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { actorQuery, queryClient, useActor, useActors, useWatch, useWatchlist } from "@/lib/queries";
-import { LAYERS, STATUS_LABEL, ago, date, int, num, short } from "@/lib/format";
+import { LAYERS, STATUS_LABEL, ago, date, day, int, num, short } from "@/lib/format";
 
 const PLATFORM: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", sim: "Demo" };
 const initials = (h: string) => h.replace(/^akun_/, "").replace(/^@/, "").slice(0, 2).toUpperCase();
@@ -141,7 +141,7 @@ function Actors() {
                   <TableHead className="text-right">Skor koordinasi</TableHead>
                   <TableHead>Cluster</TableHead>
                   <TableHead className="text-right">Kasus</TableHead>
-                  <TableHead className="text-right">Post 24 jam</TableHead>
+                  <TableHead className="text-right">Post</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -275,7 +275,7 @@ function ActorProfile() {
           <CardHeader>
             <CardTitle>Aktivitas 14 hari</CardTitle>
             <CardDescription>
-              {int(a.postsInWindow)} post dalam 24 jam terakhir
+              Sampai {day(a.activityEnd)}, total {int(a.totalPosts)} post
             </CardDescription>
           </CardHeader>
           <CardContent>

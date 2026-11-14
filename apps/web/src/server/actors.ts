@@ -1,6 +1,6 @@
 import type { Actor, Event } from "cakranala";
-import { alerts, cases, db } from "./db";
-import { snapshot, type CaseView } from "./analysis";
+import { alerts, cases, db, evidence } from "./db";
+import { snapshot, type CaseEvidence, type CaseView } from "./analysis";
 
 db.exec("CREATE TABLE IF NOT EXISTS watchlist (actor_id TEXT PRIMARY KEY, note TEXT NOT NULL DEFAULT '', added_by TEXT NOT NULL, created_at INTEGER NOT NULL)");
 
@@ -34,21 +34,39 @@ const eventsOf = (id: string, limit: number) =>
 
 const DAY = 86_400_000;
 
+const evidenceReports = () => {
+  const live = snapshot().report;
+  const stored = cases.all().flatMap((c) => evidence.get<CaseEvidence>(c.id)?.report ?? []);
+  return live ? [live, ...stored] : stored;
+};
+
+const bestScores = (reports: ReturnType<typeof evidenceReports>) => {
+  const out = new Map<string, number>();
+  for (const r of reports) for (const [m, s] of Object.entries(r.scores)) out.set(m, Math.max(out.get(m) ?? 0, s));
+  return out;
+};
+
 export function profile(id: string) {
   const actor = actorRow(id);
   if (!actor) return undefined;
-  const { report, window } = snapshot();
+  const reports = evidenceReports();
   const posts = eventsOf(id, 2000);
+  const total = (db.query("SELECT COUNT(*) AS n FROM events WHERE actor = ?").get(id) as { n: number }).n;
   const now = Date.now();
-  const days = Array.from({ length: 14 }, (_, i) => ({ day: now - (13 - i) * DAY, posts: 0 }));
+  const end = posts[0] && posts[0].ts < now - 14 * DAY ? posts[0].ts : now;
+  const days = Array.from({ length: 14 }, (_, i) => ({ day: end - (13 - i) * DAY, posts: 0 }));
   for (const e of posts) {
-    const i = 13 - Math.floor((now - e.ts) / DAY);
+    const i = 13 - Math.floor((end - e.ts) / DAY);
     if (i >= 0 && i < 14) days[i].posts++;
   }
-  const cluster = report?.clusters.find((c) => c.members.includes(id));
-  const partners = (report?.edges ?? [])
-    .filter((e) => e.a === id || e.b === id)
-    .map((e) => ({ id: e.a === id ? e.b : e.a, rho: e.rho, layers: Object.keys(e.layers) }))
+  const cluster = reports.flatMap((r) => r.clusters).find((c) => c.members.includes(id));
+  const strongest = new Map<string, { id: string; rho: number; layers: string[] }>();
+  for (const e of reports.flatMap((r) => r.edges)) {
+    if (e.a !== id && e.b !== id) continue;
+    const other = e.a === id ? e.b : e.a;
+    if ((strongest.get(other)?.rho ?? -1) < e.rho) strongest.set(other, { id: other, rho: e.rho, layers: Object.keys(e.layers) });
+  }
+  const partners = [...strongest.values()]
     .sort((a, b) => b.rho - a.rho)
     .slice(0, 12)
     .map((p) => ({ ...p, handle: actorRow(p.id)?.handle ?? p.id }));
@@ -60,7 +78,7 @@ export function profile(id: string) {
     followers: actor.followers ?? null,
     following: actor.following ?? null,
     label: actor.label ?? null,
-    score: report?.scores[id] ?? 0,
+    score: bestScores(reports).get(id) ?? 0,
     cluster: cluster ? { id: cluster.id, size: cluster.members.length, rho: cluster.rho, p: cluster.p } : null,
     cases: cases
       .all()
@@ -70,22 +88,22 @@ export function profile(id: string) {
     activity: days,
     firstPost: posts.at(-1)?.ts ?? null,
     lastPost: posts[0]?.ts ?? null,
-    postsInWindow: posts.filter((e) => e.ts >= window.from).length,
+    activityEnd: end,
+    totalPosts: total,
     recent: posts.slice(0, 6).map((e) => ({ id: e.id, ts: e.ts, action: e.action, text: e.text ?? "" })),
     watch: watchlist.get(id) ?? null,
   };
 }
 
 export function list(o: { q?: string; filter?: string; page?: number; size?: number }) {
-  const { report, window, cases: views } = snapshot();
+  const { report } = snapshot();
   const watched = watchlist.ids();
+  const scores = bestScores(evidenceReports());
   const flagged = new Map((report?.clusters ?? []).flatMap((c) => c.members.map((m) => [m, c.id] as const)));
   const caseCount = new Map<string, number>();
-  for (const c of views) for (const m of c.members) caseCount.set(m, (caseCount.get(m) ?? 0) + 1);
-  const ids = new Set([...Object.keys(report?.scores ?? {}), ...flagged.keys(), ...watched]);
-  const posts = new Map(
-    (db.query("SELECT actor, COUNT(*) AS n FROM events WHERE ts >= ? GROUP BY actor").all(window.from) as { actor: string; n: number }[]).map((r) => [r.actor, r.n]),
-  );
+  for (const c of cases.all()) for (const m of c.members) caseCount.set(m, (caseCount.get(m) ?? 0) + 1);
+  const ids = new Set([...scores.keys(), ...caseCount.keys(), ...flagged.keys(), ...watched]);
+  const posts = new Map((db.query("SELECT actor, COUNT(*) AS n FROM events GROUP BY actor").all() as { actor: string; n: number }[]).map((r) => [r.actor, r.n]));
   const q = (o.q ?? "").trim().toLowerCase();
   const rows = [...ids]
     .map((id) => {
@@ -94,16 +112,16 @@ export function list(o: { q?: string; filter?: string; page?: number; size?: num
         id,
         handle: a?.handle ?? id,
         platform: a?.platform ?? "",
-        score: report?.scores[id] ?? 0,
+        score: scores.get(id) ?? 0,
         cluster: flagged.get(id) ?? null,
         cases: caseCount.get(id) ?? 0,
         posts: posts.get(id) ?? 0,
         watched: watched.has(id),
       };
     })
-    .filter((r) => (o.filter === "watched" ? r.watched : o.filter === "flagged" ? !!r.cluster : true))
+    .filter((r) => (o.filter === "watched" ? r.watched : o.filter === "flagged" ? !!r.cluster || r.cases > 0 : true))
     .filter((r) => !q || r.handle.toLowerCase().includes(q) || r.id.toLowerCase().includes(q))
-    .sort((a, b) => Number(b.watched) - Number(a.watched) || b.score - a.score || b.posts - a.posts);
+    .sort((a, b) => Number(b.watched) - Number(a.watched) || b.cases - a.cases || b.score - a.score || b.posts - a.posts);
   const size = Math.min(100, Math.max(5, o.size ?? 25));
   const page = Math.max(1, o.page ?? 1);
   return { total: rows.length, page, size, rows: rows.slice((page - 1) * size, page * size) };

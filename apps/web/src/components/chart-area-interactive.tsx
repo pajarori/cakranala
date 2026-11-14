@@ -33,8 +33,8 @@ export function ChartAreaInteractive({ activity, title = "Aktivitas", descriptio
               <CartesianGrid vertical={false} />
               <XAxis dataKey="ts" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} tickFormatter={(v) => label(v)} />
               <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={(_, p) => label(p?.[0]?.payload?.ts ?? 0)} indicator="dot" />} />
-              <Area dataKey="total" type="natural" fill="url(#fill-total)" stroke="var(--color-total)" />
-              <Area dataKey="coordinated" type="natural" fill="url(#fill-coordinated)" stroke="var(--color-coordinated)" />
+              <Area dataKey="total" type="monotone" fill="url(#fill-total)" stroke="var(--color-total)" />
+              <Area dataKey="coordinated" type="monotone" fill="url(#fill-coordinated)" stroke="var(--color-coordinated)" />
             </AreaChart>
           </ChartContainer>
         ) : (

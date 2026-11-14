@@ -17,10 +17,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ensureState, evidenceQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
-import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, pct, ratio, short } from "@/lib/format";
+import { ensureState, evidenceQuery, proofQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
+import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, date, day, graphColor, int, num, pct, ratio, short, span } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
-import type { CaseStatus, State } from "@/lib/api";
+import type { CaseStatus, Proof, State } from "@/lib/api";
 
 function useCase() {
   const { id } = threatRoute.useParams();
@@ -138,18 +138,34 @@ const RESPONSE = {
   urgent: ["Laporkan ke komandan sekarang", "Terbitkan klarifikasi di kanal resmi", "Laporkan akun ke platform", "Buat laporan komandan"],
 };
 
+const PROFILE_TEXT: Record<string, string> = {
+  Terskrip: "Akun memposting dengan urutan yang sama di setiap gelombang, indikasi otomatisasi.",
+  "Bertempo manusia": "Pesan serupa ditulis ulang dengan kata berbeda pada tempo manusia.",
+  "Salin tempel": "Akun menyebarkan teks atau tautan yang identik.",
+};
+
 function Summary() {
-  const { c, narratives, clusters } = useCase();
+  const { c, narratives, clusters, state } = useCase();
+  const handles = new Map(state.actors.map((a) => [a.id, a.handle ?? a.id]));
+  const points = [...new Set(clusters.flatMap((k) => k.forensics.talkingPoints))];
   const lead = narratives[0];
   const coordinated = clusters.reduce((s, k) => s + k.members.length, 0);
   return (
     <div className="flex flex-col gap-4 md:gap-6">
       <div className="grid gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         {[
-          ["Pendukung tampak", int(c.apparent), "Akun yang mendorong narasi ini"],
-          ["Suara independen", approx(c.independent), "Nilai dukungan yang sebenarnya"],
-          ["Inflasi", ratio(inflation({ supporters: c.apparent, sie: { value: c.independent } })), "Pendukung tampak dibagi suara independen"],
-          ["Akun terkoordinasi", int(coordinated), `Dalam ${clusters.length} cluster`],
+          ...(narratives.length
+            ? [
+                ["Pendukung tampak", int(c.apparent), "Akun yang mendorong narasi ini"],
+                ["Suara independen", approx(c.independent), "Nilai dukungan yang sebenarnya"],
+                ["Inflasi", ratio(inflation({ supporters: c.apparent, sie: { value: c.independent } })), "Pendukung tampak dibagi suara independen"],
+              ]
+            : [
+                ["Anggota kasus", int(c.members.length), "Semua akun yang pernah terlibat"],
+                ["Gelombang serentak", int(clusters.reduce((s, k) => s + k.forensics.waves, 0)), "Posting bersama dalam waktu berdekatan"],
+                ["Pertama terlihat", day(c.firstSeen), `Terakhir ${day(c.lastSeen)}`],
+              ]),
+          ["Akun terkoordinasi", int(coordinated), `Dalam ${clusters.length} kelompok pada analisis terakhir`],
         ].map(([label, value, foot]) => (
           <Card key={label} className="@container/card">
             <CardHeader>
@@ -223,6 +239,15 @@ function Summary() {
             <CardDescription>Pesan yang didorong dalam operasi ini</CardDescription>
           </CardHeader>
           <CardContent>
+            {!narratives.length && (
+              <ul className="flex flex-col gap-3">
+                {points.map((t) => (
+                  <li key={t} className="rounded-lg border p-3 leading-relaxed">
+                    “{t}”
+                  </li>
+                ))}
+              </ul>
+            )}
             <Accordion type="single" collapsible defaultValue={narratives[0]?.id}>
               {narratives.map((n) => (
                 <AccordionItem key={n.id} value={n.id}>
@@ -256,33 +281,49 @@ function Summary() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Operator</CardTitle>
-            <CardDescription>Cluster terkoordinasi di balik narasi</CardDescription>
+            <CardTitle>Jaringan pelaku</CardTitle>
+            <CardDescription>Kelompok akun yang bergerak bersama mendorong narasi ini</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {clusters.map((k) => (
-              <div key={k.id} className="rounded-lg border p-4">
-                <div className="flex items-center gap-2">
+            {clusters.map((k, i) => (
+              <div key={k.id} className="flex flex-col gap-3 rounded-lg border p-4">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="size-2.5 rounded-full" style={{ background: graphColor(k.id) }} />
-                  <span className="font-medium" title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></span>
+                  <span className="font-medium" title={k.id}>
+                    Kelompok {i + 1}
+                  </span>
                   <Badge variant="outline">{profile(k)}</Badge>
                   <span className="ml-auto text-sm text-muted-foreground tabular-nums">{k.members.length} akun</span>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
-                  <div>
-                    <div className="text-muted-foreground">Mulai</div>
-                    <div className="tabular-nums">{clock(k.forensics.onset.ts)}</div>
+                <p className="text-sm text-muted-foreground">{PROFILE_TEXT[profile(k)]}</p>
+                <dl className="grid gap-2 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Mulai bergerak</dt>
+                    <dd className="text-right tabular-nums">
+                      {date(k.forensics.onset.ts)}, {k.forensics.onset.actors} akun dalam {span(k.forensics.onset.windowSec)}
+                    </dd>
                   </div>
-                  <div>
-                    <div className="text-muted-foreground">Gelombang</div>
-                    <div className="tabular-nums">{k.forensics.waves}</div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Gelombang posting serentak</dt>
+                    <dd className="tabular-nums">{k.forensics.waves}</dd>
                   </div>
-                  <div>
-                    <div className="text-muted-foreground">Kadens</div>
-                    <div className="tabular-nums">{k.forensics.cadence ? `${num(k.forensics.cadence.medianSec)} detik` : "n/a"}</div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Jeda khas antar post</dt>
+                    <dd className="tabular-nums">{k.forensics.cadence ? span(k.forensics.cadence.medianSec) : "tidak teratur"}</dd>
                   </div>
-                </div>
-                {(k.forensics.rotation ?? 0) >= 0.7 && <p className="mt-3 text-sm text-destructive">Akun memposting dengan urutan yang sama di setiap gelombang, indikasi otomatisasi.</p>}
+                </dl>
+                {!!k.forensics.seeders.length && (
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Penggerak awal</span>
+                    {k.forensics.seeders.slice(0, 3).map((s) => (
+                      <Badge key={s.actor} variant="secondary" asChild>
+                        <Link to="/actors/$id" params={{ id: s.actor }}>
+                          {handles.get(s.actor) ?? short(s.actor)}
+                        </Link>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>
@@ -292,17 +333,156 @@ function Summary() {
   );
 }
 
+const ACTION = { reshare: "membagikan ulang", reply: "membalas", quote: "mengutip" } as Record<string, string>;
+
+function Burst({ sample }: { sample: Proof["copies"][number]["sample"] }) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <Table>
+        <TableBody>
+          {sample.map((s) => (
+            <TableRow key={s.actor + s.ts}>
+              <TableCell>
+                <Link to="/actors/$id" params={{ id: s.actor }} className="font-medium hover:underline">
+                  {s.handle}
+                </Link>
+              </TableCell>
+              <TableCell className="text-right tabular-nums text-muted-foreground">{date(s.ts)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function Shared({ title, rows, format }: { title: string; rows: Proof["tags"]; format: (k: string) => string }) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <Table>
+        <TableHeader className="bg-muted">
+          <TableRow>
+            <TableHead>{title}</TableHead>
+            <TableHead className="text-right">Akun</TableHead>
+            <TableHead className="text-right">Post</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.key}>
+              <TableCell className="max-w-0 truncate font-medium">{format(r.key)}</TableCell>
+              <TableCell className="text-right tabular-nums">{int(r.accounts)}</TableCell>
+              <TableCell className="text-right tabular-nums">{int(r.posts)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 function Evidence() {
-  const { state, clusters } = useCase();
+  const { state, clusters, c } = useCase();
+  const { data: p, isPending } = useQuery(proofQuery(c.id));
   const decoy = state.report?.null.decoyFdr ?? 0;
   return (
     <div className="flex flex-col gap-4">
-      {clusters.map((k) => {
+      {isPending ? (
+        <Card>
+          <CardContent className="flex items-center gap-2 text-muted-foreground">
+            <Spinner />
+            Mengumpulkan bukti dari post anggota
+          </CardContent>
+        </Card>
+      ) : p ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Teks identik dari akun berbeda</CardTitle>
+              <CardDescription>
+                Dari {int(p.posts)} post {int(p.accounts)} akun anggota, {day(p.span.from)} sampai {day(p.span.to)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {p.copies.length ? (
+                <Accordion type="single" collapsible defaultValue={p.copies[0].key}>
+                  {p.copies.map((g) => (
+                    <AccordionItem key={g.key} value={g.key}>
+                      <AccordionTrigger className="gap-4">
+                        <span className="line-clamp-2 text-left">{g.text}</span>
+                        <span className="flex shrink-0 gap-2">
+                          <Badge variant="destructive">{int(g.accounts)} akun</Badge>
+                          <Badge variant="outline">{int(g.posts)} post</Badge>
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="flex flex-col gap-3">
+                        <p className="whitespace-pre-line leading-relaxed">{g.text}</p>
+                        <p className="text-muted-foreground">
+                          {g.burst.accounts} akun memposting teks ini dalam {span(g.burst.seconds)}. Pertama {date(g.first)}, terakhir {date(g.last)}.
+                        </p>
+                        <Burst sample={g.sample} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <p className="text-muted-foreground">Tidak ada teks yang sama persis antar akun.</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Aksi serentak pada post yang sama</CardTitle>
+              <CardDescription>Akun berbeda membagikan ulang, membalas, atau mengutip post yang sama</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {p.actions.length ? (
+                <Accordion type="single" collapsible>
+                  {p.actions.map((g) => (
+                    <AccordionItem key={g.key} value={g.key}>
+                      <AccordionTrigger className="gap-4">
+                        <span className="line-clamp-2 text-left">
+                          {int(g.accounts)} akun {ACTION[g.action] ?? g.action} {g.targetText ? `“${g.targetText}”` : `post ${g.target.replace(/^x:/, "")}`}
+                        </span>
+                        <Badge variant="destructive" className="shrink-0">
+                          {g.burst.accounts} akun dalam {span(g.burst.seconds)}
+                        </Badge>
+                      </AccordionTrigger>
+                      <AccordionContent className="flex flex-col gap-3">
+                        <p className="text-muted-foreground">
+                          {int(g.posts)} aksi. Pertama {date(g.first)}, terakhir {date(g.last)}.
+                        </p>
+                        <Burst sample={g.sample} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <p className="text-muted-foreground">Tidak ada aksi bersama pada post yang sama.</p>
+              )}
+            </CardContent>
+          </Card>
+          {!!(p.tags.length || p.urls.length) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Tagar dan tautan bersama</CardTitle>
+                <CardDescription>Dipakai berulang oleh banyak akun anggota</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 @5xl/main:grid-cols-2">
+                {!!p.tags.length && <Shared title="Tagar" rows={p.tags} format={(k) => `#${k}`} />}
+                {!!p.urls.length && <Shared title="Tautan" rows={p.urls} format={(k) => k} />}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : null}
+      {clusters.map((k, i) => {
         const rows = [...k.layers].sort((a, b) => b.meanObserved / Math.max(b.meanExpected, 0.001) - a.meanObserved / Math.max(a.meanExpected, 0.001));
         return (
           <Card key={k.id}>
             <CardHeader>
-              <CardTitle title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></CardTitle>
+              <CardTitle title={k.id}>Uji statistik kelompok {i + 1}</CardTitle>
+              <CardDescription>Seberapa jauh kemiripan perilaku antar akun melampaui kebetulan acak</CardDescription>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">Cluster p {k.p <= 0.05 ? "≤ 0.05" : num(k.p)}</Badge>
                 <Badge variant="outline">Skor {int(k.score)}</Badge>

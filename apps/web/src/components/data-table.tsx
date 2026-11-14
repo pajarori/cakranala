@@ -45,7 +45,7 @@ const features = tableFeatures({
 
 const helper = createColumnHelper<typeof features, Case>();
 const RANK = { critical: 0, high: 1, medium: 2, low: 3 };
-const COLUMN_LABEL: Record<string, string> = { severity: "Tingkat", status: "Status", apparent: "Pendukung", inflation: "Inflasi", clusters: "Cluster", lastSeen: "Aktivitas terakhir" };
+const COLUMN_LABEL: Record<string, string> = { severity: "Tingkat", status: "Status", apparent: "Pendukung", inflation: "Inflasi", clusters: "Akun", lastSeen: "Aktivitas terakhir" };
 
 function StatusSelect({ c }: { c: Case }) {
   const set = useSetStatus();
@@ -135,13 +135,13 @@ export function DataTable({ state }: { state: State }) {
       cell: ({ row }) => <Badge variant={SEVERITY_VARIANT[row.original.severity]}>{SEVERITY_LABEL[row.original.severity]}</Badge>,
     }),
     helper.accessor("status", { header: "Status", cell: ({ row }) => <StatusSelect c={row.original} /> }),
-    helper.accessor("apparent", { header: () => <div className="text-right">Pendukung</div>, cell: ({ row }) => <div className="text-right tabular-nums">{row.original.active ? int(row.original.apparent) : "tidak aktif"}</div> }),
+    helper.accessor("apparent", { header: () => <div className="text-right">Pendukung</div>, cell: ({ row }) => <div className="text-right tabular-nums">{row.original.apparent ? int(row.original.apparent) : ""}</div> }),
     helper.accessor((c) => (c.apparent ? inflation({ supporters: c.apparent, sie: { value: c.independent } }) : 0), {
       id: "inflation",
       header: () => <div className="text-right">Inflasi</div>,
-      cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue() ? ratio(getValue()) : "n/a"}</div>,
+      cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue() ? ratio(getValue()) : ""}</div>,
     }),
-    helper.accessor((c) => c.clusters.length, { id: "clusters", header: () => <div className="text-right">Cluster</div>, cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue()}</div> }),
+    helper.accessor((c) => c.members.length, { id: "clusters", header: () => <div className="text-right">Akun</div>, cell: ({ getValue }) => <div className="text-right tabular-nums">{int(getValue())}</div> }),
     helper.accessor("lastSeen", { header: "Aktivitas terakhir", cell: ({ getValue }) => <span className="text-muted-foreground">{ago(getValue())}</span> }),
   ]);
 

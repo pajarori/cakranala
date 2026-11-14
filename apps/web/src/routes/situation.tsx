@@ -48,7 +48,7 @@ function NeedsAction({ cases }: { cases: Case[] }) {
                   <ItemContent>
                     <ItemTitle>{c.title}</ItemTitle>
                     <ItemDescription>
-                      {int(c.apparent)} pendukung tampak, sekitar {approx(c.independent)} suara independen, terakhir aktif {ago(c.lastSeen)}
+                      {c.apparent ? `${int(c.apparent)} pendukung tampak, sekitar ${approx(c.independent)} suara independen` : `${int(c.members.length)} akun terkoordinasi`}, terakhir aktif {ago(c.lastSeen)}
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions>

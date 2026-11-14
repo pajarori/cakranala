@@ -13,9 +13,9 @@ const version = () => {
 };
 
 function compute(period: Period) {
-  const to = Date.now();
-  const first = (db.query("SELECT MIN(ts) AS t FROM events").get() as { t: number | null }).t;
-  const from = PERIODS[period] ? to - PERIODS[period] : (first ?? to);
+  const bounds = db.query("SELECT MIN(ts) AS first, MAX(ts) AS last FROM events").get() as { first: number | null; last: number | null };
+  const to = PERIODS[period] ? Date.now() : (bounds.last ?? Date.now());
+  const from = PERIODS[period] ? to - PERIODS[period] : (bounds.first ?? to);
   const members = JSON.stringify([...new Set(snapshot().cases.filter((c) => c.lastSeen >= from).flatMap((c) => c.members))]);
   const { posts, accounts } = db.query("SELECT COUNT(*) AS posts, COUNT(DISTINCT actor) AS accounts FROM events WHERE ts >= ?").get(from) as { posts: number; accounts: number };
   const coordinated = (db.query("SELECT COUNT(DISTINCT actor) AS n FROM events WHERE ts >= ? AND actor IN (SELECT value FROM json_each(?))").get(from, members) as { n: number }).n;

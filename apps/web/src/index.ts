@@ -15,6 +15,7 @@ import templates from "../config/templates.json";
 import { importDataset, parseImport, summarize } from "./server/imports";
 import { startArchive } from "./server/archive";
 import { overview, PERIODS, type Period } from "./server/overview";
+import { proof } from "./server/proof";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
 
 class HttpError extends Error {
@@ -276,6 +277,13 @@ const server = serve({
         alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
         await refresh(true);
         return { ok: true };
+      }),
+    },
+    "/api/cases/:id/proof": {
+      GET: authed((req) => {
+        const p = proof(req.params.id);
+        if (!p) throw new HttpError(404, "kasus tidak ditemukan");
+        return p;
       }),
     },
     "/api/cases/:id/evidence": {
