@@ -17,4 +17,7 @@ const app = (
 );
 
 type HotData = { root?: Root };
-((import.meta.hot.data as HotData).root ??= createRoot(document.getElementById("root")!)).render(app);
+const hotData = import.meta.hot?.data as HotData | undefined;
+const root = hotData?.root ?? createRoot(document.getElementById("root")!);
+if (hotData) hotData.root = root;
+root.render(app);
