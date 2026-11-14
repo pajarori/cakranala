@@ -1,10 +1,10 @@
 import type { Dataset } from "cakranala";
-import { createXCollector } from "./x";
+import { createXCollector, type Profile } from "./x";
 import { createYoutubeCollector } from "./youtube";
 import { collectTelegram } from "./telegram";
 import { createTiktokCollector, type SidecarConfig } from "./tiktok";
 
-export { createXCollector, sessionFromEnv, type XSession, type XRateState } from "./x";
+export { createXCollector, sessionFromEnv, type XSession, type XRateState, type Profile } from "./x";
 export { createYoutubeCollector } from "./youtube";
 export { collectTelegram } from "./telegram";
 export { createTiktokCollector, sidecarFromEnv, type SidecarConfig } from "./tiktok";
@@ -19,6 +19,27 @@ export const CREDENTIAL_FIELDS: Record<Exclude<Platform, "telegram">, { fields: 
   youtube: { fields: ["cookie"], required: ["cookie"] },
   tiktok: { fields: ["cookie", "userAgent"], required: ["cookie"] },
 };
+
+export interface Probe {
+  ok: boolean;
+  profile?: Profile & { signedIn?: boolean };
+  error?: string;
+}
+
+export async function probe(platform: Platform, fields: Record<string, string>, tiktok?: SidecarConfig): Promise<Probe> {
+  try {
+    if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0" })).me() };
+    if (platform === "youtube") return { ok: true, profile: await (await createYoutubeCollector(fields.cookie)).me() };
+    if (platform === "tiktok") {
+      if (!tiktok) throw new Error("TikTok sidecar is not configured");
+      const r = await createTiktokCollector(tiktok).check(fields.cookie, fields.userAgent);
+      return { ok: true, profile: { id: "tiktok", handle: r.authenticated ? "Signed in session" : "Anonymous session", name: r.browser ?? "", signedIn: r.authenticated } };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 export interface Target {
   platform: Platform;

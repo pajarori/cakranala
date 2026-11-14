@@ -1,5 +1,5 @@
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { CREDENTIAL_FIELDS as SPEC, type CredentialPool } from "cakranala-scrap";
+import { CREDENTIAL_FIELDS as SPEC, type CredentialPool, type Probe } from "cakranala-scrap";
 import { db, DIR } from "./db";
 
 export type CredentialPlatform = "x" | "youtube" | "tiktok";
@@ -10,6 +10,9 @@ const MAX_FAILURES = 3;
 
 db.exec("CREATE TABLE IF NOT EXISTS sidecar_identities (credential_id TEXT PRIMARY KEY, identity_id TEXT NOT NULL)");
 db.exec(`CREATE TABLE IF NOT EXISTS credentials (id TEXT PRIMARY KEY, platform TEXT NOT NULL, label TEXT NOT NULL, secret TEXT NOT NULL, iv TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, failures INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0, cooldown_until INTEGER, last_used INTEGER, last_error TEXT, created_at INTEGER NOT NULL)`);
+
+for (const [col, type] of [["profile", "TEXT"], ["checked_at", "INTEGER"]] as const)
+  if (!(db.query("PRAGMA table_info(credentials)").all() as { name: string }[]).some((c) => c.name === col)) db.exec(`ALTER TABLE credentials ADD COLUMN ${col} ${type}`);
 
 const KEY_FILE = `${DIR}credential.key`;
 
@@ -45,6 +48,8 @@ export interface Credential {
   lastUsed: number | null;
   lastError: string | null;
   createdAt: number;
+  profile: Probe["profile"] | null;
+  checkedAt: number | null;
 }
 
 const toCredential = (r: any): Credential => ({
@@ -58,6 +63,8 @@ const toCredential = (r: any): Credential => ({
   lastUsed: r.last_used,
   lastError: r.last_error,
   createdAt: r.created_at,
+  profile: r.profile ? JSON.parse(r.profile) : null,
+  checkedAt: r.checked_at,
 });
 
 export interface Lease {
@@ -80,6 +87,14 @@ export const credentials = {
     const id = crypto.randomUUID();
     db.query("INSERT INTO credentials (id, platform, label, secret, iv, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(id, platform, label.trim().slice(0, 80) || platform, secret, iv, Date.now());
     return credentials.get(id)!;
+  },
+  async fields(id: string) {
+    const r = db.query("SELECT secret, iv FROM credentials WHERE id = ?").get(id) as { secret: string; iv: string } | null;
+    if (!r) throw new Error("credential not found");
+    return open(r.secret, r.iv);
+  },
+  checked(id: string, p: Probe) {
+    db.query("UPDATE credentials SET checked_at = ?, profile = COALESCE(?, profile), last_error = ?, failures = CASE WHEN ? THEN 0 ELSE failures END WHERE id = ?").run(Date.now(), p.profile ? JSON.stringify(p.profile) : null, p.ok ? null : (p.error ?? "test failed"), p.ok ? 1 : 0, id);
   },
   remove: (id: string) => {
     db.query("DELETE FROM sidecar_identities WHERE credential_id = ?").run(id);

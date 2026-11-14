@@ -4,6 +4,7 @@ import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow 
 import type { ReportContent } from "../server/reports";
 import type { Credential, CredentialPlatform } from "../server/credentials";
 import type { User } from "../server/auth";
+import type { Probe } from "cakranala-scrap";
 
 export type State = ReturnType<typeof snapshot>;
 export type Report = NonNullable<State["report"]>;
@@ -13,7 +14,7 @@ export type Case = CaseView;
 export type MonitorState = State["monitors"][number];
 export type ReportItem = ReportRow<ReportContent>;
 export type Audit = { entries: number; valid: boolean; brokenAt: number | null; recent: AuditEntry[] };
-export type { Credential, CredentialPlatform, User };
+export type { Credential, CredentialPlatform, Probe, User };
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface AblationRow {
@@ -68,6 +69,8 @@ export const api = {
   credentials: () => call<{ platforms: Record<CredentialPlatform, string[]>; items: Credential[] }>("/api/credentials", send("GET")),
   addCredential: (body: { platform: CredentialPlatform; label: string; fields: Record<string, string> }) => call<Credential>("/api/credentials", send("POST", body)),
   updateCredential: (id: string, body: { active?: boolean; rotate?: boolean }) => call<Credential>(`/api/credentials/${id}`, send("PATCH", body)),
+  testCredential: (body: { platform: CredentialPlatform; fields: Record<string, string> }) => call<Probe>("/api/credentials/test", send("POST", body)),
+  retestCredential: (id: string) => call<Probe>(`/api/credentials/${id}/test`, send("POST")),
   removeCredential: (id: string) => call<{ ok: true }>(`/api/credentials/${id}`, send("DELETE")),
   counter: (id: string) => call<string>(`/api/reports/${id}/counter`, send("POST")),
   shield: (body: { text?: string; image?: string }) => call<ShieldResult>("/api/shield", send("POST", body)),

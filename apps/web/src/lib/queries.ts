@@ -15,8 +15,8 @@ export const useCredentials = () => useQuery({ queryKey: ["credentials"], queryF
 export const useCredentialAction = () => {
   const done = useInvalidate(["credentials"], ["capabilities"]);
   return useMutation({
-    mutationFn: async (a: { id: string; action: "enable" | "disable" | "rotate" | "remove" }): Promise<unknown> =>
-      a.action === "remove" ? api.removeCredential(a.id) : api.updateCredential(a.id, a.action === "rotate" ? { rotate: true } : { active: a.action === "enable" }),
+    mutationFn: async (a: { id: string; action: "enable" | "disable" | "rotate" | "remove" | "test" }): Promise<unknown> =>
+      a.action === "test" ? api.retestCredential(a.id) : a.action === "remove" ? api.removeCredential(a.id) : api.updateCredential(a.id, a.action === "rotate" ? { rotate: true } : { active: a.action === "enable" }),
     onSuccess: done,
   });
 };

@@ -39,6 +39,15 @@ export async function createYoutubeCollector(cookie?: string) {
   });
 
   return {
+    async me() {
+      if (!yt.session.logged_in) throw new Error("cookie is not signed in to YouTube");
+      const info: any = await yt.account.getInfo();
+      const item = info?.contents?.contents?.[0] ?? info?.contents?.[0];
+      const name = item?.account_name?.toString() ?? "";
+      const handle = item?.channel_handle?.toString() ?? name;
+      if (!handle) throw new Error("YouTube account details are not available");
+      return { id: `yt:${handle}`, handle, name };
+    },
     async search(query: string, o: YoutubeOptions = {}) {
       const now = Date.now();
       const actors = new Map<string, Actor>();

@@ -7,6 +7,14 @@ export interface XSession {
   userAgent: string;
 }
 
+export interface Profile {
+  id: string;
+  handle: string;
+  name: string;
+  followers?: number;
+  createdAt?: number;
+}
+
 export interface SearchOptions {
   pages?: number;
   since?: string;
@@ -47,7 +55,7 @@ async function discover(s: XSession) {
     }
     return undefined;
   };
-  return { bearer, search, detail: queryId("TweetDetail"), retweeters: queryId("Retweeters") ?? (await lazy("Retweeters", /Tweet|Engagement|Retweet/i)) };
+  return { bearer, search, viewer: queryId("Viewer"), detail: queryId("TweetDetail"), retweeters: queryId("Retweeters") ?? (await lazy("Retweeters", /Tweet|Engagement|Retweet/i)) };
 }
 
 const unwrap = (r: any) => (r?.__typename === "TweetWithVisibilityResults" ? r.tweet : r);
@@ -93,7 +101,7 @@ function toEvent(raw: any): { event: Event; actor: Actor } | undefined {
 }
 
 export async function createXCollector(session: XSession) {
-  const { bearer, search, detail, retweeters } = await discover(session);
+  const { bearer, search, viewer, detail, retweeters } = await discover(session);
   let tx = await ClientTransaction.create(await fetchXDocument());
   const features: Record<string, boolean> = {};
   const rate: XRateState = { remaining: null, reset: null };
@@ -181,6 +189,15 @@ export async function createXCollector(session: XSession) {
         if (p < pages - 1) await sleep(lo + Math.random() * (hi - lo));
       }
       return collected(actors, events, q, fetched / pages);
+    },
+    async me(): Promise<Profile> {
+      if (!viewer) throw new Error("x.com Viewer query id not found");
+      const json = await graphql(`/i/api/graphql/${viewer}/Viewer`, { withCommunitiesMemberships: false }, "https://x.com/home");
+      if (json.limited) throw new Error("rate limited");
+      const u = json.data?.viewer?.user_results?.result;
+      const a = toActor(u);
+      if (!a) throw new Error("session is not signed in");
+      return { id: a.id, handle: `@${a.handle}`, name: u.core?.name ?? u.legacy?.name ?? a.handle ?? "", followers: a.followers, createdAt: a.createdAt };
     },
     async retweeters(id: string, pages = 1): Promise<Actor[]> {
       if (!retweeters) throw new Error("x.com Retweeters query id not found");
