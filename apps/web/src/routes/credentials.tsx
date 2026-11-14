@@ -153,7 +153,10 @@ function NewCredential() {
     setTesting(true);
     api
       .testCredential({ platform, fields: values() })
-      .then((p) => setResult({ key, probe: p }))
+      .then((p) => {
+        setResult({ key, probe: p });
+        if (p.ok && p.profile && !label.trim()) setLabel(p.profile.signedIn === undefined ? p.profile.handle : `TikTok ${p.profile.signedIn ? "signed in" : "anonymous"} ${new Date().toLocaleDateString("en-GB")}`);
+      })
       .catch((e: Error) => toast.error(e.message))
       .finally(() => setTesting(false));
   };
