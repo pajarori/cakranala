@@ -15,18 +15,15 @@ function Reports() {
   const reports = useReports();
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Reports</h1>
-      </div>
       {reports.length ? (
         <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader className="bg-muted">
               <TableRow>
-                <TableHead>Report</TableHead>
-                <TableHead>Threat</TableHead>
-                <TableHead>Level</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>Laporan</TableHead>
+                <TableHead>Kasus</TableHead>
+                <TableHead>Tingkat</TableHead>
+                <TableHead>Dibuat</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -57,11 +54,11 @@ function Reports() {
       ) : (
         <Empty className="border">
           <EmptyHeader>
-            <EmptyTitle>No reports yet</EmptyTitle>
+            <EmptyTitle>Belum ada laporan</EmptyTitle>
           </EmptyHeader>
           <EmptyContent>
             <Button variant="outline" asChild>
-              <Link to="/threats">Open a threat to create one</Link>
+              <Link to="/threats">Buka kasus untuk membuat laporan</Link>
             </Button>
           </EmptyContent>
         </Empty>
@@ -95,29 +92,29 @@ function ReportView() {
             <Button asChild>
               <a href={`/api/reports/${r.id}/pdf`} download>
                 <Download />
-                Download PDF
+                Unduh PDF
               </a>
             </Button>
             <Button variant="outline" asChild>
               <Link to="/threats/$id" params={{ id: r.caseId }}>
-                Open threat
+                Buka kasus
               </Link>
             </Button>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Counter narrative</CardTitle>
+            <CardTitle>Kontra narasi</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {r.counter && <blockquote className="rounded-lg border-l-4 border-primary bg-muted/50 p-3 text-sm leading-relaxed">{r.counter}</blockquote>}
             <div className="flex gap-2">
               <Button variant={r.counter ? "outline" : "default"} className="flex-1" disabled={counter.isPending} onClick={() => counter.mutate(undefined, { onError: (e) => toast.error(e.message) })}>
                 {counter.isPending ? <Spinner /> : <PenLine />}
-                {r.counter ? "Draft again" : "Draft message"}
+                {r.counter ? "Buat ulang draf" : "Buat draf pesan"}
               </Button>
               {r.counter && (
-                <Button variant="outline" size="icon" aria-label="Copy" onClick={() => navigator.clipboard.writeText(r.counter!).then(() => toast.success("Copied"))}>
+                <Button variant="outline" size="icon" aria-label="Salin" onClick={() => navigator.clipboard.writeText(r.counter!).then(() => toast.success("Disalin"))}>
                   <Copy />
                 </Button>
               )}
@@ -126,16 +123,16 @@ function ReportView() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Integrity</CardTitle>
+            <CardTitle>Integritas</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="flex flex-col divide-y text-sm">
               {[
-                ["Report", short(r.id)],
-                ["Issued", date(r.createdAt)],
+                ["Laporan", short(r.id)],
+                ["Diterbitkan", date(r.createdAt)],
                 ["SHA-256", r.hash?.slice(0, 16) ?? ""],
-                ["Evidence posts", String(r.content.evidence?.events ?? 0)],
-                ["Custody entries", String(r.custody.length)],
+                ["Post bukti", String(r.content.evidence?.events ?? 0)],
+                ["Entri rantai penguasaan", String(r.custody.length)],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 py-2 first:pt-0">
                   <dt className="text-muted-foreground">{k}</dt>

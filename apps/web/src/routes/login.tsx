@@ -29,8 +29,8 @@ function Login() {
         </div>
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-xl">{setup ? "Create the first account" : "Sign in"}</CardTitle>
-            {setup && <CardDescription>No accounts exist yet</CardDescription>}
+            <CardTitle className="text-xl">{setup ? "Buat akun pertama" : "Masuk"}</CardTitle>
+            {setup && <CardDescription>Belum ada akun</CardDescription>}
           </CardHeader>
           <CardContent>
             <form
@@ -48,17 +48,17 @@ function Login() {
             >
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="username">Username</FieldLabel>
+                  <FieldLabel htmlFor="username">Nama pengguna</FieldLabel>
                   <Input id="username" autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <FieldLabel htmlFor="password">Kata sandi</FieldLabel>
                   <Input id="password" type="password" autoComplete={setup ? "new-password" : "current-password"} required minLength={setup ? 10 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} />
                 </Field>
                 <Field>
                   <Button type="submit" disabled={busy}>
                     {busy && <Spinner />}
-                    {setup ? "Create account" : "Sign in"}
+                    {setup ? "Buat akun" : "Masuk"}
                   </Button>
                 </Field>
               </FieldGroup>

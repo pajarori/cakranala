@@ -90,11 +90,11 @@ export function SiteHeader() {
   const matches = useMatches();
   const params = useParams({ strict: false }) as { id?: string };
   const leaf = matches.at(-1);
-  const title = leaf?.staticData?.title ?? "";
+  const title = [...matches].reverse().find((m) => m.staticData?.title)?.staticData?.title ?? "";
   const base = `/${leaf?.fullPath.split("/")[1] ?? ""}`;
   const { data } = useLiveState();
   const { data: reports } = useQuery(reportsQuery);
-  const entity = params.id && (data?.cases.find((c) => c.id === params.id)?.title ?? reports?.find((r) => r.id === params.id)?.content.title ?? short(params.id));
+  const entity = params.id && (data?.cases.find((c) => c.id === params.id)?.title ?? reports?.find((r) => r.id === params.id)?.content.title ?? data?.actors.find((a) => a.id === params.id)?.handle ?? short(params.id));
   useEffect(() => {
     document.title = [entity, title, "Cakra Nala"].filter(Boolean).join(" | ");
   }, [entity, title]);

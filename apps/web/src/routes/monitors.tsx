@@ -1,25 +1,25 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AtSign, Clapperboard, Hash, MessageSquareText, Music2, Pause, Play, Plus, Send, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
+import { AtSign, Clapperboard, Hash, LayoutTemplate, MessageSquareText, Music2, Pause, Play, Plus, ScanEye, Send, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary, Tiles } from "@/components/form-kit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ensureState, useCapabilities, useCreateMonitor, useCredentials, useDeleteMonitor, useOps, useToggleMonitor } from "@/lib/queries";
+import { ensureState, useCapabilities, useCreateMonitor, useCredentials, useDeleteMonitor, useOps, useTemplates, useToggleMonitor } from "@/lib/queries";
 import { ago, int, pct } from "@/lib/format";
-import type { MonitorKind, MonitorState, Platform } from "@/lib/api";
+import type { MonitorKind, MonitorState, Platform, Template } from "@/lib/api";
 
 const KINDS: Record<MonitorKind, { label: string; icon: typeof Hash }> = {
-  topic: { label: "Topic", icon: Hash },
-  account: { label: "Account", icon: UserRound },
+  topic: { label: "Topik", icon: Hash },
+  account: { label: "Akun", icon: UserRound },
   post: { label: "Post", icon: MessageSquareText },
   simulation: { label: "Demo feed", icon: Clapperboard },
 };
@@ -32,15 +32,15 @@ const PLATFORMS: Record<Platform, { label: string; kinds: MonitorKind[] }> = {
 };
 
 const TARGETS: Record<string, { label: string; placeholder: string }> = {
-  "x:topic": { label: "Keywords or hashtag", placeholder: "pulau seruni" },
-  "x:account": { label: "Account handle", placeholder: "@tni_ad" },
-  "x:post": { label: "Post URL or ID", placeholder: "https://x.com/user/status/123" },
-  "youtube:topic": { label: "Search query", placeholder: "pulau seruni" },
-  "youtube:post": { label: "Video URL or ID", placeholder: "https://youtu.be/abc123def45" },
-  "telegram:account": { label: "Public channels", placeholder: "channel_one, channel_two" },
-  "tiktok:topic": { label: "Search query", placeholder: "pulau seruni" },
-  "tiktok:post": { label: "Video URL or ID", placeholder: "https://www.tiktok.com/@user/video/123" },
-  "demo:simulation": { label: "Scenario seed", placeholder: "1" },
+  "x:topic": { label: "Kata kunci atau hashtag", placeholder: "pulau seruni" },
+  "x:account": { label: "Handle akun", placeholder: "@tni_ad" },
+  "x:post": { label: "URL atau ID post", placeholder: "https://x.com/user/status/123" },
+  "youtube:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
+  "youtube:post": { label: "URL atau ID video", placeholder: "https://youtu.be/abc123def45" },
+  "telegram:account": { label: "Kanal publik", placeholder: "kanal_satu, kanal_dua" },
+  "tiktok:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
+  "tiktok:post": { label: "URL atau ID video", placeholder: "https://www.tiktok.com/@user/video/123" },
+  "demo:simulation": { label: "Seed skenario", placeholder: "1" },
 };
 
 function Row({ m }: { m: MonitorState }) {
@@ -63,20 +63,20 @@ function Row({ m }: { m: MonitorState }) {
         {m.lastError ? (
           <Badge variant="destructive">{m.lastError}</Badge>
         ) : m.active ? (
-          <Badge variant="secondary">{m.kind === "simulation" && m.progress !== null && m.progress < 1 ? `Running, ${pct(m.progress)}` : "Running"}</Badge>
+          <Badge variant="secondary">{m.kind === "simulation" && m.progress !== null && m.progress < 1 ? `Berjalan, ${pct(m.progress)}` : "Berjalan"}</Badge>
         ) : (
-          <Badge variant="outline">Paused</Badge>
+          <Badge variant="outline">Dijeda</Badge>
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">{int(m.collected)}</TableCell>
-      <TableCell className="text-muted-foreground">{m.lastRunAt ? ago(m.lastRunAt) : "not yet"}</TableCell>
-      <TableCell className="text-muted-foreground">{m.kind === "simulation" ? "every 20 s" : `every ${m.intervalMin} min`}</TableCell>
+      <TableCell className="text-muted-foreground">{m.lastRunAt ? ago(m.lastRunAt) : "belum"}</TableCell>
+      <TableCell className="text-muted-foreground">{m.kind === "simulation" ? "tiap 20 detik" : `tiap ${m.intervalMin} menit`}</TableCell>
       <TableCell>
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" aria-label={m.active ? "Pause" : "Resume"} onClick={() => toggle.mutate({ id: m.id, active: !m.active }, { onError: err })}>
+          <Button variant="ghost" size="icon" aria-label={m.active ? "Jeda" : "Lanjutkan"} onClick={() => toggle.mutate({ id: m.id, active: !m.active }, { onError: err })}>
             {m.active ? <Pause /> : <Play />}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => remove.mutate(m.id, { onSuccess: () => toast.success("Monitor deleted"), onError: err })}>
+          <Button variant="ghost" size="icon" aria-label="Hapus" onClick={() => remove.mutate(m.id, { onSuccess: () => toast.success("Pantauan dihapus"), onError: err })}>
             <Trash2 />
           </Button>
         </div>
@@ -85,55 +85,89 @@ function Row({ m }: { m: MonitorState }) {
   );
 }
 
+function MonitorTable({ rows }: { rows: MonitorState[] }) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <Table>
+        <TableHeader className="bg-muted">
+          <TableRow>
+            <TableHead>Target</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Post terkumpul</TableHead>
+            <TableHead>Terakhir jalan</TableHead>
+            <TableHead>Jadwal</TableHead>
+            <TableHead className="text-right">Aksi</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((m) => (
+            <Row key={m.id} m={m} />
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 function Monitors() {
   const state = useOps();
+  const [tab, setTab] = useState("all");
+  const groups = [
+    { id: "all", label: "Semua", rows: state.monitors },
+    ...(Object.keys(PLATFORMS) as Platform[]).map((p) => ({ id: p, label: PLATFORMS[p].label, rows: state.monitors.filter((m) => m.kind !== "simulation" && m.platform === p) })),
+    { id: "demo", label: "Demo feed", rows: state.monitors.filter((m) => m.kind === "simulation") },
+  ].filter((g) => g.id === "all" || g.rows.length);
+  const current = groups.find((g) => g.id === tab) ?? groups[0];
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Monitors</h1>
-          <p className="text-muted-foreground">What Cakra Nala is watching, and how much it has collected</p>
-        </div>
-        <Button asChild>
-          <Link to="/monitors/new">
-            <Plus />
-            New monitor
-          </Link>
-        </Button>
-      </div>
       {state.monitors.length ? (
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader className="bg-muted">
-              <TableRow>
-                <TableHead>Target</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Posts collected</TableHead>
-                <TableHead>Last run</TableHead>
-                <TableHead>Schedule</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {state.monitors.map((m) => (
-                <Row key={m.id} m={m} />
+        <Tabs value={current.id} onValueChange={setTab} className="gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList>
+              {groups.map((g) => (
+                <TabsTrigger key={g.id} value={g.id}>
+                  {g.label}
+                  <Badge variant="secondary">{g.rows.length}</Badge>
+                </TabsTrigger>
               ))}
-            </TableBody>
-          </Table>
-        </div>
+            </TabsList>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/monitors/templates">
+                  <LayoutTemplate />
+                  Dari template
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/monitors/new">
+                  <Plus />
+                  Pantauan baru
+                </Link>
+              </Button>
+            </div>
+          </div>
+          <MonitorTable rows={current.rows} />
+        </Tabs>
       ) : (
         <Empty className="border">
           <EmptyHeader>
-            <EmptyTitle>Nothing is being watched yet</EmptyTitle>
+            <EmptyMedia variant="icon">
+              <ScanEye />
+            </EmptyMedia>
+            <EmptyTitle>Belum ada yang dipantau</EmptyTitle>
+            <EmptyDescription>Mulai dari template topik yang sudah disiapkan, atau buat pantauan sendiri.</EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
+          <EmptyContent className="flex-row justify-center gap-2">
             <Button asChild>
-              <Link to="/monitors/new">Create the first monitor</Link>
+              <Link to="/monitors/templates">Pilih template</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/monitors/new">Buat sendiri</Link>
             </Button>
           </EmptyContent>
         </Empty>
       )}
-      {state.rate.remaining !== null && <p className="text-sm text-muted-foreground">X search budget left in this window: {state.rate.remaining} requests</p>}
+      {state.rate.remaining !== null && <p className="text-sm text-muted-foreground">Sisa kuota pencarian X di jendela ini: {state.rate.remaining} permintaan</p>}
     </div>
   );
 }
@@ -157,17 +191,17 @@ const xQuery = (kind: MonitorKind, t: string) => {
   return v;
 };
 
-function NewMonitor() {
+function NewMonitor({ template }: { template?: Template }) {
   const caps = useCapabilities();
   const creds = useCredentials();
   const create = useCreateMonitor();
   const navigate = useNavigate();
-  const [source, setSource] = useState<Platform | "demo">("x");
-  const [picked, setKind] = useState<MonitorKind>("topic");
-  const [target, setTarget] = useState("");
-  const [label, setLabel] = useState("");
-  const [interval, setInterval_] = useState("15");
-  const [pages, setPages] = useState("3");
+  const [source, setSource] = useState<Platform | "demo">((template?.platform as Platform) ?? "x");
+  const [picked, setKind] = useState<MonitorKind>((template?.kind as MonitorKind) ?? "topic");
+  const [target, setTarget] = useState(template?.target ?? "");
+  const [label, setLabel] = useState(template?.title ?? "");
+  const [interval, setInterval_] = useState(String(template?.intervalMin ?? 15));
+  const [pages, setPages] = useState(String(template?.pages ?? 3));
   const [speed, setSpeed] = useState("60");
   const kinds = source === "demo" ? (["simulation"] as MonitorKind[]) : PLATFORMS[source].kinds;
   const kind = kinds.includes(picked) ? picked : kinds[0];
@@ -175,10 +209,10 @@ function NewMonitor() {
   const live = source !== "demo";
   const ready = (p: Platform) => creds.data?.items.filter((c) => c.platform === p && c.active && !(c.cooldownUntil && c.cooldownUntil > Date.now())).length ?? 0;
   const status = (p: Platform | "demo") => {
-    if (p === "demo" || p === "telegram") return { ok: true, text: "No login" };
-    if (p === "youtube") return { ok: true, text: ready("youtube") ? `${ready("youtube")} ready` : "No login" };
-    if (p === "tiktok" && !caps.data?.tiktok) return { ok: false, text: "Sidecar off" };
-    return ready(p) ? { ok: true, text: `${ready(p)} ready` } : { ok: false, text: "No credential" };
+    if (p === "demo" || p === "telegram") return { ok: true, text: "Tanpa login" };
+    if (p === "youtube") return { ok: true, text: ready("youtube") ? `${ready("youtube")} siap` : "Tanpa login" };
+    if (p === "tiktok" && !caps.data?.tiktok) return { ok: false, text: "Sidecar mati" };
+    return ready(p) ? { ok: true, text: `${ready(p)} siap` } : { ok: false, text: "Belum ada kredensial" };
   };
   const blocked = !status(source).ok;
   const videos = source === "youtube" || source === "tiktok";
@@ -186,20 +220,20 @@ function NewMonitor() {
   const submit = () =>
     create.mutate(
       { kind, platform: live ? source : undefined, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
-      { onSuccess: () => (toast.success("Monitor created"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
+      { onSuccess: () => (toast.success("Pantauan dibuat"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
     );
   const summary: [string, React.ReactNode][] = [
-    ["Source", SOURCES.find((x) => x.id === source)!.label],
-    ["Type", KINDS[kind].label],
-    ["Target", target.trim() ? <span className="font-mono break-all">{target.trim()}</span> : <span className="text-muted-foreground">not set</span>],
+    ["Sumber", SOURCES.find((x) => x.id === source)!.label],
+    ["Jenis", KINDS[kind].label],
+    ["Target", target.trim() ? <span className="font-mono break-all">{target.trim()}</span> : <span className="text-muted-foreground">belum diisi</span>],
     ...(source === "x" && target.trim() ? ([["Query", <span className="font-mono break-all">{xQuery(kind, target)}</span>]] as [string, React.ReactNode][]) : []),
     ...(live
       ? ([
-          ["Runs per day", int(runs)],
-          [videos ? "Videos per day" : "Requests per day", int(runs * Number(pages))],
-          ["Credentials", <Badge variant={status(source).ok ? "secondary" : "destructive"}>{status(source).text}</Badge>],
+          ["Pengumpulan per hari", int(runs)],
+          [videos ? "Video per hari" : "Permintaan per hari", int(runs * Number(pages))],
+          ["Kredensial", <Badge variant={status(source).ok ? "secondary" : "destructive"}>{status(source).text}</Badge>],
         ] as [string, React.ReactNode][])
-      : ([["Replay", `${Math.round(480 / Number(speed))} minutes`]] as [string, React.ReactNode][])),
+      : ([["Replay", `${Math.round(480 / Number(speed))} menit`]] as [string, React.ReactNode][])),
   ];
   return (
     <form
@@ -210,7 +244,7 @@ function NewMonitor() {
       }}
     >
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-        <Section step={1} title="Source">
+        <Section step={1} title="Sumber">
           <Tiles
             value={source}
             onChange={setSource}
@@ -226,20 +260,20 @@ function NewMonitor() {
               <Input id="target" required value={target} onChange={(e) => setTarget(e.target.value)} placeholder={T.placeholder} autoComplete="off" spellCheck={false} className="h-11" />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="label">Name</Label>
-              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Optional" className="h-11" />
+              <Label htmlFor="label">Nama</Label>
+              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional" className="h-11" />
             </div>
           </div>
         </Section>
-        <Section step={3} title={live ? "Schedule" : "Replay"}>
+        <Section step={3} title={live ? "Jadwal" : "Replay"}>
           {live ? (
             <div className="grid gap-5 @3xl/main:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label>Collect every</Label>
-                <Tiles value={interval} onChange={setInterval_} cols="grid-cols-4" items={["5", "15", "30", "60"].map((v) => ({ id: v, label: `${v} min` }))} />
+                <Label>Kumpulkan setiap</Label>
+                <Tiles value={interval} onChange={setInterval_} cols="grid-cols-4" items={["5", "15", "30", "60"].map((v) => ({ id: v, label: `${v} menit` }))} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>{videos ? "Videos per run" : "Pages per run"}</Label>
+                <Label>{videos ? "Video per pengumpulan" : "Halaman per pengumpulan"}</Label>
                 <Tiles value={pages} onChange={setPages} cols="grid-cols-4" items={["1", "3", "5", "10"].map((v) => ({ id: v, label: v }))} />
               </div>
             </div>
@@ -249,10 +283,10 @@ function NewMonitor() {
               onChange={setSpeed}
               cols="grid-cols-2 @xl/main:grid-cols-4"
               items={[
-                { id: "30", label: "16 minutes" },
-                { id: "60", label: "8 minutes" },
-                { id: "240", label: "2 minutes" },
-                { id: "600", label: "Instant" },
+                { id: "30", label: "16 menit" },
+                { id: "60", label: "8 menit" },
+                { id: "240", label: "2 menit" },
+                { id: "600", label: "Instan" },
               ]}
             />
           )}
@@ -261,20 +295,102 @@ function NewMonitor() {
       <Summary rows={summary}>
         <Button type="submit" className="w-full" disabled={blocked || !target.trim() || create.isPending}>
           {create.isPending ? <Spinner /> : <Play />}
-          Start monitoring
+          Mulai memantau
         </Button>
         {blocked && (
           <Button type="button" variant="outline" className="w-full" asChild>
-            <Link to="/credentials/new">Add credential</Link>
+            <Link to="/credentials/new">Tambah kredensial</Link>
           </Button>
         )}
         <Button type="button" variant="ghost" className="w-full" asChild>
-          <Link to="/monitors">Cancel</Link>
+          <Link to="/monitors">Batal</Link>
         </Button>
       </Summary>
     </form>
   );
 }
 
+function Templates() {
+  const { data } = useTemplates();
+  const state = useOps();
+  const create = useCreateMonitor();
+  const navigate = useNavigate();
+  const tags = [...new Map((state.report?.narratives ?? []).filter((n) => n.verdict === "manufactured").flatMap((n) => n.tags.map((t) => [t, n.supporters] as const))).entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+  const watching = new Set(state.monitors.map((m) => m.target.toLowerCase()));
+  return (
+    <div className="flex flex-col gap-6 px-4 lg:px-6">
+      {!!tags.length && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Dari tren saat ini</CardTitle>
+            <CardDescription>Hashtag yang didorong narasi buatan pada analisis terakhir</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {tags.map(([t, n]) => (
+              <Button
+                key={t}
+                variant="outline"
+                size="sm"
+                disabled={watching.has(`#${t}`) || create.isPending}
+                onClick={() =>
+                  create.mutate(
+                    { kind: "topic", platform: "x", target: `#${t}`, label: `Tren #${t}`, intervalMin: 15, pages: 3 },
+                    { onSuccess: () => (toast.success(`Memantau #${t}`), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
+                  )
+                }
+              >
+                #{t}
+                <span className="text-muted-foreground tabular-nums">{n}</span>
+                {watching.has(`#${t}`) ? <Badge variant="secondary">Dipantau</Badge> : <Plus />}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+      <div className="grid gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
+        {(data ?? []).map((t) => {
+          const P = SOURCES.find((x) => x.id === t.platform);
+          return (
+            <Card key={t.id}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {P && <P.icon className="size-4 text-muted-foreground" />}
+                  {t.title}
+                </CardTitle>
+                <CardDescription>{t.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2 text-sm">
+                <Badge variant="outline">{P?.label ?? t.platform}</Badge>
+                <Badge variant="outline">{KINDS[t.kind as MonitorKind]?.label ?? t.kind}</Badge>
+                <Badge variant="outline">tiap {t.intervalMin} menit</Badge>
+                <code className="w-full truncate rounded-md bg-muted px-2 py-1 font-mono text-xs">{t.target}</code>
+              </CardContent>
+              <CardFooter className="mt-auto">
+                <Button variant="outline" className="w-full" asChild>
+                  <Link to="/monitors/new/$template" params={{ template: t.id }}>
+                    Gunakan template
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FromTemplate() {
+  const { template } = newFromTemplateRoute.useParams();
+  const { data } = useTemplates();
+  const t = data?.find((x) => x.id === template);
+  if (!data) return <Spinner className="mx-auto" />;
+  return <NewMonitor key={template} template={t} />;
+}
+
 export const monitorsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors", staticData: { title: "Monitors" }, loader: ensureState, component: Monitors });
-export const newMonitorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/new", staticData: { title: "New monitor" }, component: NewMonitor });
+export const newMonitorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/new", staticData: { title: "New monitor" }, component: () => <NewMonitor /> });
+export const newFromTemplateRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/new/$template", staticData: { title: "New monitor" }, component: FromTemplate });
+export const templatesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/templates", staticData: { title: "Templates" }, loader: ensureState, component: Templates });

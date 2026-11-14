@@ -1,5 +1,5 @@
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { CircleCheck, Download, Eye, EyeOff, FileText } from "lucide-react";
+import { CircleCheck, Download, Eye, EyeOff, FileText, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ensureState, useCreateReport, useOps, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
+import { ensureState, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
 import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, pct, ratio, short } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
 import type { CaseStatus } from "@/lib/api";
@@ -41,6 +41,7 @@ function ThreatLayout() {
   const navigate = useNavigate();
   const setStatus = useSetStatus();
   const report = useCreateReport();
+  const redescribe = useRedescribe();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const tab = TABS.find((t) => t.value !== "summary" && path.includes(`/${t.value}`))?.value ?? "summary";
   return (
@@ -72,6 +73,12 @@ function ThreatLayout() {
               ))}
             </SelectContent>
           </Select>
+          {c.active && (
+            <Button variant="outline" disabled={redescribe.isPending} onClick={() => redescribe.mutate(c.id, { onSuccess: () => toast.success("Ringkasan diperbarui"), onError: (e) => toast.error(e.message) })}>
+              {redescribe.isPending ? <Spinner /> : <RefreshCw />}
+              Perbarui ringkasan
+            </Button>
+          )}
           {c.active && (
             <Button variant="outline" asChild>
               <a href={`/api/cases/${c.id}/stix`} download>

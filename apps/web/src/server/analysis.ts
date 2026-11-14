@@ -217,3 +217,13 @@ export const snapshot = () => ({
 });
 
 export const caseView = (id: string) => state.cases.find((c) => c.id === id);
+
+export async function redescribe(id: string) {
+  const c = caseView(id);
+  if (!c || !state.report) throw new Error("kasus tidak aktif di jendela analisis saat ini");
+  const d = await describe(state.report, c.narratives, c.clusters);
+  const row = cases.get(id)!;
+  cases.upsert({ ...row, title: d.title, brief: d.brief });
+  state = { ...state, cases: state.cases.map((x) => (x.id === id ? { ...x, title: d.title, brief: d.brief } : x)) };
+  return d;
+}

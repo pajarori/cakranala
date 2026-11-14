@@ -34,7 +34,7 @@ export function Tiles<T extends string>({ value, onChange, items, cols }: { valu
   );
 }
 
-export function Summary({ title = "Summary", rows, children }: { title?: string; rows: [string, ReactNode][]; children?: ReactNode }) {
+export function Summary({ title = "Ringkasan", rows, children }: { title?: string; rows: [string, ReactNode][]; children?: ReactNode }) {
   return (
     <div className="@5xl/main:sticky @5xl/main:top-20 @5xl/main:self-start">
       <Card>

@@ -44,7 +44,11 @@ export const useWatch = () => {
   const done = useInvalidate(["actor"], ["actors"], ["watchlist"]);
   return useMutation({ mutationFn: async (a: { id: string; watch: boolean; note?: string }): Promise<unknown> => (a.watch ? api.watch(a.id, a.note ?? "") : api.unwatch(a.id)), onSuccess: done });
 };
-export const useAudit = () => useQuery({ queryKey: ["audit"], queryFn: api.audit, refetchInterval: 15_000 });
+export const useRedescribe = () => {
+  const done = useInvalidate(["state"]);
+  return useMutation({ mutationFn: api.redescribe, onSuccess: done });
+};
+export const useAudit = (page = 1) => useQuery({ queryKey: ["audit", page], queryFn: () => api.audit(page), refetchInterval: 15_000, placeholderData: (prev) => prev });
 export const useReports = () => useSuspenseQuery(reportsQuery).data;
 export const useReport = (id: string) => useSuspenseQuery(reportQuery(id)).data;
 

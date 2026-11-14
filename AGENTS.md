@@ -41,7 +41,7 @@ Always verify with `bun run typecheck`, `bun test`, and a rebuilt container resp
 
 - Use shadcn components only, built on the dashboard-01 block. Do not write custom UI primitives; compose shadcn components such as Card, Table, Tabs, Badge, Progress, Empty, Alert, Spinner, Drawer and ToggleGroup.
 - Use the default shadcn theme colors and the default font (Geist). Do not customize the palette or font sizes.
-- Write UI labels in English, tersely. Do not add explanatory or decorative text.
+- Write UI content in Indonesian: labels, buttons, descriptions, toasts, error messages, case titles, briefs and reports. Keep menu items, tab names and technical terms (STIX, DISARM, SIE, cluster, decoy FDR, platform names) in English. Keep text terse and do not add decorative text.
 - Never use dash characters (— or –) or the · separator in UI text. Text from the language model goes through `plain()`.
 - Every navigable state is a path route. Never use query parameters or hash routes. Navigate with `Link`, not `onClick`.
 - Show cases and reports by their titles, and show UUIDs only in shortened form.

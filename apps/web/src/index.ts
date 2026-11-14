@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "./index.html";
 import { capabilities, runShield } from "./server/engine";
-import { refresh, snapshot } from "./server/analysis";
+import { redescribe, refresh, snapshot } from "./server/analysis";
 import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
@@ -186,7 +186,7 @@ const server = serve({
         return { ok: true };
       }),
     },
-    "/api/audit": { GET: authed(() => ({ ...audit.verify(), recent: audit.recent() })) },
+    "/api/audit": { GET: authed((req) => ({ ...audit.verify(), recent: audit.recent(15, (Math.max(1, Number(new URL(req.url).searchParams.get("page") ?? 1)) - 1) * 15) })) },
     "/api/credentials": {
       GET: authed(() => ({ platforms: CREDENTIAL_FIELDS, items: credentials.all() })),
       POST: authed(async (req, me) => {
@@ -243,6 +243,13 @@ const server = serve({
         alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
         await refresh(true);
         return { ok: true };
+      }),
+    },
+    "/api/cases/:id/describe": {
+      POST: authed(async (req, me) => {
+        const d = await redescribe(req.params.id);
+        audit.add("case.described", req.params.id, { by: me.username });
+        return d;
       }),
     },
     "/api/cases/:id/stix": {

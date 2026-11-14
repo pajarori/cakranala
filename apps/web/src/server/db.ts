@@ -194,7 +194,7 @@ export const audit = {
       db.query("INSERT INTO audit (ts, action, subject, detail, prev, hash) VALUES (?, ?, ?, ?, ?, ?)").run(ts, action, subject, d, prev, link(prev, ts, action, subject, d));
     })();
   },
-  recent: (limit = 50) => db.query("SELECT * FROM audit ORDER BY seq DESC LIMIT ?").all(limit).map(toEntry),
+  recent: (limit = 50, offset = 0) => db.query("SELECT * FROM audit ORDER BY seq DESC LIMIT ? OFFSET ?").all(limit, offset).map(toEntry),
   of: (subject: string) => db.query("SELECT * FROM audit WHERE subject = ? ORDER BY seq").all(subject).map(toEntry),
   verify() {
     let prev = GENESIS;

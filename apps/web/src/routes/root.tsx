@@ -64,11 +64,11 @@ export const rootRoute = createRoute({
   errorComponent: ({ error, reset }) => (
     <div className="px-4 lg:px-6">
       <Alert variant="destructive">
-        <AlertTitle>Something went wrong</AlertTitle>
+        <AlertTitle>Terjadi kesalahan</AlertTitle>
         <AlertDescription>
           {error instanceof Error ? error.message : String(error)}
           <Button variant="outline" size="sm" className="mt-2" onClick={reset}>
-            Retry
+            Coba lagi
           </Button>
         </AlertDescription>
       </Alert>
@@ -78,11 +78,11 @@ export const rootRoute = createRoute({
     <div className="px-4 lg:px-6">
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Not found</EmptyTitle>
+          <EmptyTitle>Tidak ditemukan</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
           <Button variant="outline" asChild>
-            <Link to="/">Back to situation</Link>
+            <Link to="/">Kembali ke Situation</Link>
           </Button>
         </EmptyContent>
       </Empty>

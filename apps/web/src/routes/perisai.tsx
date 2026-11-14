@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { createRoute, Link } from "@tanstack/react-router";
+import { createRoute } from "@tanstack/react-router";
 import { ImagePlus, X } from "lucide-react";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import type { ShieldResult } from "@/lib/api";
 
 const SAMPLE = "PENDAFTARAN BINTARA JALUR KHUSUS!!! Kuota terbatas, dijamin lolos. Transfer biaya admin Rp2.500.000 ke 081234567890, daftar di ad-rekrutmen-tni.com/daftar sebelum besok!!";
 
-const RISK = { tinggi: { label: "High risk", variant: "destructive" }, sedang: { label: "Medium risk", variant: "secondary" }, rendah: { label: "Low risk", variant: "outline" } } as const;
+const RISK = { tinggi: { label: "Risiko tinggi", variant: "destructive" }, sedang: { label: "Risiko sedang", variant: "secondary" }, rendah: { label: "Risiko rendah", variant: "outline" } } as const;
 
 function Highlighted({ text, quotes }: { text: string; quotes: string[] }) {
   const parts: { s: string; hit: boolean }[] = [{ s: text, hit: false }];
@@ -40,7 +40,7 @@ function Result({ r }: { r: ShieldResult }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <Badge variant={RISK[r.risk].variant}>{RISK[r.risk].label}</Badge>
-            <span className="text-sm font-normal text-muted-foreground tabular-nums">score {Math.round(r.score * 100)} of 100</span>
+            <span className="text-sm font-normal text-muted-foreground tabular-nums">skor {Math.round(r.score * 100)} dari 100</span>
           </CardTitle>
           {r.summary && <CardDescription className="text-base leading-relaxed text-foreground">{r.summary}</CardDescription>}
         </CardHeader>
@@ -53,12 +53,12 @@ function Result({ r }: { r: ShieldResult }) {
       {!!consensus.length && (
         <Card>
           <CardHeader>
-            <CardTitle>Consensus context</CardTitle>
+            <CardTitle>Konteks dukungan</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {consensus.map((m) => (
               <p key={`${m.kind}${m.ref}`}>
-                Matches a narrative that {int(m.supporters ?? 0)} accounts appear to push{m.sie !== undefined ? <>, but only <span className="font-medium">{approx(m.sie)} are independent</span></> : ""}.
+                Cocok dengan narasi yang tampak didorong {int(m.supporters ?? 0)} akun{m.sie !== undefined ? <>, tetapi hanya <span className="font-medium">{approx(m.sie)} yang independen</span></> : ""}.
               </p>
             ))}
           </CardContent>
@@ -67,8 +67,8 @@ function Result({ r }: { r: ShieldResult }) {
       {!!checks.length && (
         <Card>
           <CardHeader>
-            <CardTitle>Fact checks</CardTitle>
-            <CardDescription>TurnBackHoax.id by MAFINDO</CardDescription>
+            <CardTitle>Cek fakta</CardTitle>
+            <CardDescription>TurnBackHoax.id oleh MAFINDO</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col divide-y">
             {checks.map((m) => (
@@ -83,7 +83,7 @@ function Result({ r }: { r: ShieldResult }) {
       {!!r.techniques.length && (
         <Card>
           <CardHeader>
-            <CardTitle>Manipulation techniques</CardTitle>
+            <CardTitle>Teknik manipulasi</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col divide-y">
             {r.techniques.map((t) => (
@@ -99,13 +99,13 @@ function Result({ r }: { r: ShieldResult }) {
       {(!!r.urls.length || !!r.cues.length) && (
         <Card>
           <CardHeader>
-            <CardTitle>Signals</CardTitle>
+            <CardTitle>Sinyal</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
             {r.urls.map((u) => (
               <div key={u.url} className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{u.host}</span>
-                {u.flags.length ? u.flags.map((f) => <Badge key={f} variant="destructive">{f}</Badge>) : <Badge variant="outline">no flags</Badge>}
+                {u.flags.length ? u.flags.map((f) => <Badge key={f} variant="destructive">{f}</Badge>) : <Badge variant="outline">tidak ada tanda</Badge>}
               </div>
             ))}
             {r.cues.map((c) => (
@@ -118,7 +118,7 @@ function Result({ r }: { r: ShieldResult }) {
       )}
       <Card>
         <CardHeader>
-          <CardTitle>Advice</CardTitle>
+          <CardTitle>Saran</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="list-disc space-y-1.5 pl-5">
@@ -150,8 +150,8 @@ function Perisai() {
   const run = () => ready && !shield.isPending && shield.mutate({ text: text.trim() || undefined, image: image?.data });
   const accept = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return setError("Images only");
-    if (file.size > 4_000_000) return setError("Image must be under 4 MB");
+    if (!file.type.startsWith("image/")) return setError("Hanya gambar");
+    if (file.size > 4_000_000) return setError("Gambar maksimal 4 MB");
     setError(null);
     setImage({ name: file.name, data: await readImage(file) });
   };
@@ -160,19 +160,19 @@ function Perisai() {
       <div className="grid gap-4 @5xl/main:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>Check a message</CardTitle>
-            <CardDescription>For the public: paste a message or screenshot you received before trusting or sharing it</CardDescription>
+            <CardTitle>Periksa pesan</CardTitle>
+            <CardDescription>Untuk warga: tempel pesan atau tangkapan layar yang Anda terima sebelum memercayai atau membagikannya</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="msg">Message</Label>
-              <Textarea id="msg" rows={8} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && run()} placeholder="Paste a message, link or post…" />
+              <Label htmlFor="msg">Pesan</Label>
+              <Textarea id="msg" rows={8} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && run()} placeholder="Tempel pesan, tautan, atau postingan" />
             </div>
             {image ? (
               <div className="flex items-center gap-3 rounded-lg border p-2">
                 <img src={image.data} alt="" className="size-12 rounded-md object-cover" />
                 <span className="min-w-0 flex-1 truncate text-sm">{image.name}</span>
-                <Button variant="ghost" size="icon" onClick={() => setImage(null)} aria-label="Remove image">
+                <Button variant="ghost" size="icon" onClick={() => setImage(null)} aria-label="Hapus gambar">
                   <X />
                 </Button>
               </div>
@@ -180,7 +180,7 @@ function Perisai() {
               <>
                 <Button variant="outline" className="h-14 border-dashed" onClick={() => input.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), accept(e.dataTransfer.files[0]))} onPaste={(e) => accept(e.clipboardData.files[0])}>
                   <ImagePlus />
-                  Add a screenshot
+                  Tambah tangkapan layar
                 </Button>
                 <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => accept(e.target.files?.[0])} />
               </>
@@ -189,18 +189,18 @@ function Perisai() {
           </CardContent>
           <CardFooter className="justify-between">
             <Button variant="ghost" onClick={() => setText(SAMPLE)}>
-              Load sample
+              Muat contoh
             </Button>
             <Button onClick={run} disabled={!ready || shield.isPending}>
               {shield.isPending && <Spinner />}
-              Check message
+              Periksa pesan
             </Button>
           </CardFooter>
         </Card>
         <div>
           {shield.error && (
             <Alert variant="destructive">
-              <AlertTitle>Check failed</AlertTitle>
+              <AlertTitle>Pemeriksaan gagal</AlertTitle>
               <AlertDescription>{shield.error.message}</AlertDescription>
             </Alert>
           )}
@@ -210,7 +210,7 @@ function Perisai() {
             !shield.error && (
               <Empty className="h-full border">
                 <EmptyHeader>
-                  <EmptyTitle>The analysis appears here</EmptyTitle>
+                  <EmptyTitle>Hasil analisis muncul di sini</EmptyTitle>
                 </EmptyHeader>
               </Empty>
             )

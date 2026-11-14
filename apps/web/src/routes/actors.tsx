@@ -21,7 +21,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { actorQuery, queryClient, useActor, useActors, useWatch, useWatchlist } from "@/lib/queries";
 import { LAYERS, STATUS_LABEL, ago, date, int, num, short } from "@/lib/format";
 
-const PLATFORM: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok" };
+const PLATFORM: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", sim: "Demo" };
 const initials = (h: string) => h.replace(/^akun_/, "").replace(/^@/, "").slice(0, 2).toUpperCase();
 
 function ActorAvatar({ handle, className = "size-8" }: { handle: string; className?: string }) {
@@ -355,7 +355,9 @@ function ActorProfile() {
                             {p.handle}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{p.layers.map((l) => LAYERS[l] ?? l).join(", ")}</TableCell>
+                        <TableCell className="text-muted-foreground" title={p.layers.map((l) => LAYERS[l] ?? l).join(", ")}>
+                          {p.layers.length} lapis bukti
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{num(p.rho)}</TableCell>
                       </TableRow>
                     ))}
