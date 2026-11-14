@@ -63,7 +63,7 @@ export function ChartAreaInteractive({ activity, title = "Aktivitas", descriptio
             </AreaChart>
           </ChartContainer>
         ) : (
-          <div className="grid h-[250px] place-items-center text-sm text-muted-foreground">Waiting for data from monitors</div>
+          <div className="grid h-[250px] place-items-center text-sm text-muted-foreground">Belum ada post dalam rentang ini</div>
         )}
       </CardContent>
     </Card>

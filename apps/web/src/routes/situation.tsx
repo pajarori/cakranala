@@ -19,8 +19,8 @@ const RANK = { urgent: 0, alert: 1, watch: 2 };
 
 function NeedsAction({ state }: { state: State }) {
   const items = state.cases
-    .filter((c) => c.active && c.status !== "dismissed" && c.status !== "confirmed" && (c.status === "new" || c.escalation !== "watch"))
-    .sort((a, b) => RANK[a.escalation] - RANK[b.escalation] || b.apparent - a.apparent)
+    .filter((c) => c.status !== "dismissed" && c.status !== "confirmed" && (c.status === "new" || (c.active && c.escalation !== "watch")))
+    .sort((a, b) => Number(b.active) - Number(a.active) || RANK[a.escalation] - RANK[b.escalation] || b.lastSeen - a.lastSeen)
     .slice(0, 5);
   return (
     <Card className="mx-4 lg:mx-6">
