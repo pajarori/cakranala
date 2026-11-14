@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { CircleCheck, Download, Eye, EyeOff, FileText, History, RefreshCw } from "lucide-react";
+import { CircleCheck, Download, Eye, EyeOff, FileText, History, Layers3, RefreshCw, Users, Waypoints } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -16,7 +17,8 @@ import { NetworkGraph } from "@/components/graph";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ensureState, evidenceQuery, proofQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
@@ -66,7 +68,7 @@ function ThreatLayout() {
           </div>
           <h1 className="mt-2 text-2xl font-semibold">{c.title}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
           <Select value={c.status} onValueChange={(v) => setStatus.mutate({ id: c.id, status: v as CaseStatus }, { onSuccess: () => toast.success(`Ditandai ${STATUS_LABEL[v as CaseStatus].toLowerCase()}`) })}>
             <SelectTrigger className="w-40" aria-label="Status kasus">
               <SelectValue />
@@ -110,26 +112,30 @@ function ThreatLayout() {
             </TabsTrigger>
           ))}
         </TabsList>
+        <TabsContent value={tab} asChild>
+          <div className="flex flex-col gap-4">
+            {!c.active && ev && (
+              <Alert>
+                <History />
+                <AlertTitle>Kasus tidak aktif</AlertTitle>
+                <AlertDescription>
+                  Bukti dari jendela analisis terakhir, {date(ev.window.from)} sampai {date(ev.window.to)}.
+                </AlertDescription>
+              </Alert>
+            )}
+            {c.active || ev ? (
+              <Outlet />
+            ) : (
+              <Empty className="border">
+                <EmptyHeader>
+                  <EmptyTitle>Tidak aktif dalam 24 jam terakhir</EmptyTitle>
+                  <EmptyDescription>Bukti kembali muncul saat akun-akun ini bergerak lagi.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
-      {!c.active && ev && (
-        <Alert>
-          <History />
-          <AlertTitle>Kasus tidak aktif</AlertTitle>
-          <AlertDescription>
-            Bukti dari jendela analisis terakhir, {date(ev.window.from)} sampai {date(ev.window.to)}.
-          </AlertDescription>
-        </Alert>
-      )}
-      {c.active || ev ? (
-        <Outlet />
-      ) : (
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyTitle>Tidak aktif dalam 24 jam terakhir</EmptyTitle>
-            <EmptyDescription>Bukti kembali muncul saat akun-akun ini bergerak lagi.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      )}
     </div>
   );
 }
@@ -398,9 +404,8 @@ const ACTION = { reshare: "membagikan ulang", reply: "membalas", quote: "menguti
 
 function Burst({ sample }: { sample: Proof["copies"][number]["sample"] }) {
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
-        <TableBody>
+    <Table className="min-w-[420px]" containerProps={{ tabIndex: 0, "aria-label": "Daftar akun pada bukti burst", className: "rounded-lg border" }}>
+      <TableBody>
           {sample.map((s) => (
             <TableRow key={s.actor + s.ts}>
               <TableCell>
@@ -413,15 +418,13 @@ function Burst({ sample }: { sample: Proof["copies"][number]["sample"] }) {
           ))}
         </TableBody>
       </Table>
-    </div>
   );
 }
 
 function Shared({ title, rows, format }: { title: string; rows: Proof["tags"]; format: (k: string) => string }) {
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted">
+    <Table className="min-w-[420px]" containerProps={{ tabIndex: 0, "aria-label": `${title} bersama`, className: "rounded-lg border" }}>
+      <TableHeader className="bg-muted">
           <TableRow>
             <TableHead>{title}</TableHead>
             <TableHead className="text-right">Akun</TableHead>
@@ -438,7 +441,6 @@ function Shared({ title, rows, format }: { title: string; rows: Proof["tags"]; f
           ))}
         </TableBody>
       </Table>
-    </div>
   );
 }
 
@@ -464,19 +466,21 @@ function Evidence() {
                 Dari {int(p.posts)} post {int(p.accounts)} akun anggota, {day(p.span.from)} sampai {day(p.span.to)}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {p.copies.length ? (
                 <Accordion type="single" collapsible defaultValue={p.copies[0].key}>
                   {p.copies.map((g) => (
                     <AccordionItem key={g.key} value={g.key}>
-                      <AccordionTrigger className="gap-4">
-                        <span className="line-clamp-2 text-left">{g.text}</span>
-                        <span className="flex shrink-0 gap-2">
-                          <Badge variant="destructive">{int(g.accounts)} akun</Badge>
-                          <Badge variant="outline">{int(g.posts)} post</Badge>
+                      <AccordionTrigger className="items-start gap-3 px-6 py-4">
+                        <span className="grid min-w-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                          <span className="min-w-0 line-clamp-2 text-left text-sm font-medium leading-6">{g.text}</span>
+                          <span className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+                            <Badge variant="destructive">{int(g.accounts)} akun</Badge>
+                            <Badge variant="outline">{int(g.posts)} post</Badge>
+                          </span>
                         </span>
                       </AccordionTrigger>
-                      <AccordionContent className="flex flex-col gap-3">
+                      <AccordionContent className="flex flex-col gap-4 px-6 pb-4">
                         <p className="whitespace-pre-line leading-relaxed">{g.text}</p>
                         <p className="text-muted-foreground">
                           {g.burst.accounts} akun memposting teks ini dalam {span(g.burst.seconds)}. Pertama {date(g.first)}, terakhir {date(g.last)}.
@@ -496,20 +500,21 @@ function Evidence() {
               <CardTitle>Aksi serentak pada post yang sama</CardTitle>
               <CardDescription>Akun berbeda membagikan ulang, membalas, atau mengutip post yang sama</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {p.actions.length ? (
                 <Accordion type="single" collapsible>
                   {p.actions.map((g) => (
                     <AccordionItem key={g.key} value={g.key}>
-                      <AccordionTrigger className="gap-4">
-                        <span className="line-clamp-2 text-left">
-                          {int(g.accounts)} akun {ACTION[g.action] ?? g.action} {g.targetText ? `“${g.targetText}”` : `post ${g.target.replace(/^x:/, "")}`}
+                      <AccordionTrigger className="items-start gap-3 px-6 py-4">
+                        <span className="grid min-w-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                          <span className="min-w-0 line-clamp-2 text-left text-sm font-medium leading-6">{int(g.accounts)} akun {ACTION[g.action] ?? g.action} {g.targetText ? `“${g.targetText}”` : `post ${g.target.replace(/^x:/, "")}`}</span>
+                          <span className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+                            <Badge variant="destructive">{g.burst.accounts} akun</Badge>
+                            <Badge variant="outline">{g.posts} aksi</Badge>
+                          </span>
                         </span>
-                        <Badge variant="destructive" className="shrink-0">
-                          {g.burst.accounts} akun dalam {span(g.burst.seconds)}
-                        </Badge>
                       </AccordionTrigger>
-                      <AccordionContent className="flex flex-col gap-3">
+                      <AccordionContent className="flex flex-col gap-4 px-6 pb-4">
                         <p className="text-muted-foreground">
                           {int(g.posts)} aksi. Pertama {date(g.first)}, terakhir {date(g.last)}.
                         </p>
@@ -529,7 +534,7 @@ function Evidence() {
                 <CardTitle>Tagar dan tautan bersama</CardTitle>
                 <CardDescription>Dipakai berulang oleh banyak akun anggota</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 @5xl/main:grid-cols-2">
+              <CardContent className="grid gap-4 px-6 pb-6 @5xl/main:grid-cols-2">
                 {!!p.tags.length && <Shared title="Tagar" rows={p.tags} format={(k) => `#${k}`} />}
                 {!!p.urls.length && <Shared title="Tautan" rows={p.urls} format={(k) => k} />}
               </CardContent>
@@ -556,9 +561,8 @@ function Evidence() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader className="bg-muted">
+              <Table className="min-w-[620px]" containerProps={{ tabIndex: 0, "aria-label": `Statistik bukti kelompok ${i + 1}`, className: "rounded-lg border" }}>
+                <TableHeader className="bg-muted">
                     <TableRow>
                       <TableHead>Lapis bukti</TableHead>
                       <TableHead className="text-right">Pasangan akun</TableHead>
@@ -582,7 +586,6 @@ function Evidence() {
                     })}
                   </TableBody>
                 </Table>
-              </div>
             </CardContent>
           </Card>
         );
@@ -598,56 +601,92 @@ function Network() {
   const { state, c } = useCase();
   const { actor } = useParams({ strict: false }) as { actor?: string };
   const navigate = useNavigate();
+  const [layers, setLayers] = useState(ALL_LAYERS);
+  const report = state.report;
+  const clusterIds = new Set(c.clusters);
+  const members = new Set(report?.clusters.filter((cluster) => clusterIds.has(cluster.id)).flatMap((cluster) => cluster.members) ?? []);
+  const edges = report?.edges.filter((edge) => members.has(edge.a) && members.has(edge.b)) ?? [];
+  const actors = state.actors.filter((item) => members.has(item.id));
   const a = actor ? state.actors.find((x) => x.id === actor) : undefined;
+  const selectedCluster = a ? report?.clusters.find((cluster) => cluster.members.includes(a.id)) : undefined;
+  const selectActor = (value: string) => navigate(value === "all" ? { to: "/threats/$id/network", params: { id: c.id } } : { to: "/threats/$id/network/$actor", params: { id: c.id, actor: value } });
   return (
-    <div className="grid gap-4 @5xl/main:grid-cols-[minmax(0,1fr)_300px]">
-      <Card className="overflow-hidden py-0">
-        <NetworkGraph
-          view={state}
-          focus={c.clusters}
-          layers={ALL_LAYERS}
-          selected={actor ?? null}
-          onSelect={(id) => navigate(id ? { to: "/threats/$id/network/$actor", params: { id: c.id, actor: id } } : { to: "/threats/$id/network", params: { id: c.id } })}
-          height="min(70vh, 640px)"
-        />
-      </Card>
+    <div className="flex flex-col gap-4 md:gap-6">
       <Card>
-        <CardHeader>
-          <CardTitle>{a?.handle ?? "Pilih akun"}</CardTitle>
-          <CardDescription>{a ? (() => { const k = state.report?.clusters.find((x) => x.members.includes(a.id)); return k ? `Cluster ${short(k.id)}` : "Akun organik"; })() : "Klik node untuk melihat detail"}</CardDescription>
-        </CardHeader>
-        {a && (
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Ikatan</span>
-              <span className="tabular-nums">{state.report?.edges.filter((e) => e.a === a.id || e.b === a.id).length}</span>
+        <CardHeader className="gap-4">
+          <div className="flex flex-col gap-3 @5xl/main:flex-row @5xl/main:items-start @5xl/main:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2"><Waypoints className="size-5 text-muted-foreground" />Peta interaksi</CardTitle>
+              <CardDescription>Hubungan antar akun berdasarkan lapisan detektor yang dipilih.</CardDescription>
             </div>
-            {a.followers !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Pengikut</span>
-                <span className="tabular-nums">{int(a.followers)}</span>
-              </div>
-            )}
-            {a.createdAt && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Akun dibuat</span>
-                <span>{date(a.createdAt)}</span>
-              </div>
-            )}
-            {a.label && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Label simulasi</span>
-                <span>{a.label}</span>
-              </div>
-            )}
-            <Button variant="outline" className="mt-2" asChild>
-              <Link to="/actors/$id" params={{ id: a.id }}>
-                Buka profil aktor
-              </Link>
-            </Button>
-          </CardContent>
-        )}
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline"><Users className="size-3.5" />{int(members.size)} akun</Badge>
+              <Badge variant="outline"><Waypoints className="size-3.5" />{int(edges.length)} hubungan</Badge>
+              <Badge variant="outline"><Layers3 className="size-3.5" />{int(c.clusters.length)} cluster</Badge>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+            <Select value={actor ?? "all"} onValueChange={selectActor}>
+              <SelectTrigger className="w-full @4xl/main:w-64" aria-label="Cari akun di peta">
+                <SelectValue placeholder="Cari akun" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua akun</SelectItem>
+                {actors.map((item) => <SelectItem key={item.id} value={item.id}>{item.handle ?? short(item.id)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Layers3 className="size-3.5" />Lapisan bukti</div>
+              <ToggleGroup type="multiple" variant="outline" size="sm" value={layers} onValueChange={(value) => setLayers(value.length ? value : ALL_LAYERS)} className="flex flex-wrap justify-start">
+                {ALL_LAYERS.map((layer) => <ToggleGroupItem key={layer} value={layer} className="px-2.5">{LAYERS[layer] ?? layer}</ToggleGroupItem>)}
+              </ToggleGroup>
+            </div>
+          </div>
+        </CardHeader>
       </Card>
+      <div className="grid gap-4 @5xl/main:grid-cols-[minmax(0,1fr)_320px]">
+        <Card className="overflow-hidden py-0">
+          <CardContent className="p-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-xs text-muted-foreground sm:px-6">
+              <span>{actor ? "Fokus akun dan tetangganya" : "Semua hubungan dalam cluster kasus"}</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" />Terkoordinasi</span>
+                <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-zinc-500" />Organik</span>
+              </div>
+            </div>
+            <NetworkGraph
+              view={state}
+              focus={c.clusters}
+              layers={layers}
+              selected={actor ?? null}
+              onSelect={(id) => navigate(id ? { to: "/threats/$id/network/$actor", params: { id: c.id, actor: id } } : { to: "/threats/$id/network", params: { id: c.id } })}
+              height="min(70vh, 640px)"
+            />
+          </CardContent>
+        </Card>
+        <Card className="min-h-[320px] @5xl/main:min-h-0">
+          <CardHeader className="border-b">
+            <CardTitle>{a?.handle ?? "Pilih akun"}</CardTitle>
+            <CardDescription>{a ? selectedCluster ? `Cluster ${short(selectedCluster.id)}` : "Akun organik" : "Klik node atau cari akun untuk melihat detail"}</CardDescription>
+          </CardHeader>
+          {a ? (
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <div className="grid gap-2 rounded-lg border bg-muted/30 p-3">
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">Ikatan</span><span className="tabular-nums">{report?.edges.filter((edge) => edge.a === a.id || edge.b === a.id).length ?? 0}</span></div>
+                {a.followers !== undefined && <div className="flex justify-between gap-4"><span className="text-muted-foreground">Pengikut</span><span className="tabular-nums">{int(a.followers)}</span></div>}
+                {a.createdAt && <div className="flex justify-between gap-4"><span className="text-muted-foreground">Akun dibuat</span><span>{date(a.createdAt)}</span></div>}
+                {a.label && <div className="flex justify-between gap-4"><span className="text-muted-foreground">Label simulasi</span><span>{a.label}</span></div>}
+              </div>
+              <Button variant="outline" className="mt-1" asChild><Link to="/actors/$id" params={{ id: a.id }}>Buka profil aktor</Link></Button>
+            </CardContent>
+          ) : (
+            <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
+              <Waypoints className="size-8" />
+              <p className="max-w-56">Pilih node untuk menyorot hubungan dan membuka profil akun.</p>
+            </CardContent>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
