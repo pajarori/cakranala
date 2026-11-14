@@ -2,7 +2,7 @@ import type { Reasoner } from "../engine";
 
 export interface OpenAIReasonerOptions {
   baseUrl: string;
-  apiKey: string;
+  apiKey?: string;
   model: string;
   temperature?: number;
   timeoutMs?: number;
@@ -16,7 +16,7 @@ export function createReasoner(o: OpenAIReasonerOptions): Reasoner {
         : prompt;
       const res = await fetch(`${o.baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${o.apiKey}`, "Content-Type": "application/json" },
+        headers: { ...(o.apiKey ? { Authorization: `Bearer ${o.apiKey}` } : {}), "Content-Type": "application/json" },
         signal: AbortSignal.timeout(o.timeoutMs ?? 120000),
         body: JSON.stringify({
           model: o.model,
@@ -33,6 +33,6 @@ export function createReasoner(o: OpenAIReasonerOptions): Reasoner {
 }
 
 export function reasonerFromEnv(env: Record<string, string | undefined> = process.env): Reasoner | undefined {
-  if (!env.DEEPSEEK_API_KEY) return undefined;
-  return createReasoner({ baseUrl: env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com", apiKey: env.DEEPSEEK_API_KEY, model: env.DEEPSEEK_MODEL ?? "deepseek-flash" });
+  if (!env.LLM_BASE_URL || !env.LLM_MODEL) return undefined;
+  return createReasoner({ baseUrl: env.LLM_BASE_URL, apiKey: env.LLM_API_KEY, model: env.LLM_MODEL });
 }

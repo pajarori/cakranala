@@ -1,5 +1,6 @@
 import { serve } from "bun";
 import index from "./index.html";
+import favicon from "./icons/favicon.ico" with { type: "file" };
 import { capabilities, runShield } from "./server/engine";
 import { caseEvidence, redescribe, refresh, snapshot } from "./server/analysis";
 import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
@@ -76,13 +77,14 @@ const signIn = async (req: Bun.BunRequest, username: unknown, password: unknown)
   return Response.json({ user: s.user }, { headers: { "set-cookie": sessionCookie(req, s.token) } });
 };
 
-const server = serve({
+export const firstRun = users.count() === 0;
+export const server = serve({
   port: Number(process.env.PORT ?? 3000),
   maxRequestBodySize: 60_000_000,
   idleTimeout: 255,
   routes: {
     "/*": index,
-    "/favicon.ico": new Response(await Bun.file(new URL("./icons/favicon.ico", import.meta.url)).bytes(), { headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400" } }),
+    "/favicon.ico": new Response(await Bun.file(new URL(favicon, import.meta.url)).bytes(), { headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400" } }),
     "/api/capabilities": { GET: json(() => capabilities()) },
     "/api/auth/me": { GET: json((req) => ({ user: currentUser(req) ?? null, setup: users.count() === 0 })) },
     "/api/auth/login": {
@@ -407,10 +409,10 @@ const server = serve({
 
 await importEnvCredential();
 if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
-const tick = () => refresh().catch((e) => console.error("refresh failed", e));
+const tick = () => refresh().catch((e) => console.error(`analisis gagal: ${e.message}`));
 tick();
 setInterval(tick, 15_000);
-const sync = () => syncLibrary().catch((e) => console.error("library sync failed", e));
+const sync = () => syncLibrary().catch((e) => console.error(`sinkron cek fakta gagal: ${e.message}`));
 sync();
 setInterval(sync, 3_600_000);
-console.log(`Cakra Nala running at ${server.url}`);
+if (import.meta.main) console.log(`Cakra Nala running at ${server.url}`);

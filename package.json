@@ -5,6 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "repository": "github:pajarori/cakranala",
+  "homepage": "https://github.com/pajarori/cakranala#readme",
   "keywords": ["coordinated inauthentic behavior", "influence operations", "buzzer", "bot detection", "social media", "network analysis", "osint"],
   "bin": { "cakranala": "./bin/cakranala.js" },
   "exports": {
