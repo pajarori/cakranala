@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import type { Actor, Event } from "cakranala";
+import type { Decision } from "./decision";
 import type { Platform } from "cakranala-scrap";
 
 export const DIR = new URL("../../../../data/", import.meta.url).pathname;
@@ -160,83 +161,16 @@ export const cases = {
       .run(c.id, c.title, c.brief, c.status, JSON.stringify(c.members), c.firstSeen, c.lastSeen, c.peak, c.createdAt),
   setStatus: (id: string, status: CaseStatus) => db.query("UPDATE cases SET status = ? WHERE id = ?").run(status, id),
 };
-export const CASE_VERDICTS = ["coordinated_influence", "benign_coordination", "insufficient_evidence", "false_positive"] as const;
-export type CaseVerdict = (typeof CASE_VERDICTS)[number];
-export const CASE_CONFIDENCES = ["low", "medium", "high"] as const;
-export type CaseConfidence = (typeof CASE_CONFIDENCES)[number];
-export const CASE_DECISION_REASONS = ["copy_paste", "synchronized_actions", "shared_urls_or_tags", "rhythm_or_cadence", "lifecycle_pattern", "statistical_cluster"] as const;
-export type CaseDecisionReason = (typeof CASE_DECISION_REASONS)[number];
+db.exec("CREATE TABLE IF NOT EXISTS case_decisions (case_id TEXT PRIMARY KEY, verdict TEXT NOT NULL, confidence TEXT NOT NULL, reasons TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL, at INTEGER NOT NULL)");
 
-export interface CaseDecision {
-  caseId: string;
-  verdict: CaseVerdict;
-  confidence: CaseConfidence;
-  reasons: CaseDecisionReason[];
-  note: string;
-  reviewedBy: string;
-  reviewedAt: number;
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS case_decisions (
-    case_id TEXT PRIMARY KEY,
-    verdict TEXT NOT NULL,
-    confidence TEXT NOT NULL,
-    reasons TEXT NOT NULL,
-    note TEXT NOT NULL,
-    reviewed_by TEXT NOT NULL,
-    reviewed_at INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS case_decision_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    case_id TEXT NOT NULL,
-    verdict TEXT NOT NULL,
-    confidence TEXT NOT NULL,
-    reasons TEXT NOT NULL,
-    note TEXT NOT NULL,
-    reviewed_by TEXT NOT NULL,
-    reviewed_at INTEGER NOT NULL
-  );
-`);
-
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
-const isCaseVerdict = (value: unknown): value is CaseVerdict => typeof value === "string" && CASE_VERDICTS.includes(value as CaseVerdict);
-const isCaseConfidence = (value: unknown): value is CaseConfidence => typeof value === "string" && CASE_CONFIDENCES.includes(value as CaseConfidence);
-const isCaseDecisionReason = (value: unknown): value is CaseDecisionReason => typeof value === "string" && CASE_DECISION_REASONS.includes(value as CaseDecisionReason);
-
-function parseCaseDecision(value: unknown): CaseDecision {
-  if (!isRecord(value)) throw new Error("invalid case decision row");
-  const reasonsValue = typeof value.reasons === "string" ? JSON.parse(value.reasons) as unknown : value.reasons;
-  if (typeof value.case_id !== "string" || !isCaseVerdict(value.verdict) || !isCaseConfidence(value.confidence) || !Array.isArray(reasonsValue) || !reasonsValue.every(isCaseDecisionReason) || typeof value.note !== "string" || typeof value.reviewed_by !== "string" || typeof value.reviewed_at !== "number") {
-    throw new Error("invalid case decision row");
-  }
-  return {
-    caseId: value.case_id,
-    verdict: value.verdict,
-    confidence: value.confidence,
-    reasons: reasonsValue,
-    note: value.note,
-    reviewedBy: value.reviewed_by,
-    reviewedAt: value.reviewed_at,
-  };
-}
-
-export const caseDecisions = {
-  get: (caseId: string) => {
-    const row = db.query("SELECT * FROM case_decisions WHERE case_id = ?").get(caseId);
-    return row ? parseCaseDecision(row) : null;
+export const decisions = {
+  get: (caseId: string): Decision | null => {
+    const r = db.query("SELECT * FROM case_decisions WHERE case_id = ?").get(caseId) as any;
+    return r ? { caseId: r.case_id, verdict: r.verdict, confidence: r.confidence, reasons: JSON.parse(r.reasons), note: r.note, by: r.by, at: r.at } : null;
   },
-  put: (decision: CaseDecision) => {
-    db.transaction(() => {
-      db.query("INSERT INTO case_decision_history (case_id, verdict, confidence, reasons, note, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .run(decision.caseId, decision.verdict, decision.confidence, JSON.stringify(decision.reasons), decision.note, decision.reviewedBy, decision.reviewedAt);
-      db.query("INSERT OR REPLACE INTO case_decisions (case_id, verdict, confidence, reasons, note, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .run(decision.caseId, decision.verdict, decision.confidence, JSON.stringify(decision.reasons), decision.note, decision.reviewedBy, decision.reviewedAt);
-    })();
-    return decision;
-  },
+  put: (d: Decision) =>
+    db.query("INSERT OR REPLACE INTO case_decisions (case_id, verdict, confidence, reasons, note, by, at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(d.caseId, d.verdict, d.confidence, JSON.stringify(d.reasons), d.note, d.by, d.at),
 };
-
 
 db.exec("CREATE TABLE IF NOT EXISTS case_evidence (case_id TEXT PRIMARY KEY, ts INTEGER NOT NULL, json TEXT NOT NULL)");
 

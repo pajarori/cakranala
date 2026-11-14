@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { AnalystDisposition } from "@/components/analyst-disposition";
+import { PlatformIcon } from "@/components/platform-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,13 +22,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ensureState, evidenceQuery, proofQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
 import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, date, day, graphColor, int, num, pct, ratio, short, span } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
-import type { CaseEvidence, CaseStatus, Proof, State } from "@/lib/api";
+import type { CaseStatus, Proof, State } from "@/lib/api";
 
 function useCase() {
   const { id } = threatRoute.useParams();
   const live = useOps();
   const c = live.cases.find((x) => x.id === id)!;
-  const ev = useQuery({ ...evidenceQuery(id), enabled: true }).data;
+  const ev = useQuery({ ...evidenceQuery(id), enabled: !c.active }).data;
   const state: State = c.active || !ev ? live : { ...live, report: { ...live.report, ...ev.report } as State["report"], actors: ev.actors };
   const narratives = state.report?.narratives.filter((n) => c.narratives.includes(n.id)).sort((a, b) => b.supporters - a.supporters) ?? [];
   const clusters = state.report?.clusters.filter((k) => c.clusters.includes(k.id)) ?? [];
@@ -145,38 +146,66 @@ const PROFILE_TEXT: Record<string, string> = {
   "Salin tempel": "Akun menyebarkan teks atau tautan yang identik.",
 };
 
-function Provenance({ provenance }: { provenance?: CaseEvidence["provenance"] }) {
-  if (!provenance) return null;
+function Provenance({ caseId }: { caseId: string }) {
+  const p = useQuery(evidenceQuery(caseId)).data?.provenance;
+  if (!p) return null;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Evidence provenance</CardTitle>
-        <CardDescription>Reproducibility context for this case; not a political or identity classification.</CardDescription>
+        <CardTitle>Asal bukti</CardTitle>
+        <CardDescription>Konteks agar analisis bisa diulang, dianalisis {date(p.generatedAt)}</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 @xl/main:grid-cols-2">
+      <CardContent className="grid gap-6 @3xl/main:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div><dt className="text-muted-foreground">Observed events</dt><dd className="font-medium tabular-nums">{int(provenance.eventCount)}</dd></div>
-          <div><dt className="text-muted-foreground">Accounts</dt><dd className="font-medium tabular-nums">{int(provenance.actorCount)}</dd></div>
-          <div><dt className="text-muted-foreground">Detector layers</dt><dd className="font-medium">{provenance.detector.layers.join(", ")}</dd></div>
-          <div><dt className="text-muted-foreground">Null replicates</dt><dd className="font-medium tabular-nums">{int(provenance.detector.nullReplicates)}</dd></div>
-          <div><dt className="text-muted-foreground">FDR target</dt><dd className="font-medium tabular-nums">{pct(provenance.detector.fdr)}</dd></div>
-          <div><dt className="text-muted-foreground">Generated</dt><dd className="font-medium">{date(provenance.detector.generatedAt)}</dd></div>
+          <dt className="text-muted-foreground">Post anggota</dt>
+          <dd className="text-right font-medium tabular-nums">{int(p.events)}</dd>
+          <dt className="text-muted-foreground">Null replicates</dt>
+          <dd className="text-right font-medium tabular-nums">{int(p.replicates)}</dd>
+          <dt className="text-muted-foreground">Target FDR</dt>
+          <dd className="text-right font-medium tabular-nums">{pct(p.fdr)}</dd>
+          <dt className="text-muted-foreground">Layer</dt>
+          <dd className="flex flex-wrap justify-end gap-1">
+            {p.layers.map((l) => (
+              <Badge key={l} variant="outline">
+                {LAYERS[l] ?? l}
+              </Badge>
+            ))}
+          </dd>
         </dl>
-        <div>
-          <div className="mb-2 text-sm font-medium">Source monitors</div>
-          {provenance.sourceMonitors.length ? (
-            <ul className="flex flex-col gap-2 text-sm">
-              {provenance.sourceMonitors.map((monitor) => <li key={monitor.id} className="rounded-md border px-3 py-2"><div className="font-medium">{monitor.label}</div><div className="text-xs text-muted-foreground">{monitor.platform} · {monitor.kind} · {monitor.target}</div></li>)}
-            </ul>
-          ) : <p className="text-sm text-muted-foreground">No source monitor metadata recorded.</p>}
-        </div>
+        {p.sources.length ? (
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader className="bg-muted">
+                <TableRow>
+                  <TableHead>Pantauan sumber</TableHead>
+                  <TableHead>Target</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {p.sources.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <span className="flex items-center gap-2 font-medium">
+                        <PlatformIcon platform={m.platform} className="size-4 shrink-0" />
+                        {m.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-0 truncate text-muted-foreground">{m.target}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Pantauan sumber tidak tercatat.</p>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 function Summary() {
-  const { c, narratives, clusters, state, ev } = useCase();
+  const { c, narratives, clusters, state } = useCase();
   const handles = new Map(state.actors.map((a) => [a.id, a.handle ?? a.id]));
   const points = [...new Set(clusters.flatMap((k) => k.forensics.talkingPoints))];
   const lead = narratives[0];
@@ -207,7 +236,6 @@ function Summary() {
           </Card>
         ))}
       </div>
-      <Provenance provenance={ev?.provenance} />
       <AnalystDisposition caseId={c.id} />
       <Card>
         <CardHeader>
@@ -559,6 +587,7 @@ function Evidence() {
           </Card>
         );
       })}
+      <Provenance caseId={c.id} />
     </div>
   );
 }

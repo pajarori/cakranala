@@ -1,10 +1,9 @@
 import { analyze, DEFAULTS, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
 import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
-import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow } from "./db";
-import { DEMO_FIXTURE, DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
+import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow, type Monitor } from "./db";
+import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
 import { notifyWatchlist } from "./actors";
-import { buildCaseProvenance, type CaseProvenance } from "./provenance";
 
 export const reasoner = reasonerFromEnv();
 const WINDOW = 24 * 3600_000;
@@ -63,11 +62,6 @@ export interface State {
 let state: State = { updatedAt: null, analyzing: false, window: { from: 0, to: 0 }, report: null, actors: [], cases: [], alerts: [], evaluation: null };
 let lastCount = -1;
 
-export function restoreState(next: State) {
-  state = { ...next, analyzing: false };
-  lastCount = store.window(next.window.from).events.length;
-}
-
 const jaccard = (a: Set<string>, b: Set<string>) => {
   let i = 0;
   for (const x of a) if (b.has(x)) i++;
@@ -122,22 +116,20 @@ async function describe(report: Report, narrativeIds: string[], clusterIds: stri
   }
 }
 
-
 export interface CaseEvidence {
   view: CaseView;
   window: { from: number; to: number };
   report: Pick<Report, "clusters" | "narratives" | "edges" | "scores" | "null">;
   actors: State["actors"];
-  provenance?: CaseProvenance;
+  provenance?: { sources: Pick<Monitor, "id" | "label" | "platform" | "kind" | "target">[]; events: number; layers: string[]; replicates: number; fdr: number; generatedAt: number };
 }
 
-function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"], now: number, sourceMonitorIds: string[], events: Dataset["events"]): CaseEvidence {
+function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"], events: Dataset["events"], now: number): CaseEvidence {
   const clusters = report.clusters.filter((k) => view.clusters.includes(k.id));
   const members = new Set(clusters.flatMap((k) => k.members));
-  const memberEvents = events.filter((event) => members.has(event.actor));
-  const sourceMonitors = sourceMonitorIds.flatMap((id) => {
-    const monitor = monitors.get(id);
-    return monitor ? [{ id: monitor.id, label: monitor.label, kind: monitor.kind, platform: monitor.platform, target: monitor.target }] : [];
+  const sources = view.monitors.flatMap((id) => {
+    const m = monitors.get(id);
+    return m ? [{ id: m.id, label: m.label, platform: m.platform, kind: m.kind, target: m.target }] : [];
   });
   return {
     view,
@@ -149,11 +141,8 @@ function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"],
       scores: Object.fromEntries([...members].map((m) => [m, report.scores[m] ?? 0])),
       null: report.null,
     },
-    actors: actors.filter((a) => members.has(a.id)).map((a) => {
-      const label = "label" in a && typeof a.label === "string" ? a.label : undefined;
-      return { id: a.id, handle: a.handle, label, followers: a.followers, createdAt: a.createdAt };
-    }),
-    provenance: buildCaseProvenance({ sourceMonitors, eventCount: memberEvents.length, actorCount: members.size, report, fdr: DEFAULTS.fdr }),
+    actors: actors.filter((a) => members.has(a.id)).map((a: any) => ({ id: a.id, handle: a.handle, label: a.label, followers: a.followers, createdAt: a.createdAt })),
+    provenance: { sources, events: events.filter((e) => members.has(e.actor)).length, layers: report.stats.layersRun, replicates: report.null.replicates, fdr: DEFAULTS.fdr, generatedAt: report.generatedAt },
   };
 }
 
@@ -182,7 +171,7 @@ export async function track(report: Report, now: number, monitorOf: Map<string, 
     const memberSet = new Set(row.members);
     const mons = [...new Set(events.filter((e) => memberSet.has(e.actor)).map((e) => monitorOf.get(e.id)).filter(Boolean) as string[])];
     const view: CaseView = { ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), disarm: techniques(report, g.clusters, g.narratives, events), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons };
-    evidence.put(row.id, now, snapshotCase(view, report, actors, now, mons, events));
+    evidence.put(row.id, now, snapshotCase(view, report, actors, events, now));
     views.push(view);
   }
   return order([...views, ...dormant(seen)]);
@@ -223,7 +212,7 @@ export async function refresh(force = false) {
   try {
     const truth = Object.fromEntries(actors.flatMap((a: any) => (a.label ? [[a.id, a.label]] : [])));
     const ds: Dataset = { version: SCHEMA_VERSION, actors, events, truth: Object.keys(truth).length ? truth : undefined };
-    const report = await analyze(ds, DEMO_FIXTURE ? {} : { embedder: await embedder() });
+    const report = await analyze(ds, { embedder: await embedder() });
     const involved = new Set([...report.edges.flatMap((e) => [e.a, e.b]), ...report.clusters.flatMap((c) => c.members)]);
     state = {
       updatedAt: now,

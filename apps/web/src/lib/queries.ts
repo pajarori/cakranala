@@ -61,11 +61,10 @@ export const useWatch = () => {
 };
 export const evidenceQuery = (id: string) => queryOptions({ queryKey: ["evidence", id], queryFn: () => api.evidence(id), retry: 0 });
 export const proofQuery = (id: string) => queryOptions({ queryKey: ["proof", id], queryFn: () => api.proof(id), staleTime: 60_000 });
-export const caseDecisionQuery = (id: string) => queryOptions({ queryKey: ["case-decision", id], queryFn: () => api.caseDecision(id), retry: 0 });
-export const useCaseDecision = (id: string) => useQuery(caseDecisionQuery(id));
-export const useSaveCaseDecision = (id: string) => {
-  const done = useInvalidate(["case-decision", id], ["audit"]);
-  return useMutation({ mutationFn: api.saveCaseDecision.bind(null, id), onSuccess: done });
+export const useDecision = (id: string) => useQuery({ queryKey: ["decision", id], queryFn: () => api.decision(id) });
+export const useDecide = (id: string) => {
+  const done = useInvalidate(["decision", id], ["state"], ["audit"]);
+  return useMutation({ mutationFn: (body: Parameters<typeof api.decide>[1]) => api.decide(id, body), onSuccess: done });
 };
 export const useRedescribe = () => {
   const done = useInvalidate(["state"]);

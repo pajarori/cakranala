@@ -2,8 +2,8 @@ import { serve } from "bun";
 import index from "./index.html";
 import { capabilities, runShield } from "./server/engine";
 import { caseEvidence, redescribe, refresh, snapshot } from "./server/analysis";
-import { createMonitor, DEMO_FIXTURE, DEMO_MODE, importEnvCredential } from "./server/monitors";
-import { alerts, audit, caseDecisions, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
+import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
+import { alerts, audit, cases, decisions, monitors, reports, type CaseRow, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
 import { reportPdf } from "./server/pdf";
@@ -16,9 +16,8 @@ import { importDataset, parseImport, summarize } from "./server/imports";
 import { startArchive } from "./server/archive";
 import { overview, PERIODS, type Period } from "./server/overview";
 import { proof } from "./server/proof";
+import { parseDecision, VERDICT_STATUS } from "./server/decision";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
-import { restoreDemoFixtureState } from "./server/demo-fixture";
-import { parseCaseDecisionInput } from "./server/case-decision";
 
 class HttpError extends Error {
   constructor(
@@ -64,6 +63,13 @@ const limit = (req: Request, server: Bun.Server<undefined>, bucket: string, max:
 
 const SHIELD_PER_MINUTE = Number(process.env.SHIELD_PER_MINUTE ?? 20);
 const STATUSES: CaseStatus[] = ["new", "investigating", "confirmed", "dismissed"];
+
+async function setStatus(c: CaseRow, status: CaseStatus, me: User) {
+  cases.setStatus(c.id, status);
+  audit.add("case.status", c.id, { from: c.status, to: status, by: me.username });
+  alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
+  await refresh(true);
+}
 
 const signIn = async (req: Bun.BunRequest, username: unknown, password: unknown) => {
   const s = await login(username, password);
@@ -310,24 +316,23 @@ const server = serve({
         if (!c) throw new HttpError(404, "kasus tidak ditemukan");
         const { status } = await req.json();
         if (!STATUSES.includes(status)) throw new Error("status tidak valid");
-        cases.setStatus(c.id, status);
-        audit.add("case.status", c.id, { from: c.status, to: status, by: me.username });
-        alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
-        await refresh(true);
+        await setStatus(c, status, me);
         return { ok: true };
       }),
     },
     "/api/cases/:id/decision": {
       GET: authed((req) => {
         if (!cases.get(req.params.id)) throw new HttpError(404, "kasus tidak ditemukan");
-        return caseDecisions.get(req.params.id);
+        return decisions.get(req.params.id);
       }),
       PUT: authed(async (req, me) => {
-        if (!cases.get(req.params.id)) throw new HttpError(404, "kasus tidak ditemukan");
-        const decision = parseCaseDecisionInput(await req.json(), req.params.id, me.username);
-        const saved = caseDecisions.put(decision);
-        audit.add("case.decision", req.params.id, { verdict: saved.verdict, confidence: saved.confidence, reasons: saved.reasons, by: me.username });
-        return saved;
+        const c = cases.get(req.params.id);
+        if (!c) throw new HttpError(404, "kasus tidak ditemukan");
+        const d = parseDecision(await req.json(), c.id, me.username);
+        decisions.put(d);
+        audit.add("case.decision", c.id, { verdict: d.verdict, confidence: d.confidence, reasons: d.reasons, by: me.username });
+        if (VERDICT_STATUS[d.verdict] !== c.status) await setStatus(c, VERDICT_STATUS[d.verdict], me);
+        return d;
       }),
     },
     "/api/cases/:id/proof": {
@@ -396,22 +401,14 @@ const server = serve({
       }),
     },
   },
-  development: process.env.CAKRANALA_HMR === "1" && { hmr: true, console: true },
+  development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
 });
+
 await importEnvCredential();
-if (DEMO_FIXTURE) {
-  const runner = new URL("./server/demo-fixture-runner.ts", import.meta.url).pathname;
-  const child = Bun.spawn([process.execPath, runner], { env: process.env, stdout: "inherit", stderr: "inherit" });
-  child.exited.then((code) => {
-    if (code !== 0) console.error(`demo fixture exited with ${code}`);
-    else if (!restoreDemoFixtureState()) console.error("demo fixture completed without cached state");
-  });
-} else if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
+if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
 const tick = () => refresh().catch((e) => console.error("refresh failed", e));
-if (!DEMO_FIXTURE) {
-  tick();
-  setInterval(tick, 15_000);
-}
+tick();
+setInterval(tick, 15_000);
 const sync = () => syncLibrary().catch((e) => console.error("library sync failed", e));
 sync();
 setInterval(sync, 3_600_000);

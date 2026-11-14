@@ -139,7 +139,6 @@ Only Caddy is exposed (ports 80 and 443). The dashboard requires signing in. Pas
 | `PSEUDONYM_SECRET` | HMAC key used to pseudonymize collected accounts. |
 | `DOMAIN` | Public domain for HTTPS in the production compose file. |
 | `DEMO_MODE` | Set to `1` to replay the fictional demo scenario next to real monitors. Off by default. |
-| `DEMO_FIXTURE` | Set to `1` together with `DEMO_MODE=1` for deterministic local mock data: ready cases in all statuses, reports, evidence, watchlist, alerts and analyst dispositions. Never enable in production. |
 | `LIBRARY_FEED` | RSS feed of published fact checks that Perisai matches against, refreshed hourly. |
 | `SHIELD_PER_MINUTE` | Perisai requests allowed per address per minute, 20 by default. |
 | `REPORT_CLASSIFICATION` | Classification marking printed on every report page, `RESTRICTED` by default. |
@@ -171,14 +170,6 @@ bun test
 bun run typecheck
 bun run dev
 ```
-
-For a full local demo fixture without external collectors:
-
-```bash
-DEMO_MODE=1 DEMO_FIXTURE=1 bun run dev
-```
-
-The fixture is seeded into the local `data/` SQLite database once and is intentionally separate from production mode. Open `/threats` after login to find the four review-status examples, then use `/system` to inspect the audit chain.
 
 `bun run dev` starts the web app with hot reload on http://localhost:3000 and reads `.env` from the repository root.
 Local PDF exports require Typst on `PATH`; the production Docker image bundles it. Alternatively set `TYPST_BIN=/absolute/path/to/typst` when running the web app.

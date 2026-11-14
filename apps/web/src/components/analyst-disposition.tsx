@@ -1,72 +1,107 @@
 import { useEffect, useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Save } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { CaseConfidence, CaseDecisionReason, CaseVerdict } from "@/lib/api";
-import { useCaseDecision, useSaveCaseDecision } from "@/lib/queries";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useDecide, useDecision } from "@/lib/queries";
+import { LAYERS, STATUS_LABEL, ago } from "@/lib/format";
+import type { Confidence, Decision } from "@/lib/api";
 
-const VERDICTS: Array<{ value: CaseVerdict; label: string }> = [
-  { value: "insufficient_evidence", label: "Bukti belum cukup" },
-  { value: "coordinated_influence", label: "Influence operation terkoordinasi" },
-  { value: "benign_coordination", label: "Koordinasi benign" },
-  { value: "false_positive", label: "False positive" },
-];
-const CONFIDENCES: Array<{ value: CaseConfidence; label: string }> = [
-  { value: "low", label: "Rendah" },
-  { value: "medium", label: "Sedang" },
-  { value: "high", label: "Tinggi" },
-];
-const REASONS: Array<{ value: CaseDecisionReason; label: string }> = [
-  { value: "copy_paste", label: "Copy-paste / teks identik" },
-  { value: "synchronized_actions", label: "Aksi serentak" },
-  { value: "shared_urls_or_tags", label: "URL atau tagar bersama" },
-  { value: "rhythm_or_cadence", label: "Ritme / cadence" },
-  { value: "lifecycle_pattern", label: "Pola lifecycle akun" },
-  { value: "statistical_cluster", label: "Bukti statistik cluster" },
-];
+const VERDICTS: Record<Decision["verdict"], { label: string; status: keyof typeof STATUS_LABEL }> = {
+  coordinated: { label: "Operasi terkoordinasi", status: "confirmed" },
+  benign: { label: "Koordinasi wajar", status: "dismissed" },
+  false_positive: { label: "False positive", status: "dismissed" },
+  insufficient: { label: "Bukti belum cukup", status: "investigating" },
+};
+const CONFIDENCE: Record<Confidence, string> = { low: "Rendah", medium: "Sedang", high: "Tinggi" };
 
 export function AnalystDisposition({ caseId }: { caseId: string }) {
-  const query = useCaseDecision(caseId);
-  const save = useSaveCaseDecision(caseId);
-  const [verdict, setVerdict] = useState<CaseVerdict>("insufficient_evidence");
-  const [confidence, setConfidence] = useState<CaseConfidence>("medium");
-  const [reasons, setReasons] = useState<CaseDecisionReason[]>([]);
+  const { data } = useDecision(caseId);
+  const decide = useDecide(caseId);
+  const [verdict, setVerdict] = useState<Decision["verdict"]>("insufficient");
+  const [confidence, setConfidence] = useState<Confidence>("medium");
+  const [reasons, setReasons] = useState<Decision["reasons"]>([]);
   const [note, setNote] = useState("");
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const decision = query.data;
-    if (!decision) return;
-    setVerdict(decision.verdict);
-    setConfidence(decision.confidence);
-    setReasons(decision.reasons);
-    setNote(decision.note);
-  }, [query.data]);
-
-  const toggleReason = (reason: CaseDecisionReason) => { setSaved(false); setReasons((current) => current.includes(reason) ? current.filter((value) => value !== reason) : [...current, reason]); };
+    if (!data) return;
+    setVerdict(data.verdict);
+    setConfidence(data.confidence);
+    setReasons(data.reasons);
+    setNote(data.note);
+  }, [data]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2">Analyst disposition {query.data && <Badge variant="outline">Reviewed {query.data.reviewedBy}</Badge>}</CardTitle>
-        <CardDescription>Record the human decision separately from detector output. Every update is appended to the audit trail.</CardDescription>
+        <CardTitle>Keputusan analis</CardTitle>
+        <CardDescription>{data ? `Ditinjau ${data.by} ${ago(data.at)}` : "Belum ditinjau. Keputusan dicatat terpisah dari hasil detektor dan masuk audit."}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {query.isError && <Alert variant="destructive"><AlertTitle>Disposition unavailable</AlertTitle><AlertDescription>{query.error instanceof Error ? query.error.message : String(query.error)}</AlertDescription></Alert>}
-        {save.isError && <Alert variant="destructive"><AlertTitle>Disposition gagal disimpan</AlertTitle><AlertDescription>{save.error instanceof Error ? save.error.message : String(save.error)}</AlertDescription></Alert>}
-        <div className="grid gap-4 @xl/main:grid-cols-2">
-          <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-verdict">Verdict</label><Select value={verdict} onValueChange={(value) => { setSaved(false); setVerdict(value as CaseVerdict); }}><SelectTrigger id="case-verdict"><SelectValue /></SelectTrigger><SelectContent>{VERDICTS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
-          <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-confidence">Confidence</label><Select value={confidence} onValueChange={(value) => { setSaved(false); setConfidence(value as CaseConfidence); }}><SelectTrigger id="case-confidence"><SelectValue /></SelectTrigger><SelectContent>{CONFIDENCES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
-        </div>
-        <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">Evidence reasons</legend><div className="grid gap-2 @xl/main:grid-cols-2">{REASONS.map((item) => <label key={item.value} className="flex items-center gap-2 text-sm"><Input type="checkbox" className="size-4" checked={reasons.includes(item.value)} onChange={() => toggleReason(item.value)} />{item.label}</label>)}</div></fieldset>
-        <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-disposition-note">Analyst note</label><Textarea id="case-disposition-note" value={note} maxLength={4000} onChange={(event) => { setSaved(false); setNote(event.target.value); }} placeholder="Apa yang mendukung atau melemahkan keputusan ini?" rows={4} /><p className="text-xs text-muted-foreground">{note.length}/4000</p></div>
-        <div className="flex items-center justify-between gap-3"><div className="text-sm text-muted-foreground">{saved ? "Disposition tersimpan dan masuk audit trail." : query.data ? `Terakhir ditinjau ${new Date(query.data.reviewedAt).toLocaleString("id-ID")}` : "Belum ada disposition."}</div><Button disabled={save.isPending || query.isPending} onClick={() => save.mutate({ verdict, confidence, reasons, note }, { onSuccess: () => setSaved(true), onError: () => setSaved(false) })}>{save.isPending && <Spinner />} Simpan disposition</Button></div>
+      <CardContent>
+        <FieldGroup>
+          <div className="grid gap-4 @xl/main:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="verdict">Verdict</FieldLabel>
+              <Select value={verdict} onValueChange={(v) => setVerdict(v as Decision["verdict"])}>
+                <SelectTrigger id="verdict" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(VERDICTS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>Status kasus menjadi {STATUS_LABEL[VERDICTS[verdict].status]}</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="confidence">Keyakinan</FieldLabel>
+              <Select value={confidence} onValueChange={(v) => setConfidence(v as Confidence)}>
+                <SelectTrigger id="confidence" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CONFIDENCE).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <Field>
+            <FieldLabel>Sinyal yang meyakinkan</FieldLabel>
+            <ToggleGroup type="multiple" variant="outline" className="flex-wrap justify-start" value={reasons} onValueChange={(v) => setReasons(v as Decision["reasons"])}>
+              {Object.entries(LAYERS).map(([k, v]) => (
+                <ToggleGroupItem key={k} value={k} className="px-3">
+                  {v}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="note">Catatan</FieldLabel>
+            <Textarea id="note" value={note} maxLength={4000} rows={3} onChange={(e) => setNote(e.target.value)} placeholder="Apa yang menguatkan atau melemahkan keputusan ini" />
+          </Field>
+        </FieldGroup>
       </CardContent>
+      <CardFooter className="justify-end">
+        <Button
+          disabled={decide.isPending}
+          onClick={() => decide.mutate({ verdict, confidence, reasons, note }, { onSuccess: () => toast.success("Keputusan tersimpan"), onError: (e) => toast.error(e.message) })}
+        >
+          {decide.isPending ? <Spinner /> : <Save />}
+          Simpan keputusan
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
