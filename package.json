@@ -1,19 +1,66 @@
 {
-  "name": "cakranala-workspace",
-  "private": true,
+  "name": "cakranala",
+  "version": "0.1.0",
+  "description": "Deteksi operasi pengaruh terkoordinasi di media sosial dari ketergantungan antar akun.",
+  "license": "Apache-2.0",
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
+  "repository": "github:pajarori/cakranala",
+  "keywords": ["coordinated inauthentic behavior", "influence operations", "buzzer", "bot detection", "social media", "network analysis", "osint"],
+  "bin": { "cakranala": "./bin/cakranala.js" },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./collect": { "types": "./dist/collect/index.d.ts", "default": "./dist/collect/index.js" },
+    "./embed": { "types": "./dist/embed/index.d.ts", "default": "./dist/embed/index.js" },
+    "./scenarios/*": "./scenarios/*"
+  },
+  "files": ["dist", "bin", "scenarios"],
+  "sideEffects": false,
+  "engines": { "node": ">=20", "bun": ">=1.2.17" },
   "scripts": {
+    "dev": "bun --hot web/src/index.ts",
+    "build": "bun scripts/build.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/web",
-    "dev": "bun --cwd apps/web dev",
-    "start": "bun --cwd apps/web start"
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@puppeteer/browsers": "3.2.6",
+    "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2",
+    "puppeteer-core": "25.16.0",
+    "x-client-transaction-id": "^0.3.3",
+    "youtubei.js": "18.3.0"
+  },
+  "peerDependencies": {
+    "@huggingface/transformers": "^3.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@huggingface/transformers": { "optional": true }
   },
   "devDependencies": {
+    "@huggingface/transformers": "^3.7.0",
+    "@react-sigma/core": "5.0.6",
+    "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-router": "^1.170.46",
+    "@tanstack/react-table": "^9.3.1",
     "@types/bun": "latest",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "bun-plugin-tailwind": "^0.1.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "lucide-react": "^1",
+    "radix-ui": "^1.8.1",
+    "react": "^19",
+    "react-dom": "^19",
+    "recharts": "3.8.0",
+    "sigma": "3.0.2",
+    "simple-icons": "16.36.0",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.1.11",
+    "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.0"
   }
 }
