@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
+import { AnalystDisposition } from "@/components/analyst-disposition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,6 +208,7 @@ function Summary() {
         ))}
       </div>
       <Provenance provenance={ev?.provenance} />
+      <AnalystDisposition caseId={c.id} />
       <Card>
         <CardHeader>
           <CardTitle>Respons</CardTitle>

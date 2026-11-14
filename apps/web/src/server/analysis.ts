@@ -4,6 +4,7 @@ import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow } fr
 import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
 import { notifyWatchlist } from "./actors";
+import { buildCaseProvenance, type CaseProvenance } from "./provenance";
 
 export const reasoner = reasonerFromEnv();
 const WINDOW = 24 * 3600_000;
@@ -116,12 +117,6 @@ async function describe(report: Report, narrativeIds: string[], clusterIds: stri
   }
 }
 
-export interface CaseProvenance {
-  sourceMonitors: Array<{ id: string; label: string; kind: string; platform: string; target: string }>;
-  eventCount: number;
-  actorCount: number;
-  detector: { schemaVersion: number; generatedAt: number; layers: string[]; nullReplicates: number; fdr: number };
-}
 
 export interface CaseEvidence {
   view: CaseView;
@@ -153,12 +148,7 @@ function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"],
       const label = "label" in a && typeof a.label === "string" ? a.label : undefined;
       return { id: a.id, handle: a.handle, label, followers: a.followers, createdAt: a.createdAt };
     }),
-    provenance: {
-      sourceMonitors,
-      eventCount: memberEvents.length,
-      actorCount: members.size,
-      detector: { schemaVersion: SCHEMA_VERSION, generatedAt: report.generatedAt, layers: report.stats.layersRun, nullReplicates: report.null.replicates, fdr: DEFAULTS.fdr },
-    },
+    provenance: buildCaseProvenance({ sourceMonitors, eventCount: memberEvents.length, actorCount: members.size, report, fdr: DEFAULTS.fdr }),
   };
 }
 

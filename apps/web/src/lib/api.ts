@@ -1,6 +1,6 @@
 import type { ShieldResult } from "cakranala";
 import type { snapshot, CaseEvidence, CaseView, Severity } from "../server/analysis";
-import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow } from "../server/db";
+import type { AuditEntry, CaseConfidence, CaseDecision, CaseDecisionReason, CaseStatus, CaseVerdict, Monitor, MonitorKind, Platform, ReportRow } from "../server/db";
 import type { ReportContent } from "../server/reports";
 import type { Credential, CredentialPlatform, Proxy } from "../server/credentials";
 import type { User } from "../server/auth";
@@ -28,7 +28,7 @@ export type ImportSummary = ReturnType<typeof summarizeImport>;
 export type Overview = ReturnType<typeof overview>;
 export type Proof = NonNullable<ReturnType<typeof proof>>;
 export type { Period };
-export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
+export type { CaseConfidence, CaseDecision, CaseDecisionReason, CaseStatus, CaseVerdict, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface Capabilities {
   demo: boolean;
@@ -75,6 +75,8 @@ export const api = {
   toggleMonitor: (id: string, active: boolean) => call<Monitor>(`/api/monitors/${id}`, send("PATCH", { active })),
   deleteMonitor: (id: string) => call<{ ok: true }>(`/api/monitors/${id}`, send("DELETE")),
   setStatus: (id: string, status: CaseStatus) => call<{ ok: true }>(`/api/cases/${id}`, send("PATCH", { status })),
+  caseDecision: (id: string) => call<CaseDecision | null>(`/api/cases/${id}/decision`),
+  saveCaseDecision: (id: string, body: Pick<CaseDecision, "verdict" | "confidence" | "reasons" | "note">) => call<CaseDecision>(`/api/cases/${id}/decision`, send("PUT", body)),
   evidence: (caseId: string) => call<CaseEvidence>(`/api/cases/${caseId}/evidence`),
   proof: (caseId: string) => call<Proof>(`/api/cases/${caseId}/proof`),
   redescribe: (caseId: string) => call<{ title: string; brief: string | null }>(`/api/cases/${caseId}/describe`, send("POST")),

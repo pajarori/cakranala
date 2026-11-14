@@ -3,7 +3,7 @@ import index from "./index.html";
 import { capabilities, runShield } from "./server/engine";
 import { caseEvidence, redescribe, refresh, snapshot } from "./server/analysis";
 import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
-import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
+import { alerts, audit, caseDecisions, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
 import { reportPdf } from "./server/pdf";
@@ -17,6 +17,7 @@ import { startArchive } from "./server/archive";
 import { overview, PERIODS, type Period } from "./server/overview";
 import { proof } from "./server/proof";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
+import { parseCaseDecisionInput } from "./server/case-decision";
 
 class HttpError extends Error {
   constructor(
@@ -313,6 +314,19 @@ const server = serve({
         alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
         await refresh(true);
         return { ok: true };
+      }),
+    },
+    "/api/cases/:id/decision": {
+      GET: authed((req) => {
+        if (!cases.get(req.params.id)) throw new HttpError(404, "kasus tidak ditemukan");
+        return caseDecisions.get(req.params.id);
+      }),
+      PUT: authed(async (req, me) => {
+        if (!cases.get(req.params.id)) throw new HttpError(404, "kasus tidak ditemukan");
+        const decision = parseCaseDecisionInput(await req.json(), req.params.id, me.username);
+        const saved = caseDecisions.put(decision);
+        audit.add("case.decision", req.params.id, { verdict: saved.verdict, confidence: saved.confidence, reasons: saved.reasons, by: me.username });
+        return saved;
       }),
     },
     "/api/cases/:id/proof": {
