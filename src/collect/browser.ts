@@ -1,9 +1,9 @@
-import { lookup } from "node:dns/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { Browser as Kind, computeExecutablePath } from "@puppeteer/browsers";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
-
-export interface BrowserConfig {
-  url: string;
-}
+import { PUPPETEER_REVISIONS } from "puppeteer-core/internal/revisions.js";
+import { cacheDir } from "../home";
 
 export interface Session {
   cookie: string;
@@ -15,20 +15,27 @@ export class Checkpoint extends Error {}
 
 export class Limited extends Error {}
 
-export function browserFromEnv(env: Record<string, string | undefined> = process.env): BrowserConfig | undefined {
-  return env.BROWSER_URL ? { url: env.BROWSER_URL.replace(/\/$/, "") } : undefined;
+export const CHROME = { browser: Kind.CHROME, buildId: PUPPETEER_REVISIONS.chrome, cacheDir: join(cacheDir(), "chrome") };
+
+export function chromePath() {
+  const path = computeExecutablePath(CHROME);
+  return existsSync(path) ? path : undefined;
 }
 
 let shared: Promise<Browser> | undefined;
 
-async function connect(config: BrowserConfig) {
+async function connect() {
   const current = await shared?.catch(() => undefined);
   if (current?.connected) return current;
-  shared = (async () => {
-    const u = new URL(config.url);
-    const { address } = await lookup(u.hostname);
-    return puppeteer.connect({ browserURL: `${u.protocol}//${address}:${u.port}`, defaultViewport: null, protocolTimeout: 120_000 });
-  })();
+  const executablePath = chromePath();
+  if (!executablePath) throw new Error("Chrome belum terpasang, jalankan: cakranala install");
+  shared = puppeteer.launch({
+    executablePath,
+    headless: true,
+    defaultViewport: null,
+    protocolTimeout: 120_000,
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
+  });
   return shared;
 }
 
@@ -92,8 +99,8 @@ export async function go(page: Page, url: string) {
 
 export const signedOut = (url: string) => /\/(login|checkpoint|challenge|two_step_verification)/.test(new URL(url).pathname);
 
-export async function withPage<T>(config: BrowserConfig, session: Session, domain: string, run: (page: Page, captured: unknown[]) => Promise<T>): Promise<T> {
-  const browser = await connect(config);
+export async function withPage<T>(session: Session, domain: string, run: (page: Page, captured: unknown[]) => Promise<T>): Promise<T> {
+  const browser = await connect();
   const proxy = session.proxy ? new URL(session.proxy) : undefined;
   const context = await browser.createBrowserContext(proxy ? { proxyServer: `${proxy.protocol}//${proxy.host}` } : {});
   try {

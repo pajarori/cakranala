@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Actor, type Dataset, type Event } from "../engine";
 import type { Page } from "puppeteer-core";
-import { Checkpoint, Limited, go, pause, parseJson, signedOut, walk, withPage, type BrowserConfig, type Session } from "./browser";
+import { Checkpoint, Limited, go, pause, parseJson, signedOut, walk, withPage, type Session } from "./browser";
 
 const ORIGIN = "https://www.instagram.com";
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -82,8 +82,8 @@ async function comments(page: Page, captured: unknown[], add: ReturnType<typeof 
   for (const p of add.posts()) add.harvest(await visit(page, `/p/${p.code}/`, 1, captured), p.id);
 }
 
-export function createInstagramCollector(config: BrowserConfig) {
-  const run = <T>(session: Session, fn: (page: Page, captured: unknown[]) => Promise<T>) => withPage(config, session, ".instagram.com", fn);
+export function createInstagramCollector() {
+  const run = <T>(session: Session, fn: (page: Page, captured: unknown[]) => Promise<T>) => withPage(session, ".instagram.com", fn);
 
   return {
     me: (session: Session) =>

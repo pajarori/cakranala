@@ -35,8 +35,12 @@ export interface Capabilities {
   demo: boolean;
   live: boolean;
   tiktok: boolean;
-  meta: boolean;
   reasoner: boolean;
+  semantic: boolean;
+  model: boolean;
+  pdf: boolean;
+  chrome: boolean;
+  unzip: boolean;
   scenario: string;
   severity: Record<"critical" | "high" | "medium", number>;
 }

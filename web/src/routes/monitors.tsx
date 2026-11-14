@@ -246,7 +246,7 @@ function NewMonitor({ template }: { template?: Template }) {
     if (p === "demo" || p === "telegram") return { ok: true, text: "Tanpa login" };
     if (p === "youtube") return { ok: true, text: ready("youtube") ? `${ready("youtube")} siap` : "Tanpa login" };
     if (p === "tiktok" && !caps.data?.tiktok) return { ok: false, text: "Sidecar mati" };
-    if ((p === "instagram" || p === "facebook") && !caps.data?.meta) return { ok: false, text: "Browser mati" };
+    if ((p === "instagram" || p === "facebook") && !caps.data?.chrome) return { ok: false, text: "Chrome belum terpasang" };
     return ready(p) ? { ok: true, text: `${ready(p)} siap` } : { ok: false, text: "Belum ada kredensial" };
   };
   const blocked = !status(source).ok;

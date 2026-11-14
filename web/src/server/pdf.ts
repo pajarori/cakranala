@@ -1,10 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import template from "../../report/report.typ" with { type: "text" };
+import { typstPath } from "../../../src/features";
 import type { AuditEntry, ReportRow } from "./db";
 import type { ReportContent } from "./reports";
 
-const TEMPLATE = new URL("../../report/report.typ", import.meta.url).pathname;
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
 const WIB = 7 * 3_600_000;
 
@@ -55,9 +56,11 @@ export async function reportPdf(r: ReportRow<ReportContent> & { hash?: string },
   data.facts = data.facts.filter((f) => f.label !== "Teknik DISARM" && f.label !== "DISARM techniques");
   const dir = await mkdtemp(join(tmpdir(), "report-"));
   try {
-    await Bun.write(join(dir, "report.typ"), Bun.file(TEMPLATE));
+    await Bun.write(join(dir, "report.typ"), template);
     await Bun.write(join(dir, "data.json"), JSON.stringify(data));
-    const p = Bun.spawn([process.env.TYPST_BIN ?? "typst", "compile", "--ignore-system-fonts", "--root", dir, "--input", "data=data.json", join(dir, "report.typ"), join(dir, "report.pdf")], { stderr: "pipe" });
+    const typst = typstPath();
+    if (!typst) throw new Error("export PDF butuh Typst, jalankan: cakranala install");
+    const p = Bun.spawn([typst, "compile", "--ignore-system-fonts", "--root", dir, "--input", "data=data.json", join(dir, "report.typ"), join(dir, "report.pdf")], { stderr: "pipe" });
     if ((await p.exited) !== 0) throw new Error(`typst failed: ${(await new Response(p.stderr).text()).slice(0, 300)}`);
     return new Uint8Array(await Bun.file(join(dir, "report.pdf")).arrayBuffer());
   } finally {

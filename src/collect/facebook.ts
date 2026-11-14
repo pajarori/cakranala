@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Actor, type Dataset, type Event } from "../engine";
 import type { Page } from "puppeteer-core";
-import { Checkpoint, find, go, pause, parseJson, signedOut, walk, withPage, type BrowserConfig, type Session } from "./browser";
+import { Checkpoint, find, go, pause, parseJson, signedOut, walk, withPage, type Session } from "./browser";
 
 const ORIGIN = "https://www.facebook.com";
 const GAP = 3_000;
@@ -98,8 +98,8 @@ async function deep(page: Page, captured: unknown[], add: ReturnType<typeof coll
   }
 }
 
-export function createFacebookCollector(config: BrowserConfig) {
-  const run = <T>(session: Session, fn: (page: Page, captured: unknown[]) => Promise<T>) => withPage(config, session, ".facebook.com", fn);
+export function createFacebookCollector() {
+  const run = <T>(session: Session, fn: (page: Page, captured: unknown[]) => Promise<T>) => withPage(session, ".facebook.com", fn);
 
   return {
     me: (session: Session) =>

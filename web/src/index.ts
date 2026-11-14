@@ -9,7 +9,7 @@ import { stixBundle } from "./server/stix";
 import { reportPdf } from "./server/pdf";
 import { syncLibrary } from "./server/library";
 import { CREDENTIAL_FIELDS, credentials, proxies } from "./server/credentials";
-import { browserFromEnv, probe, sidecarFromEnv } from "cakranala/collect";
+import { probe, sidecarFromEnv } from "cakranala/collect";
 import { list as listActors, notifyWatchlist, profile, watchlist } from "./server/actors";
 import templates from "../config/templates.json";
 import { importDataset, parseImport, summarize } from "./server/imports";
@@ -235,7 +235,7 @@ const server = serve({
       POST: authed(async (req, me) => {
         const { platform, label, fields } = await req.json();
         const px = platform === "tiktok" ? undefined : await proxies.lease();
-        const p = await probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv(), proxy: px?.url });
+        const p = await probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), proxy: px?.url });
         const c = await credentials.add(platform, String(label ?? "").trim() || p.profile?.handle || "", fields ?? {});
         if (px) proxies.bind(c.id, px.id);
         credentials.checked(c.id, p);
@@ -247,7 +247,7 @@ const server = serve({
       POST: authed(async (req) => {
         const { platform, fields } = await req.json();
         const px = platform === "tiktok" ? undefined : await proxies.lease();
-        return probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv(), proxy: px?.url });
+        return probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), proxy: px?.url });
       }),
     },
     "/api/credentials/:id/test": {
@@ -255,7 +255,7 @@ const server = serve({
         const c = credentials.get(req.params.id);
         if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
         const px = c.platform === "tiktok" ? undefined : await proxies.lease(c.id);
-        const p = await probe(c.platform, await credentials.fields(c.id), { tiktok: sidecarFromEnv(), browser: browserFromEnv(), proxy: px?.url });
+        const p = await probe(c.platform, await credentials.fields(c.id), { tiktok: sidecarFromEnv(), proxy: px?.url });
         credentials.checked(c.id, p);
         audit.add("credential.tested", c.id, { platform: c.platform, ok: p.ok, by: me.username });
         return p;

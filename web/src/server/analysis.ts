@@ -9,7 +9,7 @@ export const reasoner = reasonerFromEnv();
 const WINDOW = 24 * 3600_000;
 export const SEVERITY = { critical: 50, high: 20, medium: 8 };
 
-let embedderPromise: Promise<Embedder> | undefined;
+let embedderPromise: Promise<Embedder | undefined> | undefined;
 export const embedder = () =>
   (embedderPromise ??= createE5Embedder().then((base) => {
     const cache = new Map<string, Float32Array>();
@@ -20,6 +20,9 @@ export const embedder = () =>
         return texts.map((t) => cache.get(t)!);
       },
     };
+  }, (e: Error) => {
+    console.warn(`layer semantik nonaktif: ${e.message}`);
+    return undefined;
   }));
 
 export type Severity = "critical" | "high" | "medium" | "low";

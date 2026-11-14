@@ -1,6 +1,6 @@
 import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
-import { browserFromEnv, createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "cakranala/collect";
+import { createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "cakranala/collect";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { audit, DIR, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
 import { credentials, pool } from "./credentials";
@@ -10,7 +10,7 @@ export const DEMO_MODE = /^(1|true|yes)$/i.test(process.env.DEMO_MODE ?? "");
 const SECRET_FILE = `${DIR}pseudonym.secret`;
 if (!process.env.PSEUDONYM_SECRET && !existsSync(SECRET_FILE)) writeFileSync(SECRET_FILE, crypto.randomUUID(), { mode: 0o600 });
 export const secret = process.env.PSEUDONYM_SECRET ?? readFileSync(SECRET_FILE, "utf8").trim();
-export const collector = createCollector({ pool, tiktok: sidecarFromEnv(), browser: browserFromEnv() });
+export const collector = createCollector({ pool, tiktok: sidecarFromEnv() });
 
 export const rateState = () => ({ ...collector.rate });
 

@@ -3,7 +3,7 @@ import { createXCollector, type Profile } from "./x";
 import { createYoutubeCollector } from "./youtube";
 import { collectTelegram } from "./telegram";
 import { createTiktokCollector, tiktokAccount, type SidecarConfig } from "./tiktok";
-import { Limited, type BrowserConfig, type Session } from "./browser";
+import { Limited, type Session } from "./browser";
 import { createInstagramCollector, shortcode } from "./instagram";
 import { createFacebookCollector, facebookUrl } from "./facebook";
 
@@ -11,7 +11,7 @@ export { createXCollector, sessionFromEnv, type XSession, type XRateState, type 
 export { createYoutubeCollector } from "./youtube";
 export { collectTelegram } from "./telegram";
 export { createTiktokCollector, sidecarFromEnv, type SidecarConfig } from "./tiktok";
-export { browserFromEnv, type BrowserConfig } from "./browser";
+export { chromePath } from "./browser";
 export { createInstagramCollector } from "./instagram";
 export { createFacebookCollector } from "./facebook";
 
@@ -38,12 +38,11 @@ export interface Probe {
   error?: string;
 }
 
-export async function probe(platform: Platform, fields: Record<string, string>, o: { tiktok?: SidecarConfig; browser?: BrowserConfig; proxy?: string } = {}): Promise<Probe> {
-  const { tiktok, browser, proxy } = o;
+export async function probe(platform: Platform, fields: Record<string, string>, o: { tiktok?: SidecarConfig; proxy?: string } = {}): Promise<Probe> {
+  const { tiktok, proxy } = o;
   try {
     if (platform === "instagram" || platform === "facebook") {
-      if (!browser) throw new Error("browser belum dikonfigurasi");
-      const c = platform === "instagram" ? createInstagramCollector(browser) : createFacebookCollector(browser);
+      const c = platform === "instagram" ? createInstagramCollector() : createFacebookCollector();
       return { ok: true, profile: { ...(await c.me(session(fields, proxy))), signedIn: true } };
     }
     if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0", proxy })).me() };
@@ -134,7 +133,7 @@ const cache = <T>() => {
   };
 };
 
-export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfig; browser?: BrowserConfig; cooldownMs?: number }) {
+export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfig; cooldownMs?: number }) {
   const rate = { remaining: null as number | null, reset: null as number | null };
   const xs = cache<Awaited<ReturnType<typeof createXCollector>>>();
   const yts = cache<Awaited<ReturnType<typeof createYoutubeCollector>>>();
@@ -200,7 +199,6 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
   };
 
   const meta = (platform: "instagram" | "facebook", run: (s: Session) => Promise<Dataset>) => {
-    if (!o.browser) throw new Error("browser belum dikonfigurasi");
     return rotating(platform, async (l) => {
       try {
         return { value: await run(session(l.fields, l.proxy?.url)) };
@@ -210,21 +208,20 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
       }
     });
   };
-  const ig = o.browser ? createInstagramCollector(o.browser) : undefined;
-  const fb = o.browser ? createFacebookCollector(o.browser) : undefined;
+  const ig = createInstagramCollector();
+  const fb = createFacebookCollector();
 
   return {
     rate,
     tiktok: !!o.tiktok,
-    meta: !!o.browser,
     async collect(t: Target): Promise<Dataset> {
       validate(t);
       if (t.platform === "youtube") return youtube((c) => (t.kind === "post" ? c.video(videoId(t.target)!, { pages: t.pages }) : c.search(t.target, { videos: t.pages, pages: 2 })));
       if (t.platform === "telegram") return collectTelegram(channels(t.target), t.pages);
       if (t.platform === "instagram")
-        return meta("instagram", (s) => (t.kind === "post" ? ig!.post(s, shortcode(t.target)!, { pages: t.pages }) : t.kind === "account" ? ig!.account(s, igUser(t.target)!, { pages: t.pages }) : ig!.tag(s, t.target, { pages: t.pages })));
+        return meta("instagram", (s) => (t.kind === "post" ? ig.post(s, shortcode(t.target)!, { pages: t.pages }) : t.kind === "account" ? ig.account(s, igUser(t.target)!, { pages: t.pages }) : ig.tag(s, t.target, { pages: t.pages })));
       if (t.platform === "facebook")
-        return meta("facebook", (s) => (t.kind === "post" ? fb!.post(s, t.target, { pages: t.pages }) : t.kind === "account" ? fb!.page(s, t.target, { pages: t.pages }) : fb!.search(s, t.target, { pages: t.pages })));
+        return meta("facebook", (s) => (t.kind === "post" ? fb.post(s, t.target, { pages: t.pages }) : t.kind === "account" ? fb.page(s, t.target, { pages: t.pages }) : fb.search(s, t.target, { pages: t.pages })));
       if (t.platform === "tiktok") return tiktok((c, identity) => (t.kind === "post" ? c.video(tiktokVideo(t.target)!, { pages: t.pages, identity }) : c.search(t.target, { videos: t.pages, pages: 2, identity })));
       return x(async (c) => {
         if (t.kind !== "post") return c.search(xQuery(t.kind, t.target), { pages: t.pages, lang: t.kind === "topic" ? "in" : undefined });
