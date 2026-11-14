@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Actor, type Dataset, type Event } from "cakranala";
 import type { Page } from "puppeteer-core";
-import { Checkpoint, find, pause, parseJson, signedOut, walk, withPage, type BrowserConfig, type Session } from "./browser";
+import { Checkpoint, find, go, pause, parseJson, signedOut, walk, withPage, type BrowserConfig, type Session } from "./browser";
 
 const ORIGIN = "https://www.facebook.com";
 const GAP = 3_000;
@@ -80,7 +80,7 @@ function collector() {
 
 async function visit(page: Page, url: string, scrolls: number, captured: unknown[]) {
   captured.length = 0;
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await go(page, url);
   if (signedOut(page.url())) throw new Checkpoint("sesi Facebook perlu verifikasi atau login ulang");
   await pause(GAP);
   for (let i = 0; i < scrolls; i++) {
@@ -104,7 +104,7 @@ export function createFacebookCollector(config: BrowserConfig) {
   return {
     me: (session: Session) =>
       run(session, async (page) => {
-        await page.goto(`${ORIGIN}/me`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        await go(page, `${ORIGIN}/me`);
         if (signedOut(page.url())) throw new Checkpoint("sesi Facebook perlu verifikasi atau login ulang");
         const html = await page.content();
         const id = html.match(/"USER_ID":"(\d+)"/)?.[1];

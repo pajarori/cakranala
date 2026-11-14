@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AtSign, Camera, LockKeyhole, Music2, Pause, Play, PlugZap, Plus, RotateCw, ThumbsUp, Trash2, TvMinimalPlay, type LucideIcon } from "lucide-react";
+import { LockKeyhole, Pause, Play, PlugZap, Plus, RotateCw, Trash2 } from "lucide-react";
+import { brand, PlatformIcon } from "@/components/platform-icon";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
+import { VaultTabs } from "@/routes/proxies";
 import { Section, Summary, Tiles } from "@/components/form-kit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +20,7 @@ import { ago, date, int } from "@/lib/format";
 import { api, type Credential, type CredentialPlatform, type Probe } from "@/lib/api";
 
 const PLATFORM: Record<CredentialPlatform, string> = { x: "X", youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook" };
-const FIELD: Record<string, string> = { authToken: "Cookie auth_token", ct0: "Cookie ct0", userAgent: "User agent dari browser yang sama", cookie: "Header cookie", proxy: "Proxy khusus akun ini, opsional, http://user:pass@host:port" };
+const FIELD: Record<string, string> = { authToken: "Cookie auth_token", ct0: "Cookie ct0", userAgent: "User agent dari browser yang sama", cookie: "Header cookie" };
 
 function status(c: Credential) {
   if (!c.active) return <Badge variant="destructive">{c.lastError ? "Dimatikan setelah gagal" : "Dimatikan"}</Badge>;
@@ -44,7 +46,8 @@ function Credentials() {
     );
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
-      <div className="flex items-center justify-end gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <VaultTabs value="sessions" />
         <Button asChild>
           <Link to="/credentials/new">
             <Plus />
@@ -78,8 +81,9 @@ function Credentials() {
                 <TableHead>Akun</TableHead>
                 <TableHead>Platform</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Proxy</TableHead>
                 <TableHead className="text-right">Dipakai</TableHead>
-                <TableHead>Terakhir dipakai</TableHead>
+                <TableHead className="hidden @5xl/main:table-cell">Terakhir dipakai</TableHead>
                 <TableHead>Error terakhir</TableHead>
                 <TableHead />
               </TableRow>
@@ -98,11 +102,17 @@ function Credentials() {
                       <span className="text-muted-foreground">Belum dicek</span>
                     )}
                   </TableCell>
-                  <TableCell>{PLATFORM[c.platform]}</TableCell>
+                  <TableCell>
+                    <span className="flex items-center gap-2">
+                      <PlatformIcon platform={c.platform} />
+                      {PLATFORM[c.platform]}
+                    </span>
+                  </TableCell>
                   <TableCell>{status(c)}</TableCell>
+                  <TableCell className="font-mono text-muted-foreground">{c.platform === "tiktok" ? "sidecar" : (c.proxy ?? "langsung")}</TableCell>
                   <TableCell className="text-right tabular-nums">{int(c.uses)}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.lastUsed ? ago(c.lastUsed) : "belum pernah"}</TableCell>
-                  <TableCell className="max-w-64 truncate text-muted-foreground">{c.lastError ?? ""}</TableCell>
+                  <TableCell className="hidden text-muted-foreground @5xl/main:table-cell">{c.lastUsed ? ago(c.lastUsed) : "belum pernah"}</TableCell>
+                  <TableCell className="max-w-48 truncate text-muted-foreground">{c.lastError ?? ""}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" aria-label="Tes koneksi" disabled={act.isPending} onClick={() => run(c.id, "test")}>
@@ -129,7 +139,6 @@ function Credentials() {
   );
 }
 
-const ICON: Record<CredentialPlatform, LucideIcon> = { x: AtSign, youtube: TvMinimalPlay, tiktok: Music2, instagram: Camera, facebook: ThumbsUp };
 
 function NewCredential() {
   const { data } = useCredentials();
@@ -175,18 +184,18 @@ function NewCredential() {
           <Tiles
             value={platform}
             onChange={setPlatform}
-            cols="grid-cols-3"
-            items={(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => ({ id: p, label: PLATFORM[p], icon: ICON[p], badge: <Badge variant={ready(p) ? "secondary" : "outline"}>{ready(p)} ready</Badge> }))}
+            cols="grid-cols-2 @3xl/main:grid-cols-5"
+            items={(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => ({ id: p, label: PLATFORM[p], icon: brand(p), badge: <Badge variant={ready(p) ? "secondary" : "outline"}>{ready(p)} siap</Badge> }))}
           />
         </Section>
         <Section step={2} title="Sesi">
-          <div className="grid gap-4 @3xl/main:grid-cols-2">
-            <div className="flex flex-col gap-2 @3xl/main:col-span-2">
+          <div className="grid gap-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="label">Nama</Label>
               <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional, terisi otomatis setelah tes" autoComplete="off" className="h-11" />
             </div>
             {names.map((n) => (
-              <div key={`${platform}:${n}`} className={`flex flex-col gap-2 ${n === "cookie" || n === "userAgent" ? "@3xl/main:col-span-2" : ""}`}>
+              <div key={`${platform}:${n}`} className="flex flex-col gap-2">
                 <Label htmlFor={n}>{FIELD[n] ?? n}</Label>
                 <Input
                   id={n}

@@ -81,6 +81,15 @@ export function find<T>(value: unknown, pick: (o: Record<string, any>) => T | un
   return undefined;
 }
 
+export async function go(page: Page, url: string) {
+  const res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch((e: Error) => {
+    throw new Error(/ERR_(PROXY|TUNNEL|CONNECTION|TIMED_OUT|NAME_NOT_RESOLVED)/.test(e.message) ? `proxy gagal: ${e.message}` : e.message);
+  });
+  if (!res) throw new Error(`proxy gagal: tidak ada respons dari ${new URL(url).host}`);
+  if (res.status() === 407) throw new Error("proxy gagal: 407 Proxy Authentication Required");
+  return res;
+}
+
 export const signedOut = (url: string) => /\/(login|checkpoint|challenge|two_step_verification)/.test(new URL(url).pathname);
 
 export async function withPage<T>(config: BrowserConfig, session: Session, domain: string, run: (page: Page, captured: unknown[]) => Promise<T>): Promise<T> {

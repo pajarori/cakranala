@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -20,7 +19,7 @@ export function Section({ step, title, children }: { step: number; title: string
   );
 }
 
-export function Tiles<T extends string>({ value, onChange, items, cols }: { value: T; onChange: (v: T) => void; items: { id: T; label: string; icon?: LucideIcon; badge?: ReactNode }[]; cols: string }) {
+export function Tiles<T extends string>({ value, onChange, items, cols }: { value: T; onChange: (v: T) => void; items: { id: T; label: string; icon?: (props: { className?: string }) => ReactNode; badge?: ReactNode }[]; cols: string }) {
   return (
     <ToggleGroup type="single" variant="outline" value={value} onValueChange={(v) => v && onChange(v as T)} className={`grid w-full gap-2 ${cols} *:rounded-lg! *:border-l!`}>
       {items.map((i) => (

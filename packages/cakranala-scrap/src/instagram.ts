@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Actor, type Dataset, type Event } from "cakranala";
 import type { Page } from "puppeteer-core";
-import { Checkpoint, Limited, pause, signedOut, withPage, type BrowserConfig, type Session } from "./browser";
+import { Checkpoint, Limited, go, pause, signedOut, withPage, type BrowserConfig, type Session } from "./browser";
 
 const ORIGIN = "https://www.instagram.com";
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -61,7 +61,7 @@ async function api<T>(page: Page, path: string, form?: Record<string, string>): 
 }
 
 async function open(page: Page) {
-  await page.goto(`${ORIGIN}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await go(page, `${ORIGIN}/`);
   if (signedOut(page.url())) throw new Checkpoint("sesi Instagram perlu verifikasi atau login ulang");
 }
 

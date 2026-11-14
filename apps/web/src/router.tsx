@@ -10,9 +10,10 @@ import { systemRoute } from "@/routes/system";
 import { loginRoute } from "@/routes/login";
 import { newUserRoute, passwordRoute, usersRoute } from "@/routes/users";
 import { credentialsRoute, newCredentialRoute } from "@/routes/credentials";
+import { newProxiesRoute, proxiesRoute } from "@/routes/proxies";
 import { actorRoute, actorsRoute, watchlistRoute } from "@/routes/actors";
 
-const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, situationPeriodRoute, threatsRoute, threatRoute.addChildren(threatTabs), actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute])]);
+const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, situationPeriodRoute, threatsRoute, threatRoute.addChildren(threatTabs), actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute, proxiesRoute, newProxiesRoute])]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
 

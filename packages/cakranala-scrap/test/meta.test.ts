@@ -29,3 +29,28 @@ test("meta targets are validated", () => {
   expect(() => validate({ platform: "instagram", kind: "account", target: "@tni_angkatan_darat" })).not.toThrow();
   expect(() => validate({ platform: "facebook", kind: "account", target: "bukan url" })).toThrow();
 });
+
+test("a network failure moves the session to another proxy once, then to the next credential", async () => {
+  const { createCollector } = await import("../src");
+  const calls: string[] = [];
+  let proxy = 0;
+  const leases = ["a", "b"];
+  const collector = createCollector({
+    browser: { url: "http://127.0.0.1:9" },
+    pool: {
+      count: () => leases.length,
+      acquire: async (_p, exclude) => {
+        const id = leases.find((l) => !exclude.includes(l));
+        return id ? { id, fields: { cookie: "c=1", userAgent: "ua" }, proxy: { id: `p${++proxy}`, url: "http://127.0.0.1:9" } } : undefined;
+      },
+      ok: () => calls.push("ok"),
+      limited: () => calls.push("limited"),
+      failed: (id) => calls.push(`failed:${id}`),
+      identity: () => undefined,
+      setIdentity: () => undefined,
+      proxyFailed: (id, _e, credential) => calls.push(`proxy:${id}:${credential}`),
+    },
+  });
+  await expect(collector.collect({ platform: "instagram", kind: "topic", target: "#uji", pages: 1 })).rejects.toThrow();
+  expect(calls).toEqual(["proxy:p1:a", "proxy:p2:a", "proxy:p3:b", "proxy:p4:b"]);
+});

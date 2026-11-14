@@ -2,7 +2,7 @@ import type { ShieldResult } from "cakranala";
 import type { snapshot, CaseEvidence, CaseView, Severity } from "../server/analysis";
 import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow } from "../server/db";
 import type { ReportContent } from "../server/reports";
-import type { Credential, CredentialPlatform } from "../server/credentials";
+import type { Credential, CredentialPlatform, Proxy } from "../server/credentials";
 import type { User } from "../server/auth";
 import type { list as listActors, profile as actorProfile, WatchEntry } from "../server/actors";
 import type templates from "../../config/templates.json";
@@ -20,7 +20,7 @@ export type { CaseEvidence };
 export type MonitorState = State["monitors"][number];
 export type ReportItem = ReportRow<ReportContent>;
 export type Audit = { entries: number; valid: boolean; brokenAt: number | null; recent: AuditEntry[] };
-export type { Credential, CredentialPlatform, Probe, User, WatchEntry };
+export type { Credential, CredentialPlatform, Probe, Proxy, User, WatchEntry };
 export type ActorPage = ReturnType<typeof listActors>;
 export type ActorProfile = NonNullable<ReturnType<typeof actorProfile>>;
 export type Template = (typeof templates)[number];
@@ -88,6 +88,11 @@ export const api = {
   testCredential: (body: { platform: CredentialPlatform; fields: Record<string, string> }) => call<Probe>("/api/credentials/test", send("POST", body)),
   retestCredential: (id: string) => call<Probe>(`/api/credentials/${id}/test`, send("POST")),
   removeCredential: (id: string) => call<{ ok: true }>(`/api/credentials/${id}`, send("DELETE")),
+  proxies: () => call<Proxy[]>("/api/proxies", send("GET")),
+  addProxies: (list: string) => call<{ added: number; skipped: number }>("/api/proxies", send("POST", { list })),
+  testProxy: (id: string) => call<{ ok: boolean; exit?: { ip: string; country: string }; error?: string }>(`/api/proxies/${id}/test`, send("POST")),
+  updateProxy: (id: string, active: boolean) => call<Proxy>(`/api/proxies/${id}`, send("PATCH", { active })),
+  removeProxy: (id: string) => call<{ ok: true }>(`/api/proxies/${id}`, send("DELETE")),
   counter: (id: string) => call<string>(`/api/reports/${id}/counter`, send("POST")),
   shield: (body: { text?: string; image?: string }) => call<ShieldResult>("/api/shield", send("POST", body)),
 };

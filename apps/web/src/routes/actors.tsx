@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { actorQuery, queryClient, useActor, useActors, useWatch, useWatchlist } from "@/lib/queries";
 import { LAYERS, STATUS_LABEL, ago, date, day, int, num, short } from "@/lib/format";
+import { PlatformIcon } from "@/components/platform-icon";
 
 const PLATFORM: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook", sim: "Demo" };
 const initials = (h: string) => h.replace(/^akun_/, "").replace(/^@/, "").slice(0, 2).toUpperCase();
@@ -154,7 +155,12 @@ function Actors() {
                         {r.watched && <Badge variant="destructive">Dipantau</Badge>}
                       </Link>
                     </TableCell>
-                    <TableCell>{PLATFORM[r.platform] ?? r.platform}</TableCell>
+                    <TableCell>
+                      <span className="flex items-center gap-2">
+                        <PlatformIcon platform={r.platform} />
+                        {PLATFORM[r.platform] ?? r.platform}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">{int(r.score)}</TableCell>
                     <TableCell className="font-mono text-muted-foreground">{r.cluster ? short(r.cluster) : ""}</TableCell>
                     <TableCell className="text-right tabular-nums">{r.cases || ""}</TableCell>

@@ -13,8 +13,9 @@ export interface YoutubeOptions {
   pages?: number;
 }
 
-export async function createYoutubeCollector(cookie?: string) {
-  const yt = await Innertube.create({ retrieve_player: false, cookie });
+export async function createYoutubeCollector(cookie?: string, proxy?: string) {
+  const viaProxy = ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, proxy })) as typeof fetch;
+  const yt = await Innertube.create({ retrieve_player: false, cookie, fetch: proxy ? viaProxy : undefined });
 
   async function comments(videoId: string, pages: number, now: number, actors: Map<string, Actor>, events: Map<string, Event>) {
     let feed: any;

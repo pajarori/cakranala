@@ -24,11 +24,13 @@ export const CREDENTIAL_FIELDS: Record<Exclude<Platform, "telegram">, { fields: 
   x: { fields: ["authToken", "ct0", "userAgent"], required: ["authToken", "ct0"] },
   youtube: { fields: ["cookie"], required: ["cookie"] },
   tiktok: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
-  instagram: { fields: ["cookie", "userAgent", "proxy"], required: ["cookie", "userAgent"] },
-  facebook: { fields: ["cookie", "userAgent", "proxy"], required: ["cookie", "userAgent"] },
+  instagram: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
+  facebook: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
 };
 
-const session = (fields: Record<string, string>): Session => ({ cookie: fields.cookie, userAgent: fields.userAgent, proxy: fields.proxy || undefined });
+const session = (fields: Record<string, string>, proxy?: string): Session => ({ cookie: fields.cookie, userAgent: fields.userAgent, proxy });
+
+const NETWORK = /proxy|tunnel|ERR_TUNNEL|ERR_PROXY|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket|407|unable to connect|fetch failed/i;
 
 export interface Probe {
   ok: boolean;
@@ -36,16 +38,16 @@ export interface Probe {
   error?: string;
 }
 
-export async function probe(platform: Platform, fields: Record<string, string>, o: { tiktok?: SidecarConfig; browser?: BrowserConfig } = {}): Promise<Probe> {
-  const { tiktok, browser } = o;
+export async function probe(platform: Platform, fields: Record<string, string>, o: { tiktok?: SidecarConfig; browser?: BrowserConfig; proxy?: string } = {}): Promise<Probe> {
+  const { tiktok, browser, proxy } = o;
   try {
     if (platform === "instagram" || platform === "facebook") {
       if (!browser) throw new Error("browser belum dikonfigurasi");
       const c = platform === "instagram" ? createInstagramCollector(browser) : createFacebookCollector(browser);
-      return { ok: true, profile: { ...(await c.me(session(fields))), signedIn: true } };
+      return { ok: true, profile: { ...(await c.me(session(fields, proxy))), signedIn: true } };
     }
-    if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0" })).me() };
-    if (platform === "youtube") return { ok: true, profile: await (await createYoutubeCollector(fields.cookie)).me() };
+    if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0", proxy })).me() };
+    if (platform === "youtube") return { ok: true, profile: await (await createYoutubeCollector(fields.cookie, proxy)).me() };
     if (platform === "tiktok") {
       if (!tiktok) throw new Error("sidecar TikTok belum dikonfigurasi");
       const r = await createTiktokCollector(tiktok).check(fields.cookie, fields.userAgent);
@@ -68,6 +70,7 @@ export interface Target {
 export interface Lease {
   id: string;
   fields: Record<string, string>;
+  proxy?: { id: string; url: string };
 }
 
 export interface CredentialPool {
@@ -78,6 +81,7 @@ export interface CredentialPool {
   failed(id: string, error: string): void;
   identity(id: string): string | undefined;
   setIdentity(id: string, identity: string): void;
+  proxyFailed(id: string, error: string, credentialId: string): void;
 }
 
 const videoId = (t: string) => t.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1] ?? t.match(/^[\w-]{11}$/)?.[0];
@@ -138,6 +142,7 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
 
   async function rotating<T>(platform: Platform, run: (lease: Lease) => Promise<{ value: T; limitedUntil?: number }>): Promise<T> {
     const tried: string[] = [];
+    const reproxied = new Set<string>();
     let last: Error | undefined;
     for (;;) {
       const lease = await o.pool.acquire(platform, tried);
@@ -154,18 +159,24 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
         return value;
       } catch (e) {
         last = e instanceof Error ? e : new Error(String(e));
-        o.pool.failed(lease.id, last.message);
+        if (lease.proxy && NETWORK.test(last.message)) {
+          o.pool.proxyFailed(lease.proxy.id, last.message, lease.id);
+          if (!reproxied.has(lease.id)) {
+            reproxied.add(lease.id);
+            tried.pop();
+          }
+        } else o.pool.failed(lease.id, last.message);
       }
     }
     throw last ?? new Error(`tidak ada kredensial ${platform} yang siap`);
   }
 
   const youtube = async (run: (c: Awaited<ReturnType<typeof createYoutubeCollector>>) => Promise<Dataset>) =>
-    o.pool.count("youtube") ? rotating("youtube", async (l) => ({ value: await run(await yts(l.id, () => createYoutubeCollector(l.fields.cookie))) })) : run(await yts("anonymous", () => createYoutubeCollector()));
+    o.pool.count("youtube") ? rotating("youtube", async (l) => ({ value: await run(await yts(`${l.id}:${l.proxy?.id ?? ""}`, () => createYoutubeCollector(l.fields.cookie, l.proxy?.url))) })) : run(await yts("anonymous", () => createYoutubeCollector()));
 
   const x = (run: (c: Awaited<ReturnType<typeof createXCollector>>) => Promise<Dataset>) =>
     rotating("x", async (l) => {
-      const c = await xs(l.id, () => createXCollector({ authToken: l.fields.authToken, ct0: l.fields.ct0, userAgent: l.fields.userAgent || "Mozilla/5.0" }));
+      const c = await xs(`${l.id}:${l.proxy?.id ?? ""}`, () => createXCollector({ authToken: l.fields.authToken, ct0: l.fields.ct0, userAgent: l.fields.userAgent || "Mozilla/5.0", proxy: l.proxy?.url }));
       const value = await run(c);
       Object.assign(rate, c.rate);
       const until = c.rate.reset && c.rate.reset > Date.now() ? c.rate.reset : Date.now() + 15 * 60_000;
@@ -192,7 +203,7 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
     if (!o.browser) throw new Error("browser belum dikonfigurasi");
     return rotating(platform, async (l) => {
       try {
-        return { value: await run(session(l.fields)) };
+        return { value: await run(session(l.fields, l.proxy?.url)) };
       } catch (e) {
         if (e instanceof Limited) return { value: undefined as unknown as Dataset, limitedUntil: Date.now() + (o.cooldownMs ?? 30 * 60_000) };
         throw e;

@@ -22,6 +22,19 @@ export const useCredentialAction = () => {
     onSuccess: done,
   });
 };
+export const useProxies = () => useQuery({ queryKey: ["proxies"], queryFn: api.proxies, refetchInterval: 15_000, retry: 0 });
+export const useProxyAction = () => {
+  const done = useInvalidate(["proxies"], ["credentials"]);
+  return useMutation({
+    mutationFn: async (a: { id: string; action: "enable" | "disable" | "remove" | "test" }): Promise<unknown> =>
+      a.action === "test" ? api.testProxy(a.id) : a.action === "remove" ? api.removeProxy(a.id) : api.updateProxy(a.id, a.action === "enable"),
+    onSuccess: done,
+  });
+};
+export const useAddProxies = () => {
+  const done = useInvalidate(["proxies"]);
+  return useMutation({ mutationFn: api.addProxies, onSuccess: done });
+};
 export const useAddCredential = () => {
   const done = useInvalidate(["credentials"], ["capabilities"]);
   return useMutation({ mutationFn: api.addCredential, onSuccess: done });

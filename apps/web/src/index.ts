@@ -8,7 +8,7 @@ import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
 import { reportPdf } from "./server/pdf";
 import { syncLibrary } from "./server/library";
-import { CREDENTIAL_FIELDS, credentials } from "./server/credentials";
+import { CREDENTIAL_FIELDS, credentials, proxies } from "./server/credentials";
 import { browserFromEnv, probe, sidecarFromEnv } from "cakranala-scrap";
 import { list as listActors, notifyWatchlist, profile, watchlist } from "./server/actors";
 import templates from "../config/templates.json";
@@ -225,8 +225,10 @@ const server = serve({
       GET: authed(() => ({ platforms: CREDENTIAL_FIELDS, items: credentials.all() })),
       POST: authed(async (req, me) => {
         const { platform, label, fields } = await req.json();
-        const p = await probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv() });
+        const px = platform === "tiktok" ? undefined : await proxies.lease();
+        const p = await probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv(), proxy: px?.url });
         const c = await credentials.add(platform, String(label ?? "").trim() || p.profile?.handle || "", fields ?? {});
+        if (px) proxies.bind(c.id, px.id);
         credentials.checked(c.id, p);
         audit.add("credential.added", c.id, { platform: c.platform, label: c.label, verified: p.ok, by: me.username });
         return credentials.get(c.id);
@@ -235,14 +237,16 @@ const server = serve({
     "/api/credentials/test": {
       POST: authed(async (req) => {
         const { platform, fields } = await req.json();
-        return probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv() });
+        const px = platform === "tiktok" ? undefined : await proxies.lease();
+        return probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv(), proxy: px?.url });
       }),
     },
     "/api/credentials/:id/test": {
       POST: authed(async (req, me) => {
         const c = credentials.get(req.params.id);
         if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
-        const p = await probe(c.platform, await credentials.fields(c.id), { tiktok: sidecarFromEnv(), browser: browserFromEnv() });
+        const px = c.platform === "tiktok" ? undefined : await proxies.lease(c.id);
+        const p = await probe(c.platform, await credentials.fields(c.id), { tiktok: sidecarFromEnv(), browser: browserFromEnv(), proxy: px?.url });
         credentials.checked(c.id, p);
         audit.add("credential.tested", c.id, { platform: c.platform, ok: p.ok, by: me.username });
         return p;
@@ -263,6 +267,38 @@ const server = serve({
         if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
         credentials.remove(c.id);
         audit.add("credential.removed", c.id, { platform: c.platform, by: me.username });
+        return { ok: true };
+      }),
+    },
+    "/api/proxies": {
+      GET: authed(() => proxies.all()),
+      POST: authed(async (req, me) => {
+        const { list } = await req.json();
+        const r = await proxies.add(String(list ?? ""));
+        audit.add("proxy.added", "proxies", { ...r, by: me.username });
+        return r;
+      }),
+    },
+    "/api/proxies/:id/test": {
+      POST: authed(async (req) => {
+        if (!proxies.get(req.params.id)) throw new HttpError(404, "proxy tidak ditemukan");
+        return proxies.test(req.params.id);
+      }),
+    },
+    "/api/proxies/:id": {
+      PATCH: authed(async (req, me) => {
+        const p = proxies.get(req.params.id);
+        if (!p) throw new HttpError(404, "proxy tidak ditemukan");
+        const { active } = await req.json();
+        proxies.setActive(p.id, !!active);
+        audit.add(active ? "proxy.enabled" : "proxy.disabled", p.id, { label: p.label, by: me.username });
+        return proxies.get(p.id);
+      }),
+      DELETE: authed((req, me) => {
+        const p = proxies.get(req.params.id);
+        if (!p) throw new HttpError(404, "proxy tidak ditemukan");
+        proxies.remove(p.id);
+        audit.add("proxy.removed", p.id, { label: p.label, by: me.username });
         return { ok: true };
       }),
     },

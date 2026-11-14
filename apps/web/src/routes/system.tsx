@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoute, Link } from "@tanstack/react-router";
-import { AtSign, Bot, Camera, Clapperboard, Music2, Send, ShieldCheck, ThumbsUp, TvMinimalPlay, type LucideIcon } from "lucide-react";
+import { Bot, Clapperboard, ShieldCheck } from "lucide-react";
+import { brand, type IconComponent } from "@/components/platform-icon";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,15 +19,15 @@ function Integrations() {
   const creds = useCredentials();
   const { data: state } = useLiveState();
   const ready = (p: string) => creds.data?.items.filter((c) => c.platform === p && c.active && !(c.cooldownUntil && c.cooldownUntil > Date.now())).length ?? 0;
-  const rows: { icon: LucideIcon; title: string; text: string; ok: boolean; status: string; to?: string }[] = [
-    { icon: AtSign, title: "X", text: "Pencarian, balasan ke akun, dan percakapan", ok: ready("x") > 0, status: ready("x") ? `${ready("x")} kredensial siap` : "Belum ada kredensial", to: "/credentials" },
-    { icon: TvMinimalPlay, title: "YouTube", text: "Komentar video, tanpa login atau memakai cookie", ok: true, status: ready("youtube") ? `${ready("youtube")} kredensial siap` : "Tanpa login" },
-    { icon: Send, title: "Telegram", text: "Kanal publik dan jejak penerusan pesan", ok: true, status: "Tanpa login" },
-    { icon: Music2, title: "TikTok", text: "Lewat sidecar, butuh cookie sesi", ok: !!caps.data?.tiktok && ready("tiktok") > 0, status: !caps.data?.tiktok ? "Sidecar mati" : ready("tiktok") ? `${ready("tiktok")} kredensial siap` : "Belum ada kredensial", to: "/credentials" },
+  const rows: { icon: IconComponent; title: string; text: string; ok: boolean; status: string; to?: string }[] = [
+    { icon: brand("x"), title: "X", text: "Pencarian, balasan ke akun, dan percakapan", ok: ready("x") > 0, status: ready("x") ? `${ready("x")} kredensial siap` : "Belum ada kredensial", to: "/credentials" },
+    { icon: brand("youtube"), title: "YouTube", text: "Komentar video, tanpa login atau memakai cookie", ok: true, status: ready("youtube") ? `${ready("youtube")} kredensial siap` : "Tanpa login" },
+    { icon: brand("telegram"), title: "Telegram", text: "Kanal publik dan jejak penerusan pesan", ok: true, status: "Tanpa login" },
+    { icon: brand("tiktok"), title: "TikTok", text: "Lewat sidecar, butuh cookie sesi", ok: !!caps.data?.tiktok && ready("tiktok") > 0, status: !caps.data?.tiktok ? "Sidecar mati" : ready("tiktok") ? `${ready("tiktok")} kredensial siap` : "Belum ada kredensial", to: "/credentials" },
     ...(
       [
-        ["instagram", "Instagram", Camera, "Tagar, akun, dan komentar post lewat browser"],
-        ["facebook", "Facebook", ThumbsUp, "Page, pencarian, dan komentar post lewat browser"],
+        ["instagram", "Instagram", brand("instagram"), "Tagar, akun, dan komentar post lewat browser"],
+        ["facebook", "Facebook", brand("facebook"), "Page, pencarian, dan komentar post lewat browser"],
       ] as const
     ).map(([p, title, icon, text]) => ({ icon, title, text, ok: !!caps.data?.meta && ready(p) > 0, status: !caps.data?.meta ? "Browser mati" : ready(p) ? `${ready(p)} kredensial siap` : "Belum ada kredensial", to: "/credentials" })),
     { icon: Bot, title: "Model bahasa", text: "Judul kasus, ringkasan, laporan, dan Perisai", ok: !!caps.data?.reasoner, status: caps.data?.reasoner ? "Terhubung" : "Belum dikonfigurasi" },

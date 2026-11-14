@@ -5,6 +5,7 @@ export interface XSession {
   authToken: string;
   ct0: string;
   userAgent: string;
+  proxy?: string;
 }
 
 export interface Profile {
@@ -31,14 +32,14 @@ export interface XRateState {
 const snowflakeTime = (id: string) => Number((BigInt(id) >> 22n) + 1288834974657n);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const TIMEOUT = 20_000;
-const get = (url: string, headers: Record<string, string>) => fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT) });
+const get = (url: string, headers: Record<string, string>, proxy?: string) => fetch(url, { headers, proxy, signal: AbortSignal.timeout(TIMEOUT) });
 
 async function discover(s: XSession) {
   const userAgent = s.userAgent;
-  const html = await (await get("https://x.com/home", { "user-agent": userAgent, cookie: `auth_token=${s.authToken}; ct0=${s.ct0}` })).text();
+  const html = await (await get("https://x.com/home", { "user-agent": userAgent, cookie: `auth_token=${s.authToken}; ct0=${s.ct0}` }, s.proxy)).text();
   const main = html.match(/https:\/\/abs\.twimg\.com\/responsive-web\/client-web\/main\.[a-z0-9]+\.js/)?.[0];
   if (!main) throw new Error("x.com main bundle not found, the session may be logged out");
-  const js = await (await get(main, { "user-agent": userAgent })).text();
+  const js = await (await get(main, { "user-agent": userAgent }, s.proxy)).text();
   const queryId = (op: string) => js.match(new RegExp(`queryId:"([^"]+)",operationName:"${op}"`))?.[1];
   const bearer = js.match(/"(AAAAAAAAAAAAAAAAAAAAA[^"]+)"/)?.[1];
   const search = queryId("SearchTimeline");
@@ -49,7 +50,7 @@ async function discover(s: XSession) {
     for (const m of html.matchAll(/(\d+):"([^"]+)"/g)) (/^[a-f0-9]{5,}$/.test(m[2]) ? hashes : names).set(m[1], m[2]);
     for (const [id, name] of names) {
       if (!hashes.has(id) || !hint.test(name)) continue;
-      const chunk = await (await get(`https://abs.twimg.com/responsive-web/client-web/${name}.${hashes.get(id)}a.js`, { "user-agent": userAgent })).text();
+      const chunk = await (await get(`https://abs.twimg.com/responsive-web/client-web/${name}.${hashes.get(id)}a.js`, { "user-agent": userAgent }, s.proxy)).text();
       const found = chunk.match(new RegExp(`queryId:"([^"]+)",operationName:"${op}"`))?.[1];
       if (found) return found;
     }
@@ -119,7 +120,7 @@ export async function createXCollector(session: XSession) {
         "x-twitter-active-user": "yes",
         "x-client-transaction-id": await tx.generateTransactionId("GET", path),
         referer,
-      }).catch((e: Error) => e);
+      }, session.proxy).catch((e: Error) => e);
       if (res instanceof Error) {
         await sleep(Math.min(16_000, 1000 * 2 ** attempt));
         continue;

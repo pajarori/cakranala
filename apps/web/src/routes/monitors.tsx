@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AtSign, Camera, Clapperboard, FileUp, Hash, LayoutTemplate, MessageSquareText, Music2, Pause, Play, Plus, ScanEye, Send, ThumbsUp, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
+import { Clapperboard, FileUp, Hash, LayoutTemplate, MessageSquareText, Pause, Play, Plus, ScanEye, Trash2, UserRound } from "lucide-react";
+import { brand, PlatformIcon, type IconComponent } from "@/components/platform-icon";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary, Tiles } from "@/components/form-kit";
@@ -63,7 +64,7 @@ function Row({ m }: { m: MonitorState }) {
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-3">
-          <K.icon className="size-4 text-muted-foreground" />
+          {m.kind === "simulation" || m.kind === "import" ? <K.icon className="size-4 text-muted-foreground" /> : <PlatformIcon platform={m.platform} className="text-muted-foreground" />}
           <div className="min-w-0">
             <div className="font-medium">{m.label}</div>
             <div className="text-sm text-muted-foreground">{m.kind === "simulation" ? K.label : `${PLATFORMS[m.platform].label} ${K.label.toLowerCase()}`}</div>
@@ -203,13 +204,13 @@ function Monitors() {
   );
 }
 
-const SOURCES: { id: Platform | "demo"; label: string; icon: typeof Hash }[] = [
-  { id: "x", label: "X", icon: AtSign },
-  { id: "youtube", label: "YouTube", icon: TvMinimalPlay },
-  { id: "telegram", label: "Telegram", icon: Send },
-  { id: "tiktok", label: "TikTok", icon: Music2 },
-  { id: "instagram", label: "Instagram", icon: Camera },
-  { id: "facebook", label: "Facebook", icon: ThumbsUp },
+const SOURCES: { id: Platform | "demo"; label: string; icon: IconComponent }[] = [
+  { id: "x", label: "X", icon: brand("x") },
+  { id: "youtube", label: "YouTube", icon: brand("youtube") },
+  { id: "telegram", label: "Telegram", icon: brand("telegram") },
+  { id: "tiktok", label: "TikTok", icon: brand("tiktok") },
+  { id: "instagram", label: "Instagram", icon: brand("instagram") },
+  { id: "facebook", label: "Facebook", icon: brand("facebook") },
   { id: "demo", label: "Demo feed", icon: Clapperboard },
 ];
 
@@ -282,7 +283,7 @@ function NewMonitor({ template }: { template?: Template }) {
           <Tiles
             value={source}
             onChange={setSource}
-            cols="grid-cols-2 @xl/main:grid-cols-5"
+            cols={caps.data?.demo ? "grid-cols-2 @3xl/main:grid-cols-4" : "grid-cols-2 @3xl/main:grid-cols-3"}
             items={SOURCES.filter((x) => x.id !== "demo" || caps.data?.demo).map((x) => ({ ...x, badge: <Badge variant={status(x.id).ok ? "secondary" : "outline"}>{status(x.id).text}</Badge> }))}
           />
         </Section>
