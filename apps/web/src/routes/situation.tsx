@@ -4,7 +4,6 @@ import { rootRoute } from "@/routes/root";
 import { SectionCards } from "@/components/section-cards";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { DataTable } from "@/components/data-table";
-import { Onboarding } from "@/components/onboarding";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,7 +107,6 @@ function Situation() {
   const watched = new Set((watch ?? []).map((w) => w.actorId));
   return (
     <>
-      <Onboarding state={state} />
       <NeedsAction state={state} />
       <SectionCards state={state} watched={watched} />
       <div className="grid gap-4 px-4 lg:px-6 @5xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
