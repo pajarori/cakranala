@@ -160,7 +160,7 @@ function Sidebar({
 
   if (collapsible === "none") {
     return (
-      <div
+      <div role="navigation" aria-label="Primary navigation"
         data-slot="sidebar"
         className={cn(
           "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
@@ -192,14 +192,14 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div role="navigation" aria-label="Primary navigation" className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
       </Sheet>
     )
   }
 
   return (
-    <div
+    <div role="navigation" aria-label="Primary navigation"
       className="group peer hidden text-sidebar-foreground md:block"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}

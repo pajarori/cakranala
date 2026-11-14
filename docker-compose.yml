@@ -11,6 +11,8 @@ services:
   web:
     build: .
     env_file: .env
+    environment:
+      OPERATOR_TOKEN: ${OPERATOR_TOKEN:-}
     ports:
       - "3000:3000"
     volumes:
