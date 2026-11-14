@@ -1,118 +1,18 @@
 import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
-import { createXCollector, sessionFromEnv } from "@cakranala/collect-x";
-import { createYoutubeCollector } from "@cakranala/collect-youtube";
-import { collectTelegram } from "@cakranala/collect-telegram";
-import { createTiktokCollector, sidecarFromEnv } from "@cakranala/collect-tiktok";
+import { createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "@cakranala/collect";
 import { audit, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
-import { credentials, rotating } from "./credentials";
+import { credentials, pool } from "./credentials";
 
 const scenario = seruni as Scenario;
 const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
-const rate = { remaining: null as number | null, reset: null as number | null };
+export const collector = createCollector({ pool, tiktok: sidecarFromEnv() });
 
-const cache = <T>() => {
-  const m = new Map<string, Promise<T>>();
-  return (key: string, make: () => Promise<T>) => {
-    let p = m.get(key);
-    if (!p) {
-      p = make().catch((e) => {
-        m.delete(key);
-        throw e;
-      });
-      m.set(key, p);
-    }
-    return p;
-  };
-};
-
-const xCollectors = cache<Awaited<ReturnType<typeof createXCollector>>>();
-const ytCollectors = cache<Awaited<ReturnType<typeof createYoutubeCollector>>>();
-
-const youtube = async <T>(run: (c: Awaited<ReturnType<typeof createYoutubeCollector>>) => Promise<T>) =>
-  credentials.count("youtube")
-    ? rotating("youtube", async (lease) => ({ value: await run(await ytCollectors(lease.id, () => createYoutubeCollector(lease.fields.cookie))) }))
-    : run(await ytCollectors("anonymous", () => createYoutubeCollector()));
-
-const xSearch = (run: (c: Awaited<ReturnType<typeof createXCollector>>) => Promise<Dataset>) =>
-  rotating("x", async (lease) => {
-    const c = await xCollectors(lease.id, () => createXCollector({ authToken: lease.fields.authToken, ct0: lease.fields.ct0, userAgent: lease.fields.userAgent || "Mozilla/5.0" }));
-    const value = await run(c);
-    Object.assign(rate, c.rate);
-    const until = c.rate.reset && c.rate.reset > Date.now() ? c.rate.reset : Date.now() + 15 * 60_000;
-    if (value.meta?.coverage === 0) return { value, limitedUntil: until };
-    if (c.rate.remaining === 0) credentials.limited(lease.id, until);
-    return { value };
-  });
+export const rateState = () => ({ ...collector.rate });
 
 export function importEnvCredential() {
   const s = sessionFromEnv();
   if (s && !credentials.count("x")) return credentials.add("x", "Imported from environment", { authToken: s.authToken, ct0: s.ct0, userAgent: s.userAgent });
-}
-
-export const PLATFORM_KINDS: Record<Platform, MonitorKind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"], tiktok: ["topic", "post"] };
-
-const videoId = (t: string) => t.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1] ?? t.match(/^[\w-]{11}$/)?.[0];
-const channels = (t: string) => t.split(/[\s,]+/).map((c) => c.replace(/^@/, "").replace(/^https?:\/\/t\.me\/(s\/)?/, "").split(/[/?]/)[0]).filter((c) => /^[A-Za-z0-9_]{4,}$/.test(c));
-
-const tiktokVideo = (t: string) => t.match(/video\/(\d{8,})/)?.[1] ?? t.match(/^\d{8,}$/)?.[0];
-let tiktokClient: ReturnType<typeof createTiktokCollector> | undefined;
-const tiktok = () => {
-  const config = sidecarFromEnv();
-  if (!config) throw new Error("TikTok sidecar is not configured");
-  return (tiktokClient ??= createTiktokCollector(config));
-};
-
-const tiktokRun = (run: (c: ReturnType<typeof createTiktokCollector>, identity?: string) => Promise<Dataset>) =>
-  credentials.count("tiktok")
-    ? rotating("tiktok", async (lease) => {
-        const c = tiktok();
-        let identity = credentials.sidecarIdentity(lease.id);
-        if (!identity) {
-          identity = await c.importIdentity(lease.fields.cookie, lease.fields.userAgent);
-          credentials.setSidecarIdentity(lease.id, identity);
-        }
-        return { value: await run(c, identity) };
-      })
-    : run(tiktok());
-
-function validate(platform: Platform, kind: MonitorKind, target: string) {
-  if (!PLATFORM_KINDS[platform]?.includes(kind)) throw new Error(`${platform} does not support ${kind} monitors`);
-  if (platform === "x") query(kind, target);
-  if (platform === "youtube" && kind === "post" && !videoId(target)) throw new Error("YouTube monitor needs a video URL or ID");
-  if (platform === "telegram" && !channels(target).length) throw new Error("Telegram monitor needs public channel names");
-  if (platform === "tiktok" && kind === "post" && !tiktokVideo(target)) throw new Error("TikTok monitor needs a video URL or ID");
-}
-
-async function collect(m: Monitor) {
-  if (m.platform === "youtube") return youtube((c) => (m.kind === "post" ? c.video(videoId(m.target)!, { pages: m.pages }) : c.search(m.target, { videos: m.pages, pages: 2 })));
-  if (m.platform === "telegram") return collectTelegram(channels(m.target), m.pages);
-  if (m.platform === "tiktok") return tiktokRun((c, identity) => (m.kind === "post" ? c.video(tiktokVideo(m.target)!, { pages: m.pages, identity }) : c.search(m.target, { videos: m.pages, pages: 2, identity })));
-  return xSearch(async (c) => {
-    if (m.kind !== "post") return c.search(query(m.kind, m.target), { pages: m.pages, lang: m.kind === "topic" ? "in" : undefined });
-    const id = query(m.kind, m.target).replace("conversation_id:", "");
-    const ds = await c.conversation(id, { pages: m.pages });
-    const known = new Set(ds.actors.map((a) => a.id));
-    const profiles = (await c.retweeters(id).catch(() => [])).filter((a) => !known.has(a.id));
-    return { ...ds, actors: [...ds.actors, ...profiles] };
-  });
-}
-
-export const rateState = () => ({ ...rate });
-
-export function query(kind: MonitorKind, target: string) {
-  const t = target.trim();
-  if (kind === "topic") return t;
-  if (kind === "account") {
-    const h = t.replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//, "").split(/[/?]/)[0];
-    return `(to:${h} OR @${h})`;
-  }
-  if (kind === "post") {
-    const id = t.match(/status\/(\d+)/)?.[1] ?? t.match(/^\d+$/)?.[0];
-    if (!id) throw new Error("post monitor needs a post URL or ID");
-    return `conversation_id:${id}`;
-  }
-  return t;
 }
 
 const sims = new Map<string, Dataset>();
@@ -147,7 +47,7 @@ export async function runMonitor(m: Monitor, now = Date.now()) {
       monitors.ran(m.id, now, null, store.add(m.id, actors, events));
       return;
     }
-    const raw = await collect(m);
+    const raw = await collector.collect({ platform: m.platform, kind: m.kind as Kind, target: m.target, pages: m.pages });
     const ds = await pseudonymize(raw, secret);
     monitors.ran(m.id, now, raw.meta?.coverage === 0 ? "rate limited" : null, store.add(m.id, ds.actors, ds.events));
   } catch (e) {
@@ -170,7 +70,7 @@ export function createMonitor(input: { kind: MonitorKind; platform?: Platform; t
   if (!["topic", "account", "post", "simulation"].includes(input.kind)) throw new Error("unknown monitor type");
   if (!input.target?.trim() || input.target.length > 200) throw new Error("target must be 1 to 200 characters");
   const platform = input.platform ?? "x";
-  if (input.kind !== "simulation") validate(platform, input.kind, input.target);
+  if (input.kind !== "simulation") validate({ platform, kind: input.kind as Kind, target: input.target });
   const m = {
     id: crypto.randomUUID(),
     kind: input.kind,

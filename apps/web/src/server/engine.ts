@@ -4,7 +4,7 @@ import registry from "../../config/registry.json";
 import taxonomy from "../../config/taxonomy.json";
 import { library } from "./library";
 import { credentials } from "./credentials";
-import { sidecarFromEnv } from "@cakranala/collect-tiktok";
+import { collector } from "./monitors";
 import { embedder, reasoner, snapshot, SEVERITY } from "./analysis";
 
 const scenario = seruni as Scenario;
@@ -50,4 +50,4 @@ export function runAblation(seeds = [1, 2, 3]) {
   return ablation;
 }
 
-export const capabilities = () => ({ live: credentials.count("x") > 0, tiktok: !!sidecarFromEnv(), reasoner: !!reasoner, scenario: scenario.name, severity: SEVERITY });
+export const capabilities = () => ({ live: credentials.count("x") > 0, tiktok: collector.tiktok, reasoner: !!reasoner, scenario: scenario.name, severity: SEVERITY });

@@ -48,15 +48,23 @@ All thresholds are data driven or configurable, and the engine has no training s
 ```
 packages/
   cakranala/          detection and simulation engine, pure TypeScript, no IO
-  collect-x/          X collector: search through the web GraphQL API with a session
-  collect-youtube/    YouTube collector: video search and comments, no login
-  collect-telegram/   Telegram collector: public channel previews, no login
-  collect-tiktok/     TikTok collector: thin client for the TikTok sidecar
+  collect/            collector module: X, YouTube, Telegram and TikTok scrapers, validation, credential rotation
   embed-e5/           Embedder: multilingual-e5-small through transformers.js
   reasoner-openai/    Reasoner: any OpenAI compatible chat API (DeepSeek by default)
 apps/
   web/                operations dashboard: Bun.serve API, SQLite, React
 ```
+
+The collector is its own module and can be used without the web app:
+
+```ts
+import { createCollector } from "@cakranala/collect";
+
+const collector = createCollector({ pool, tiktok: sidecarConfig });
+const dataset = await collector.collect({ platform: "telegram", kind: "account", target: "channel_one, channel_two", pages: 2 });
+```
+
+`pool` is any `CredentialPool` (count, acquire, ok, limited, failed, identity, setIdentity). The web app implements it with its encrypted vault; a script can implement it with a plain array. Telegram and YouTube work with an empty pool.
 
 The engine never imports the other packages. Applications inject an `Embedder` and a `Reasoner` when they want the semantic layer, briefs and Perisai explanations; without them it still runs.
 

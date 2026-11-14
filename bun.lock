@@ -13,10 +13,7 @@
       "name": "@cakranala/web",
       "version": "0.1.0",
       "dependencies": {
-        "@cakranala/collect-telegram": "workspace:*",
-        "@cakranala/collect-tiktok": "workspace:*",
-        "@cakranala/collect-x": "workspace:*",
-        "@cakranala/collect-youtube": "workspace:*",
+        "@cakranala/collect": "workspace:*",
         "@cakranala/embed-e5": "workspace:*",
         "@cakranala/reasoner-openai": "workspace:*",
         "@react-sigma/core": "5.0.6",
@@ -55,33 +52,12 @@
         "graphology-communities-louvain": "^2.0.2",
       },
     },
-    "packages/collect-telegram": {
-      "name": "@cakranala/collect-telegram",
-      "version": "0.1.0",
-      "dependencies": {
-        "cakranala": "workspace:*",
-      },
-    },
-    "packages/collect-tiktok": {
-      "name": "@cakranala/collect-tiktok",
-      "version": "0.1.0",
-      "dependencies": {
-        "cakranala": "workspace:*",
-      },
-    },
-    "packages/collect-x": {
-      "name": "@cakranala/collect-x",
+    "packages/collect": {
+      "name": "@cakranala/collect",
       "version": "0.1.0",
       "dependencies": {
         "cakranala": "workspace:*",
         "x-client-transaction-id": "^0.3.3",
-      },
-    },
-    "packages/collect-youtube": {
-      "name": "@cakranala/collect-youtube",
-      "version": "0.1.0",
-      "dependencies": {
-        "cakranala": "workspace:*",
         "youtubei.js": "18.3.0",
       },
     },
@@ -104,13 +80,7 @@
   "packages": {
     "@bufbuild/protobuf": ["@bufbuild/protobuf@2.17.0", "", {}, "sha512-hcPkSz6D7MiTU/5VBBhK+kxaYDoOdQ6yJRFJ3kS8Nydp+VZXfg1vrpABKPNod8bXMufsVCmiUJVIKFzCzta4uw=="],
 
-    "@cakranala/collect-telegram": ["@cakranala/collect-telegram@workspace:packages/collect-telegram"],
-
-    "@cakranala/collect-tiktok": ["@cakranala/collect-tiktok@workspace:packages/collect-tiktok"],
-
-    "@cakranala/collect-x": ["@cakranala/collect-x@workspace:packages/collect-x"],
-
-    "@cakranala/collect-youtube": ["@cakranala/collect-youtube@workspace:packages/collect-youtube"],
+    "@cakranala/collect": ["@cakranala/collect@workspace:packages/collect"],
 
     "@cakranala/embed-e5": ["@cakranala/embed-e5@workspace:packages/embed-e5"],
 

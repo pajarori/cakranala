@@ -1,15 +1,11 @@
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { CREDENTIAL_FIELDS as SPEC, type CredentialPool } from "@cakranala/collect";
 import { db, DIR } from "./db";
 
 export type CredentialPlatform = "x" | "youtube" | "tiktok";
 
-export const CREDENTIAL_FIELDS: Record<CredentialPlatform, string[]> = {
-  x: ["authToken", "ct0", "userAgent"],
-  youtube: ["cookie"],
-  tiktok: ["cookie", "userAgent"],
-};
-
-const REQUIRED: Record<CredentialPlatform, string[]> = { x: ["authToken", "ct0"], youtube: ["cookie"], tiktok: ["cookie"] };
+export const CREDENTIAL_FIELDS = Object.fromEntries(Object.entries(SPEC).map(([p, s]) => [p, s.fields])) as Record<CredentialPlatform, string[]>;
+const REQUIRED = Object.fromEntries(Object.entries(SPEC).map(([p, s]) => [p, s.required])) as Record<CredentialPlatform, string[]>;
 const MAX_FAILURES = 3;
 
 db.exec("CREATE TABLE IF NOT EXISTS sidecar_identities (credential_id TEXT PRIMARY KEY, identity_id TEXT NOT NULL)");
@@ -111,26 +107,12 @@ export const credentials = {
     db.query("UPDATE credentials SET failures = failures + 1, last_error = ?, active = CASE WHEN failures + 1 >= ? THEN 0 ELSE active END WHERE id = ?").run(error.slice(0, 200), MAX_FAILURES, id),
 };
 
-export async function rotating<T>(platform: CredentialPlatform, run: (lease: Lease) => Promise<{ value: T; limitedUntil?: number }>): Promise<T> {
-  const tried: string[] = [];
-  let last: Error | undefined;
-  for (;;) {
-    const lease = await credentials.acquire(platform, tried);
-    if (!lease) break;
-    tried.push(lease.id);
-    try {
-      const { value, limitedUntil } = await run(lease);
-      if (limitedUntil) {
-        credentials.limited(lease.id, limitedUntil);
-        last = new Error("rate limited");
-        continue;
-      }
-      credentials.ok(lease.id);
-      return value;
-    } catch (e) {
-      last = e instanceof Error ? e : new Error(String(e));
-      credentials.failed(lease.id, last.message);
-    }
-  }
-  throw last ?? new Error(`no ${platform} credential available`);
-}
+export const pool: CredentialPool = {
+  count: (p) => (p === "telegram" ? 0 : credentials.count(p)),
+  acquire: (p, exclude) => (p === "telegram" ? Promise.resolve(undefined) : credentials.acquire(p, exclude)),
+  ok: (id) => credentials.ok(id),
+  limited: (id, until) => credentials.limited(id, until),
+  failed: (id, error) => credentials.failed(id, error),
+  identity: (id) => credentials.sidecarIdentity(id),
+  setIdentity: (id, identity) => credentials.setSidecarIdentity(id, identity),
+};
