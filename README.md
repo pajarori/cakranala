@@ -48,8 +48,8 @@ All thresholds are data driven or configurable, and the engine has no training s
 ```
 packages/
   cakranala/          detection and simulation engine, pure TypeScript, no IO
-  jala/               collector module ("net"): X, YouTube, Telegram and TikTok scrapers, validation, credential rotation
-  nalar/              reasoning module ("reason"): multilingual e5 embedder and any OpenAI compatible language model
+  cakranala-scrap/    collector module: X, YouTube, Telegram and TikTok scrapers, validation, credential rotation
+  cakranala-embeder/  embedding and language model module: multilingual e5 embedder and any OpenAI compatible language model
 apps/
   web/                operations dashboard: Bun.serve API, SQLite, React
 ```
@@ -57,7 +57,7 @@ apps/
 The collector is its own module and can be used without the web app:
 
 ```ts
-import { createCollector } from "jala";
+import { createCollector } from "cakranala-scrap";
 
 const collector = createCollector({ pool, tiktok: sidecarConfig });
 const dataset = await collector.collect({ platform: "telegram", kind: "account", target: "channel_one, channel_two", pages: 2 });
@@ -65,11 +65,11 @@ const dataset = await collector.collect({ platform: "telegram", kind: "account",
 
 `pool` is any `CredentialPool` (count, acquire, ok, limited, failed, identity, setIdentity). The web app implements it with its encrypted vault; a script can implement it with a plain array. Telegram and YouTube work with an empty pool.
 
-The engine never imports the other packages. Applications inject an `Embedder` and a `Reasoner` (from `nalar`, or their own) when they want the semantic layer, briefs and Perisai explanations; without them it still runs.
+The engine never imports the other packages. Applications inject an `Embedder` and a `Reasoner` (from `cakranala-embeder`, or their own) when they want the semantic layer, briefs and Perisai explanations; without them it still runs.
 
 ```ts
 import { analyze, evaluate, simulate } from "cakranala";
-import { createE5Embedder, reasonerFromEnv } from "nalar";
+import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
 import scenario from "cakranala/scenarios/seruni.json";
 
 const embedder = await createE5Embedder();
