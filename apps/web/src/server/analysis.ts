@@ -1,6 +1,6 @@
-import { analyze, binomialTail, DEFAULTS, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
+import { analyze, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
 import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
-import { alerts, audit, cases, db, evidence, monitors, store, type Alert, type CaseRow } from "./db";
+import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow } from "./db";
 import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
 import { notifyWatchlist } from "./actors";
@@ -63,20 +63,10 @@ export interface State {
 let state: State = { updatedAt: null, analyzing: false, window: { from: 0, to: 0 }, report: null, actors: [], cases: [], alerts: [], activity: { binSec: 0, start: 0, total: [], coordinated: [] }, evaluation: null };
 let lastCount = -1;
 
-const overlap = (a: Set<string>, b: Set<string>) => {
+const jaccard = (a: Set<string>, b: Set<string>) => {
   let i = 0;
   for (const x of a) if (b.has(x)) i++;
-  return i;
-};
-
-const population = () => (db.query("SELECT COUNT(*) AS n FROM actors").get() as { n: number }).n;
-
-const sameOperation = (a: Set<string>, b: Set<string>, n: number) => {
-  const k = overlap(a, b);
-  if (!k) return 0;
-  const small = Math.min(a.size, b.size);
-  const large = Math.max(a.size, b.size);
-  return binomialTail(k, small, Math.min(1, large / Math.max(n, large))) < DEFAULTS.verdictAlpha ? k / small : 0;
+  return i / (a.size + b.size - i || 1);
 };
 
 const severity = (manufactured: number): Severity => (manufactured >= SEVERITY.critical ? "critical" : manufactured >= SEVERITY.high ? "high" : manufactured >= SEVERITY.medium ? "medium" : "low");
@@ -153,7 +143,6 @@ function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"],
 
 export async function track(report: Report, now: number, monitorOf: Map<string, string>, events: Dataset["events"], actors: Dataset["actors"]) {
   const existing = cases.all();
-  const n = population();
   const seen = new Set<string>();
   const views: CaseView[] = [];
   for (const g of components(report)) {
@@ -162,9 +151,9 @@ export async function track(report: Report, now: number, monitorOf: Map<string, 
     const apparent = narratives.reduce((s, n) => s + n.supporters, 0);
     const independent = narratives.reduce((s, n) => s + n.sie.value, 0);
     const manufactured = Math.max(Math.round(apparent - independent), members.size);
-    const match = existing.filter((c) => !seen.has(c.id)).map((c) => ({ c, j: sameOperation(members, new Set(c.members), n) })).sort((a, b) => b.j - a.j)[0];
+    const match = existing.filter((c) => !seen.has(c.id)).map((c) => ({ c, j: jaccard(members, new Set(c.members)) })).sort((a, b) => b.j - a.j)[0];
     let row: CaseRow;
-    if (match && match.j > 0) {
+    if (match && match.j >= 0.25) {
       row = { ...match.c, members: [...new Set([...match.c.members, ...members])], lastSeen: now, peak: Math.max(match.c.peak, manufactured) };
       if (manufactured >= Math.max(match.c.peak * 1.5, match.c.peak + 5)) alerts.add({ ts: now, kind: "escalated", caseId: row.id, text: `${row.title} membesar menjadi ${apparent} pendukung tampak` });
     } else {
@@ -193,67 +182,6 @@ const dormant = (seen = new Set<string>()): CaseView[] =>
     });
 
 export const caseEvidence = (id: string) => evidence.get<CaseEvidence>(id);
-
-async function describeGroup(rows: CaseRow[]) {
-  const primary = rows[0];
-  if (!reasoner) return { title: primary.title, brief: primary.brief };
-  try {
-    const raw = await reasoner.complete(
-      [
-        "Kamu membantu analis siber militer. Beberapa kasus berikut ternyata digerakkan oleh jaringan akun yang sama, jadi digabung menjadi satu operasi.",
-        rows.map((r) => `- ${r.title}: ${r.brief ?? ""}`).join("\n"),
-        'Balas HANYA JSON: {"title": "judul operasi gabungan dalam Bahasa Indonesia, maksimal 10 kata, netral dan faktual", "brief": "2 sampai 3 kalimat Bahasa Indonesia tentang tema-tema yang didorong jaringan ini dan tujuannya. Gunakan bahasa indikatif dan jangan menuduh individu."}',
-      ].join("\n\n"),
-      { json: true },
-    );
-    const j = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
-    const clean = (s: string) => plain(s).replace(/"/g, "");
-    return { title: clean(String(j.title || primary.title)), brief: j.brief ? clean(String(j.brief)) : primary.brief };
-  } catch {
-    return { title: primary.title, brief: primary.brief };
-  }
-}
-
-export async function consolidate(): Promise<number> {
-  const all = cases.all();
-  const n = population();
-  const sets = all.map((c) => new Set(c.members));
-  const parent = all.map((_, i) => i);
-  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) if (sameOperation(sets[i], sets[j], n)) parent[find(i)] = find(j);
-  const groups = new Map<number, CaseRow[]>();
-  all.forEach((c, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), c]));
-  let merged = 0;
-  for (const rows of groups.values()) {
-    if (rows.length < 2) continue;
-    rows.sort((a, b) => b.members.length - a.members.length);
-    const primary = rows[0];
-    const others = rows.slice(1);
-    const d = await describeGroup(rows);
-    const latest = rows.map((r) => ({ r, ev: evidence.get<CaseEvidence>(r.id) })).filter((x) => x.ev).sort((a, b) => b.ev!.window.to - a.ev!.window.to)[0];
-    db.transaction(() => {
-      cases.upsert({
-        ...primary,
-        title: d.title,
-        brief: d.brief,
-        members: [...new Set(rows.flatMap((r) => r.members))],
-        firstSeen: Math.min(...rows.map((r) => r.firstSeen)),
-        lastSeen: Math.max(...rows.map((r) => r.lastSeen)),
-        peak: Math.max(...rows.map((r) => r.peak)),
-      });
-      if (latest && latest.r.id !== primary.id) evidence.put(primary.id, latest.ev!.window.to, latest.ev!);
-      for (const o of others) {
-        db.query("UPDATE alerts SET case_id = ? WHERE case_id = ?").run(primary.id, o.id);
-        db.query("UPDATE reports SET case_id = ? WHERE case_id = ?").run(primary.id, o.id);
-        db.query("DELETE FROM case_evidence WHERE case_id = ?").run(o.id);
-        db.query("DELETE FROM cases WHERE id = ?").run(o.id);
-      }
-    })();
-    audit.add("case.merged", primary.id, { from: others.map((o) => o.id), by: "sistem" });
-    merged += others.length;
-  }
-  return merged ? merged + (await consolidate()) : 0;
-}
 
 function order(views: CaseView[]) {
   const rank = { critical: 0, high: 1, medium: 2, low: 3 };

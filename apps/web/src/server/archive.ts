@@ -3,7 +3,7 @@ import { rm } from "node:fs/promises";
 import { analyze, pseudonymize, type Actor, type Event } from "cakranala";
 import { DIR, monitors, store } from "./db";
 import { secret } from "./monitors";
-import { consolidate, refresh, track } from "./analysis";
+import { refresh, track } from "./analysis";
 
 const DAY = 86_400_000;
 const WIB = 7 * 3_600_000;
@@ -165,8 +165,7 @@ export function startArchive(url: string, label: string) {
       const total = await load(id, stream);
       monitors.ran(id, Date.now(), null, total);
       const r = await replay(id);
-      await consolidate();
-      monitors.progress(id, 1, `Selesai, ${r.windows.toLocaleString("id-ID")} hari dianalisis`);
+      monitors.progress(id, 1, `Selesai, ${r.windows.toLocaleString("id-ID")} hari dianalisis, ${r.cases} kasus`);
       await refresh(true);
     } finally {
       await cleanup();

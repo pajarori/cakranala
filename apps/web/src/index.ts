@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "./index.html";
 import { capabilities, runShield } from "./server/engine";
-import { caseEvidence, consolidate, redescribe, refresh, snapshot } from "./server/analysis";
+import { caseEvidence, redescribe, refresh, snapshot } from "./server/analysis";
 import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
@@ -333,7 +333,6 @@ const server = serve({
 });
 
 await importEnvCredential();
-await consolidate();
 if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
 const tick = () => refresh().catch((e) => console.error("refresh failed", e));
 tick();
