@@ -6,6 +6,7 @@ import { credentials, pool } from "./credentials";
 
 const scenario = seruni as Scenario;
 export const DEMO_MODE = /^(1|true|yes)$/i.test(process.env.DEMO_MODE ?? "");
+export const DEMO_FIXTURE = DEMO_MODE && /^(1|true|yes)$/i.test(process.env.DEMO_FIXTURE ?? "");
 export const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
 export const collector = createCollector({ pool, tiktok: sidecarFromEnv(), browser: browserFromEnv() });
 

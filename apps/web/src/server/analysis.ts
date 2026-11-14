@@ -1,7 +1,7 @@
 import { analyze, DEFAULTS, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
 import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
 import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow } from "./db";
-import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
+import { DEMO_FIXTURE, DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
 import { notifyWatchlist } from "./actors";
 import { buildCaseProvenance, type CaseProvenance } from "./provenance";
@@ -62,6 +62,11 @@ export interface State {
 
 let state: State = { updatedAt: null, analyzing: false, window: { from: 0, to: 0 }, report: null, actors: [], cases: [], alerts: [], evaluation: null };
 let lastCount = -1;
+
+export function restoreState(next: State) {
+  state = { ...next, analyzing: false };
+  lastCount = store.window(next.window.from).events.length;
+}
 
 const jaccard = (a: Set<string>, b: Set<string>) => {
   let i = 0;
@@ -218,7 +223,7 @@ export async function refresh(force = false) {
   try {
     const truth = Object.fromEntries(actors.flatMap((a: any) => (a.label ? [[a.id, a.label]] : [])));
     const ds: Dataset = { version: SCHEMA_VERSION, actors, events, truth: Object.keys(truth).length ? truth : undefined };
-    const report = await analyze(ds, { embedder: await embedder() });
+    const report = await analyze(ds, DEMO_FIXTURE ? {} : { embedder: await embedder() });
     const involved = new Set([...report.edges.flatMap((e) => [e.a, e.b]), ...report.clusters.flatMap((c) => c.members)]);
     state = {
       updatedAt: now,

@@ -2,7 +2,7 @@ import { serve } from "bun";
 import index from "./index.html";
 import { capabilities, runShield } from "./server/engine";
 import { caseEvidence, redescribe, refresh, snapshot } from "./server/analysis";
-import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
+import { createMonitor, DEMO_FIXTURE, DEMO_MODE, importEnvCredential } from "./server/monitors";
 import { alerts, audit, caseDecisions, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
@@ -17,6 +17,7 @@ import { startArchive } from "./server/archive";
 import { overview, PERIODS, type Period } from "./server/overview";
 import { proof } from "./server/proof";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
+import { restoreDemoFixtureState } from "./server/demo-fixture";
 import { parseCaseDecisionInput } from "./server/case-decision";
 
 class HttpError extends Error {
@@ -397,12 +398,20 @@ const server = serve({
   },
   development: process.env.CAKRANALA_HMR === "1" && { hmr: true, console: true },
 });
-
 await importEnvCredential();
-if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
+if (DEMO_FIXTURE) {
+  const runner = new URL("./server/demo-fixture-runner.ts", import.meta.url).pathname;
+  const child = Bun.spawn([process.execPath, runner], { env: process.env, stdout: "inherit", stderr: "inherit" });
+  child.exited.then((code) => {
+    if (code !== 0) console.error(`demo fixture exited with ${code}`);
+    else if (!restoreDemoFixtureState()) console.error("demo fixture completed without cached state");
+  });
+} else if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
 const tick = () => refresh().catch((e) => console.error("refresh failed", e));
-tick();
-setInterval(tick, 15_000);
+if (!DEMO_FIXTURE) {
+  tick();
+  setInterval(tick, 15_000);
+}
 const sync = () => syncLibrary().catch((e) => console.error("library sync failed", e));
 sync();
 setInterval(sync, 3_600_000);
