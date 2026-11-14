@@ -8,6 +8,7 @@ import { rootRoute } from "@/routes/root";
 import { AnalystDisposition } from "@/components/analyst-disposition";
 import { PlatformIcon } from "@/components/platform-icon";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -613,21 +614,20 @@ function Network() {
   return (
     <div className="flex flex-col gap-4 md:gap-6">
       <Card>
-        <CardHeader className="gap-4">
-          <div className="flex flex-col gap-3 @5xl/main:flex-row @5xl/main:items-start @5xl/main:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="flex items-center gap-2"><Waypoints className="size-5 text-muted-foreground" />Peta interaksi</CardTitle>
-              <CardDescription>Hubungan antar akun berdasarkan lapisan detektor yang dipilih.</CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline"><Users className="size-3.5" />{int(members.size)} akun</Badge>
-              <Badge variant="outline"><Waypoints className="size-3.5" />{int(edges.length)} hubungan</Badge>
-              <Badge variant="outline"><Layers3 className="size-3.5" />{int(c.clusters.length)} cluster</Badge>
-            </div>
-          </div>
-          <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Waypoints className="size-5 text-muted-foreground" />Peta interaksi</CardTitle>
+          <CardDescription>Hubungan antar akun berdasarkan lapisan detektor yang dipilih.</CardDescription>
+          <CardAction className="flex flex-wrap justify-end gap-2">
+            <Badge variant="outline"><Users className="size-3.5" />{int(members.size)} akun</Badge>
+            <Badge variant="outline"><Waypoints className="size-3.5" />{int(edges.length)} hubungan</Badge>
+            <Badge variant="outline"><Layers3 className="size-3.5" />{int(c.clusters.length)} cluster</Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-end">
+          <div className="flex flex-col gap-2 @4xl/main:w-64">
+            <Label htmlFor="network-actor" className="text-xs text-muted-foreground">Fokus akun</Label>
             <Select value={actor ?? "all"} onValueChange={selectActor}>
-              <SelectTrigger className="w-full @4xl/main:w-64" aria-label="Cari akun di peta">
+              <SelectTrigger id="network-actor" className="w-full">
                 <SelectValue placeholder="Cari akun" />
               </SelectTrigger>
               <SelectContent>
@@ -635,14 +635,16 @@ function Network() {
                 {actors.map((item) => <SelectItem key={item.id} value={item.id}>{item.handle ?? short(item.id)}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="flex min-w-0 flex-col gap-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Layers3 className="size-3.5" />Lapisan bukti</div>
-              <ToggleGroup type="multiple" variant="outline" size="sm" value={layers} onValueChange={(value) => setLayers(value.length ? value : ALL_LAYERS)} className="flex flex-wrap justify-start">
-                {ALL_LAYERS.map((layer) => <ToggleGroupItem key={layer} value={layer} className="px-2.5">{LAYERS[layer] ?? layer}</ToggleGroupItem>)}
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label className="text-xs text-muted-foreground">Lapisan bukti</Label>
+            <div className="overflow-x-auto">
+              <ToggleGroup type="multiple" variant="outline" value={layers} onValueChange={(value) => setLayers(value.length ? value : ALL_LAYERS)} className="justify-start">
+                {ALL_LAYERS.map((layer) => <ToggleGroupItem key={layer} value={layer} className="px-3 whitespace-nowrap">{LAYERS[layer] ?? layer}</ToggleGroupItem>)}
               </ToggleGroup>
             </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
       <div className="grid gap-4 @5xl/main:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden py-0">
