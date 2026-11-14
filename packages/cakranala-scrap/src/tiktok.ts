@@ -117,7 +117,7 @@ export function createTiktokCollector(config: SidecarConfig) {
   async function comments(contentId: string, pages: number, identity: string | undefined, actors: Map<string, Actor>, events: Map<string, Event>) {
     let cursor: string | undefined;
     for (let p = 0; p < pages; p++) {
-      const page = await call<Page<Comment>>("GET", "/api/v1/tiktok/video/comments", { aweme_id: contentId, cursor, count: 50, wait: 30, identity });
+      const page = await call<Page<Comment>>("GET", "/api/v1/tiktok/video/comments", { aweme_id: contentId, cursor, count: 30, wait: 30, identity });
       for (const c of page.items ?? []) {
         if (!c.created_at) continue;
         events.set(`tt:${c.comment_id}`, { id: `tt:${c.comment_id}`, actor: actorOf(c.author, actors), action: c.parent_id ? "reply" : "comment", ts: Date.parse(c.created_at), precision: "s", target: c.parent_id ? `tt:${c.parent_id}` : `tt:${contentId}`, text: c.text });
