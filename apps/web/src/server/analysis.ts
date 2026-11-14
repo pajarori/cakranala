@@ -1,4 +1,4 @@
-import { analyze, DEFAULTS, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
+import { analyze, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
 import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
 import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow } from "./db";
 import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
@@ -116,29 +116,16 @@ async function describe(report: Report, narrativeIds: string[], clusterIds: stri
   }
 }
 
-export interface CaseProvenance {
-  sourceMonitors: Array<{ id: string; label: string; kind: string; platform: string; target: string }>;
-  eventCount: number;
-  actorCount: number;
-  detector: { schemaVersion: number; generatedAt: number; layers: string[]; nullReplicates: number; fdr: number };
-}
-
 export interface CaseEvidence {
   view: CaseView;
   window: { from: number; to: number };
   report: Pick<Report, "clusters" | "narratives" | "edges" | "scores" | "null">;
   actors: State["actors"];
-  provenance?: CaseProvenance;
 }
 
-function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"], now: number, sourceMonitorIds: string[], events: Dataset["events"]): CaseEvidence {
+function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"], now: number): CaseEvidence {
   const clusters = report.clusters.filter((k) => view.clusters.includes(k.id));
   const members = new Set(clusters.flatMap((k) => k.members));
-  const memberEvents = events.filter((event) => members.has(event.actor));
-  const sourceMonitors = sourceMonitorIds.flatMap((id) => {
-    const monitor = monitors.get(id);
-    return monitor ? [{ id: monitor.id, label: monitor.label, kind: monitor.kind, platform: monitor.platform, target: monitor.target }] : [];
-  });
   return {
     view,
     window: { from: now - WINDOW, to: now },
@@ -149,16 +136,7 @@ function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"],
       scores: Object.fromEntries([...members].map((m) => [m, report.scores[m] ?? 0])),
       null: report.null,
     },
-    actors: actors.filter((a) => members.has(a.id)).map((a) => {
-      const label = "label" in a && typeof a.label === "string" ? a.label : undefined;
-      return { id: a.id, handle: a.handle, label, followers: a.followers, createdAt: a.createdAt };
-    }),
-    provenance: {
-      sourceMonitors,
-      eventCount: memberEvents.length,
-      actorCount: members.size,
-      detector: { schemaVersion: SCHEMA_VERSION, generatedAt: report.generatedAt, layers: report.stats.layersRun, nullReplicates: report.null.replicates, fdr: DEFAULTS.fdr },
-    },
+    actors: actors.filter((a) => members.has(a.id)).map((a: any) => ({ id: a.id, handle: a.handle, label: a.label, followers: a.followers, createdAt: a.createdAt })),
   };
 }
 
@@ -187,7 +165,7 @@ export async function track(report: Report, now: number, monitorOf: Map<string, 
     const memberSet = new Set(row.members);
     const mons = [...new Set(events.filter((e) => memberSet.has(e.actor)).map((e) => monitorOf.get(e.id)).filter(Boolean) as string[])];
     const view: CaseView = { ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), disarm: techniques(report, g.clusters, g.narratives, events), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons };
-    evidence.put(row.id, now, snapshotCase(view, report, actors, now, mons, events));
+    evidence.put(row.id, now, snapshotCase(view, report, actors, now));
     views.push(view);
   }
   return order([...views, ...dormant(seen)]);

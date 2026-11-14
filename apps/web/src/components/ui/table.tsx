@@ -1,17 +1,11 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-type TableProps = React.ComponentProps<"table"> & {
-  containerProps?: React.ComponentProps<"div">;
-};
-
-function Table({ className, containerProps, ...props }: TableProps) {
-  const { className: containerClassName, ...restContainerProps } = containerProps ?? {};
+function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
-      {...restContainerProps}
       data-slot="table-container"
-      className={cn("relative w-full overflow-x-auto", containerClassName)}
+      className="relative w-full overflow-x-auto"
     >
       <table
         data-slot="table"
@@ -19,7 +13,7 @@ function Table({ className, containerProps, ...props }: TableProps) {
         {...props}
       />
     </div>
-  );
+  )
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {

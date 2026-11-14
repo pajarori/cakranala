@@ -19,7 +19,7 @@ function Login() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <main aria-labelledby="login-heading" className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <div className="flex items-center gap-2 self-center font-medium">
           <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -29,7 +29,7 @@ function Login() {
         </div>
         <Card>
           <CardHeader className="text-center">
-            <h1 id="login-heading" className="text-xl font-semibold">{setup ? "Buat akun pertama" : "Masuk"}</h1>
+            <CardTitle className="text-xl">{setup ? "Buat akun pertama" : "Masuk"}</CardTitle>
             {setup && <CardDescription>Belum ada akun</CardDescription>}
           </CardHeader>
           <CardContent>
@@ -66,7 +66,7 @@ function Login() {
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }
 
