@@ -17,7 +17,7 @@ export const PLATFORM_KINDS: Record<Platform, Kind[]> = { x: ["topic", "account"
 export const CREDENTIAL_FIELDS: Record<Exclude<Platform, "telegram">, { fields: string[]; required: string[] }> = {
   x: { fields: ["authToken", "ct0", "userAgent"], required: ["authToken", "ct0"] },
   youtube: { fields: ["cookie"], required: ["cookie"] },
-  tiktok: { fields: ["cookie", "userAgent"], required: ["cookie"] },
+  tiktok: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
 };
 
 export interface Probe {

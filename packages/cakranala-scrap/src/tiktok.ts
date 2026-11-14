@@ -126,10 +126,10 @@ export function createTiktokCollector(config: SidecarConfig) {
 
   return {
     async check(cookies: string, userAgent?: string) {
-      const r = await call<{ report: { authenticated?: boolean; usable?: boolean; missing_required?: string[]; browser_family?: string | null; warnings?: string[] } }>("POST", "/api/v1/admin/identities/import", {}, { platform: "tiktok", cookies, user_agent: userAgent, dry_run: true });
+      const r = await call<{ report: { authenticated?: boolean; usable?: boolean; missing_required?: string[]; browser_family?: string | null; warnings?: string[]; warning_codes?: string[] } }>("POST", "/api/v1/admin/identities/import", {}, { platform: "tiktok", cookies, user_agent: userAgent, dry_run: true });
       const rep = r.report;
       if (rep.missing_required?.length) throw new Error(`missing cookies: ${rep.missing_required.join(", ")}`);
-      if (rep.usable === false) throw new Error("the sidecar cannot use this cookie set");
+      if (rep.usable === false) throw new Error(rep.warning_codes?.includes("unknown_browser") ? "add the exact User-Agent of the browser this cookie was copied from" : "the sidecar cannot use this cookie set");
       return { authenticated: !!rep.authenticated, browser: rep.browser_family ?? undefined };
     },
     async importIdentity(cookies: string, userAgent?: string) {

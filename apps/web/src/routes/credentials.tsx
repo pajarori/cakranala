@@ -18,7 +18,7 @@ import { ago, date, int } from "@/lib/format";
 import { api, type Credential, type CredentialPlatform, type Probe } from "@/lib/api";
 
 const PLATFORM: Record<CredentialPlatform, string> = { x: "X", youtube: "YouTube", tiktok: "TikTok" };
-const FIELD: Record<string, string> = { authToken: "auth_token cookie", ct0: "ct0 cookie", userAgent: "User agent", cookie: "Cookie header" };
+const FIELD: Record<string, string> = { authToken: "auth_token cookie", ct0: "ct0 cookie", userAgent: "User agent of the same browser", cookie: "Cookie header" };
 
 function status(c: Credential) {
   if (!c.active) return <Badge variant="destructive">{c.lastError ? "Disabled after errors" : "Disabled"}</Badge>;
@@ -139,7 +139,8 @@ function NewCredential() {
   const [platform, setPlatform] = useState<CredentialPlatform>("x");
   const [label, setLabel] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
-  const names = data?.platforms[platform] ?? [];
+  const names = data?.platforms[platform]?.fields ?? [];
+  const required = data?.platforms[platform]?.required ?? [];
   const of = (p: CredentialPlatform) => data?.items.filter((c) => c.platform === p) ?? [];
   const ready = (p: CredentialPlatform) => of(p).filter((c) => c.active && !(c.cooldownUntil && c.cooldownUntil > Date.now())).length;
   const filled = names.filter((n) => (fields[`${platform}:${n}`] ?? "").trim()).length;
@@ -188,7 +189,7 @@ function NewCredential() {
                 <Input
                   id={n}
                   type={n === "userAgent" ? "text" : "password"}
-                  required={n !== "userAgent"}
+                  required={required.includes(n)}
                   value={fields[`${platform}:${n}`] ?? ""}
                   onChange={(e) => setFields({ ...fields, [`${platform}:${n}`]: e.target.value })}
                   autoComplete="off"
@@ -217,7 +218,7 @@ function NewCredential() {
           ...(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => [PLATFORM[p], `${ready(p)} ready of ${of(p).length}`] as [string, string]),
         ]}
       >
-        <Button type="button" variant="outline" className="w-full" disabled={testing || filled < names.filter((n) => n !== "userAgent").length} onClick={test}>
+        <Button type="button" variant="outline" className="w-full" disabled={testing || required.some((n) => !(fields[`${platform}:${n}`] ?? "").trim())} onClick={test}>
           {testing ? <Spinner /> : <PlugZap />}
           Test connection
         </Button>

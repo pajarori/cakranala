@@ -4,7 +4,7 @@ import { db, DIR } from "./db";
 
 export type CredentialPlatform = "x" | "youtube" | "tiktok";
 
-export const CREDENTIAL_FIELDS = Object.fromEntries(Object.entries(SPEC).map(([p, s]) => [p, s.fields])) as Record<CredentialPlatform, string[]>;
+export const CREDENTIAL_FIELDS = SPEC as Record<CredentialPlatform, { fields: string[]; required: string[] }>;
 const REQUIRED = Object.fromEntries(Object.entries(SPEC).map(([p, s]) => [p, s.required])) as Record<CredentialPlatform, string[]>;
 const MAX_FAILURES = 3;
 
@@ -80,7 +80,7 @@ export const credentials = {
   },
   async add(platform: CredentialPlatform, label: string, fields: Record<string, string>) {
     if (!CREDENTIAL_FIELDS[platform]) throw new Error("unknown platform");
-    const clean = Object.fromEntries(CREDENTIAL_FIELDS[platform].flatMap((f) => (typeof fields[f] === "string" && fields[f].trim() ? [[f, fields[f].trim()]] : [])));
+    const clean = Object.fromEntries(CREDENTIAL_FIELDS[platform].fields.flatMap((f) => (typeof fields[f] === "string" && fields[f].trim() ? [[f, fields[f].trim()]] : [])));
     const missing = REQUIRED[platform].filter((f) => !clean[f]);
     if (missing.length) throw new Error(`missing ${missing.join(", ")}`);
     const { secret, iv } = await seal(clean);
