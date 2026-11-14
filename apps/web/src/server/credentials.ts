@@ -2,7 +2,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { CREDENTIAL_FIELDS as SPEC, type CredentialPool, type Probe } from "cakranala-scrap";
 import { db, DIR } from "./db";
 
-export type CredentialPlatform = "x" | "youtube" | "tiktok";
+export type CredentialPlatform = "x" | "youtube" | "tiktok" | "instagram" | "facebook";
 
 export const CREDENTIAL_FIELDS = SPEC as Record<CredentialPlatform, { fields: string[]; required: string[] }>;
 const REQUIRED = Object.fromEntries(Object.entries(SPEC).map(([p, s]) => [p, s.required])) as Record<CredentialPlatform, string[]>;

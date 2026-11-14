@@ -9,7 +9,7 @@ Cakra Nala detects coordinated influence operations (buzzers, bot farms, LLM swa
 ## Layout
 
 - `packages/cakranala`: the engine. Detection, simulation, evaluation, Perisai and privacy. Pure TypeScript with no IO, no network and no framework. It depends only on `graphology` and `graphology-communities-louvain`. It must stay reusable anywhere.
-- `packages/cakranala-scrap`: the collector module. X, YouTube, Telegram and TikTok scrapers behind one `createCollector({ pool, tiktok }).collect(target)` call, with target validation and credential rotation through a `CredentialPool` interface. It has no storage; applications supply the pool.
+- `packages/cakranala-scrap`: the collector module. X, YouTube, Telegram, TikTok, Instagram and Facebook scrapers behind one `createCollector({ pool, tiktok, browser }).collect(target)` call. Instagram and Facebook drive a real Chromium (the `browser` service) over CDP, with target validation and credential rotation through a `CredentialPool` interface. It has no storage; applications supply the pool.
 - `packages/cakranala-embeder`: the embedding and language model module. The multilingual e5 `Embedder` (transformers.js, loaded lazily) and an OpenAI compatible `Reasoner`, implementing the engine's ports.
 - `cakranala-scrap` and `cakranala-embeder` depend on `cakranala`; `cakranala` never depends on them.
 - `apps/web`: the product. All operational logic lives here: monitors, scheduler, SQLite storage, threat cases, alerts, reports, API and UI.
@@ -50,7 +50,7 @@ Always verify with `bun run typecheck`, `bun test`, and a rebuilt container resp
 
 - Never commit `.env`, `data/` or the SQLite database. Never print secrets.
 - Collect only public data, and pseudonymize accounts before storage.
-- Platform credentials live only in the encrypted vault (`apps/web/src/server/credentials.ts`, key in `data/credential.key`), managed at `/credentials`. Collectors rotate between operator supplied credentials and cool a credential down until its rate limit resets. Do not add CAPTCHA solving, fingerprint spoofing or proxy rotation.
+- Platform credentials live only in the encrypted vault (`apps/web/src/server/credentials.ts`, key in `data/credential.key`), managed at `/credentials`. Collectors rotate between operator supplied credentials and cool a credential down until its rate limit resets. A credential may carry its own proxy, so each session keeps one network identity. When a platform shows a checkpoint or CAPTCHA, the credential is marked failed for the operator to verify by hand.
 - Every API endpoint requires a signed in user, except `/api/auth/*`, `/api/capabilities` and `/api/shield`. There is one role: every user can do everything.
 
 ## Git

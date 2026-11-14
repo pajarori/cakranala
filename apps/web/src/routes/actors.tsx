@@ -21,7 +21,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { actorQuery, queryClient, useActor, useActors, useWatch, useWatchlist } from "@/lib/queries";
 import { LAYERS, STATUS_LABEL, ago, date, day, int, num, short } from "@/lib/format";
 
-const PLATFORM: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", sim: "Demo" };
+const PLATFORM: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook", sim: "Demo" };
 const initials = (h: string) => h.replace(/^akun_/, "").replace(/^@/, "").slice(0, 2).toUpperCase();
 
 function ActorAvatar({ handle, className = "size-8" }: { handle: string; className?: string }) {

@@ -8,7 +8,7 @@ Built for the Kartika Cyber Hackathon 2026, Cognitive Domain category.
 
 ## How it works
 
-1. **Monitor.** Operators register what to watch on X (a topic, replies and mentions aimed at an account, or one conversation plus the profiles of accounts that reposted it, which feed the account lifecycle layer), YouTube (comments on videos found by a search, or on one video), Telegram (public channels, with forwards traced to their origin), TikTok (comments on videos found by a search, or on one video), or a demo feed that replays a simulated scenario.
+1. **Monitor.** Operators register what to watch on X (a topic, replies and mentions aimed at an account, or one conversation plus the profiles of accounts that reposted it, which feed the account lifecycle layer), YouTube (comments on videos found by a search, or on one video), Telegram (public channels, with forwards traced to their origin), TikTok (comments on videos found by a search, or on one video), Instagram (posts under a hashtag, an account's posts, or one post, each with its comments), Facebook (post search, a Page's posts, or one post, each with its comments), or a demo feed that replays a simulated scenario.
 2. **Detect.** Every 15 seconds the server collects due monitors and analyzes the last 24 hours with the `cakranala` engine.
 3. **Investigate.** The Situation page starts with what needs action. Coordinated clusters and the narratives they push become threat cases with severity, status, evidence, a network graph and the accounts involved.
 4. **Respond.** Each case carries an escalation level (watch, alert, urgent) with a response checklist and the DISARM techniques its evidence supports (DISARM Framework, CC BY-SA 4.0, mapping in `apps/web/config/disarm.json`), exports as a STIX 2.1 bundle, and becomes a printable commander report with SHA-256 evidence hashes and a draft public message that uses prebunking.
@@ -48,7 +48,7 @@ All thresholds are data driven or configurable, and the engine has no training s
 ```
 packages/
   cakranala/          detection and simulation engine, pure TypeScript, no IO
-  cakranala-scrap/    collector module: X, YouTube, Telegram and TikTok scrapers, validation, credential rotation
+  cakranala-scrap/    collector module: X, YouTube, Telegram, TikTok, Instagram and Facebook scrapers, validation, credential rotation
   cakranala-embeder/  embedding and language model module: multilingual e5 embedder and any OpenAI compatible language model
 apps/
   web/                operations dashboard: Bun.serve API, SQLite, React
@@ -59,7 +59,7 @@ The collector is its own module and can be used without the web app:
 ```ts
 import { createCollector } from "cakranala-scrap";
 
-const collector = createCollector({ pool, tiktok: sidecarConfig });
+const collector = createCollector({ pool, tiktok: sidecarConfig, browser: browserConfig });
 const dataset = await collector.collect({ platform: "telegram", kind: "account", target: "channel_one, channel_two", pages: 2 });
 ```
 
@@ -150,9 +150,13 @@ Collected data and the SQLite database live in `./data`, mounted as a volume.
 
 TikTok is collected through an optional sidecar, [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) (Apache 2.0), with its TimescaleDB, Redis and worker, under the `tiktok` compose profile. Set `TIKTOK_SIDECAR_URL=http://tiktok:8000`, `TIKTOK_SIDECAR_PASSWORD`, `TIKTOK_SECRET_KEY` (at least 32 characters) and `TIKTOK_DB_PASSWORD` in `.env`, then start with `docker compose --profile tiktok up -d --build` (add `-f docker-compose.prod.yml` on a server). The sidecar needs a TikTok session: add one at `/credentials` (the full cookie header including `ttwid`, and the exact user agent it came from). Cakra Nala imports each vault credential into the sidecar once and routes requests through it.
 
+### Instagram and Facebook
+
+Meta offers no public read access suitable for coordination analysis, so Instagram and Facebook are collected through a real Chromium under the `meta` compose profile. Set `BROWSER_URL=http://browser:9223` in `.env` and start with `docker compose --profile meta up -d --build`. Each credential is a signed in session: the full cookie header and the exact user agent of the browser it came from, plus an optional proxy (`http://user:pass@host:port`) that stays bound to that session. Every collection opens an isolated browser context with that cookie set, user agent and proxy. Instagram is read through the web API the page itself calls; Facebook is read from the page's own preloaded data and GraphQL responses while it scrolls, so nothing depends on rotating query ids. Use dedicated accounts: Meta restricts accounts that collect at volume, and a checkpoint takes the credential out of rotation until an operator clears it.
+
 ### Platform credentials
 
-Platform sessions are not configured through environment variables. Operators add, test, disable, rotate out and remove them at `/credentials`. Test connection signs in with the session before it is saved and shows the account behind it (X: handle, name, followers and account age; YouTube: the signed in channel; TikTok: whether the sidecar accepts the cookie set and whether it is signed in). Every save is tested automatically and the verified account is stored with the credential. Each credential is encrypted with AES-GCM before it is stored in SQLite; the key is generated on first start in `data/credential.key` (file mode 600), so back it up together with the database. Collectors take the least recently used ready credential, put a credential on cooldown until its rate limit resets, move on to the next one, and disable a credential after three consecutive failures. X needs session cookies; YouTube works without a credential and uses one when present; TikTok uses one through its sidecar.
+Platform sessions are not configured through environment variables. Operators add, test, disable, rotate out and remove them at `/credentials`. Test connection signs in with the session before it is saved and shows the account behind it (X: handle, name, followers and account age; YouTube: the signed in channel; TikTok: whether the sidecar accepts the cookie set and whether it is signed in; Instagram and Facebook: the signed in account). Every save is tested automatically and the verified account is stored with the credential. Each credential is encrypted with AES-GCM before it is stored in SQLite; the key is generated on first start in `data/credential.key` (file mode 600), so back it up together with the database. Collectors take the least recently used ready credential, put a credential on cooldown until its rate limit resets, move on to the next one, and disable a credential after three consecutive failures. X needs session cookies; YouTube works without a credential and uses one when present; TikTok uses one through its sidecar.
 
 ## Development
 
@@ -169,6 +173,6 @@ bun run dev
 
 - Only public data is collected. Handles are replaced with HMAC pseudonyms before storage.
 - Results are indicative patterns of coordinated behavior, never accusations against individuals.
-- Live collection uses public web endpoints of X, YouTube and Telegram. It respects rate limits, waits for the reset when limited, rotates only between credentials the operator supplied, and never attempts to bypass CAPTCHAs or bot protection.
+- Live collection reads public content through each platform's own web endpoints, with sessions and proxies the operator supplied. It waits for the reset when limited, spaces requests with random delays, and hands checkpoints and CAPTCHAs back to the operator.
 - Every state change (monitors, case status, reports) is written to an append only audit log where each entry carries the SHA-256 of the previous one. The System page verifies the chain.
 - Accuracy is measured on labeled archives of real state influence operations and on simulated scenarios. On the real archives, account ranking reaches an average precision of 0.76 and 0.94, against 0.22 and 0.75 for ranking by post volume, with no control account placed in a cluster and no clusters on time shifted data. On simulations, bot farms and paid buzzers are caught almost completely with no organic or viral account flagged, and patient LLM swarms remain the hardest case.

@@ -34,6 +34,7 @@ export interface Capabilities {
   demo: boolean;
   live: boolean;
   tiktok: boolean;
+  meta: boolean;
   reasoner: boolean;
   scenario: string;
   severity: Record<"critical" | "high" | "medium", number>;

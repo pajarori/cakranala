@@ -9,7 +9,7 @@ import { stixBundle } from "./server/stix";
 import { reportPdf } from "./server/pdf";
 import { syncLibrary } from "./server/library";
 import { CREDENTIAL_FIELDS, credentials } from "./server/credentials";
-import { probe, sidecarFromEnv } from "cakranala-scrap";
+import { browserFromEnv, probe, sidecarFromEnv } from "cakranala-scrap";
 import { list as listActors, notifyWatchlist, profile, watchlist } from "./server/actors";
 import templates from "../config/templates.json";
 import { importDataset, parseImport, summarize } from "./server/imports";
@@ -225,7 +225,7 @@ const server = serve({
       GET: authed(() => ({ platforms: CREDENTIAL_FIELDS, items: credentials.all() })),
       POST: authed(async (req, me) => {
         const { platform, label, fields } = await req.json();
-        const p = await probe(platform, fields ?? {}, sidecarFromEnv());
+        const p = await probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv() });
         const c = await credentials.add(platform, String(label ?? "").trim() || p.profile?.handle || "", fields ?? {});
         credentials.checked(c.id, p);
         audit.add("credential.added", c.id, { platform: c.platform, label: c.label, verified: p.ok, by: me.username });
@@ -235,14 +235,14 @@ const server = serve({
     "/api/credentials/test": {
       POST: authed(async (req) => {
         const { platform, fields } = await req.json();
-        return probe(platform, fields ?? {}, sidecarFromEnv());
+        return probe(platform, fields ?? {}, { tiktok: sidecarFromEnv(), browser: browserFromEnv() });
       }),
     },
     "/api/credentials/:id/test": {
       POST: authed(async (req, me) => {
         const c = credentials.get(req.params.id);
         if (!c) throw new HttpError(404, "kredensial tidak ditemukan");
-        const p = await probe(c.platform, await credentials.fields(c.id), sidecarFromEnv());
+        const p = await probe(c.platform, await credentials.fields(c.id), { tiktok: sidecarFromEnv(), browser: browserFromEnv() });
         credentials.checked(c.id, p);
         audit.add("credential.tested", c.id, { platform: c.platform, ok: p.ok, by: me.username });
         return p;

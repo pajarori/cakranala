@@ -3,22 +3,32 @@ import { createXCollector, type Profile } from "./x";
 import { createYoutubeCollector } from "./youtube";
 import { collectTelegram } from "./telegram";
 import { createTiktokCollector, tiktokAccount, type SidecarConfig } from "./tiktok";
+import { Limited, type BrowserConfig, type Session } from "./browser";
+import { createInstagramCollector, shortcode } from "./instagram";
+import { createFacebookCollector, facebookUrl } from "./facebook";
 
 export { createXCollector, sessionFromEnv, type XSession, type XRateState, type Profile } from "./x";
 export { createYoutubeCollector } from "./youtube";
 export { collectTelegram } from "./telegram";
 export { createTiktokCollector, sidecarFromEnv, type SidecarConfig } from "./tiktok";
+export { browserFromEnv, type BrowserConfig } from "./browser";
+export { createInstagramCollector } from "./instagram";
+export { createFacebookCollector } from "./facebook";
 
-export type Platform = "x" | "youtube" | "telegram" | "tiktok";
+export type Platform = "x" | "youtube" | "telegram" | "tiktok" | "instagram" | "facebook";
 export type Kind = "topic" | "account" | "post";
 
-export const PLATFORM_KINDS: Record<Platform, Kind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"], tiktok: ["topic", "post"] };
+export const PLATFORM_KINDS: Record<Platform, Kind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"], tiktok: ["topic", "post"], instagram: ["topic", "account", "post"], facebook: ["topic", "account", "post"] };
 
 export const CREDENTIAL_FIELDS: Record<Exclude<Platform, "telegram">, { fields: string[]; required: string[] }> = {
   x: { fields: ["authToken", "ct0", "userAgent"], required: ["authToken", "ct0"] },
   youtube: { fields: ["cookie"], required: ["cookie"] },
   tiktok: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
+  instagram: { fields: ["cookie", "userAgent", "proxy"], required: ["cookie", "userAgent"] },
+  facebook: { fields: ["cookie", "userAgent", "proxy"], required: ["cookie", "userAgent"] },
 };
+
+const session = (fields: Record<string, string>): Session => ({ cookie: fields.cookie, userAgent: fields.userAgent, proxy: fields.proxy || undefined });
 
 export interface Probe {
   ok: boolean;
@@ -26,8 +36,14 @@ export interface Probe {
   error?: string;
 }
 
-export async function probe(platform: Platform, fields: Record<string, string>, tiktok?: SidecarConfig): Promise<Probe> {
+export async function probe(platform: Platform, fields: Record<string, string>, o: { tiktok?: SidecarConfig; browser?: BrowserConfig } = {}): Promise<Probe> {
+  const { tiktok, browser } = o;
   try {
+    if (platform === "instagram" || platform === "facebook") {
+      if (!browser) throw new Error("browser belum dikonfigurasi");
+      const c = platform === "instagram" ? createInstagramCollector(browser) : createFacebookCollector(browser);
+      return { ok: true, profile: { ...(await c.me(session(fields))), signedIn: true } };
+    }
     if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0" })).me() };
     if (platform === "youtube") return { ok: true, profile: await (await createYoutubeCollector(fields.cookie)).me() };
     if (platform === "tiktok") {
@@ -66,6 +82,7 @@ export interface CredentialPool {
 
 const videoId = (t: string) => t.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1] ?? t.match(/^[\w-]{11}$/)?.[0];
 const tiktokVideo = (t: string) => t.match(/video\/(\d{8,})/)?.[1] ?? t.match(/^\d{8,}$/)?.[0];
+const igUser = (t: string) => t.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").split(/[/?]/)[0].match(/^[\w.]{1,30}$/)?.[0];
 const channels = (t: string) =>
   t
     .split(/[\s,]+/)
@@ -92,6 +109,10 @@ export function validate(t: Pick<Target, "platform" | "kind" | "target">) {
   if (t.platform === "youtube" && t.kind === "post" && !videoId(t.target)) throw new Error("pantauan YouTube butuh URL atau ID video");
   if (t.platform === "telegram" && !channels(t.target).length) throw new Error("pantauan Telegram butuh nama kanal publik");
   if (t.platform === "tiktok" && t.kind === "post" && !tiktokVideo(t.target)) throw new Error("pantauan TikTok butuh URL atau ID video");
+  if (t.platform === "instagram" && t.kind === "post" && !shortcode(t.target)) throw new Error("pantauan Instagram butuh URL post atau reel");
+  if (t.platform === "instagram" && t.kind === "account" && !igUser(t.target)) throw new Error("pantauan Instagram butuh nama akun");
+  if (t.platform === "instagram" && t.kind === "topic" && !t.target.replace(/^#/, "").trim()) throw new Error("pantauan Instagram butuh tagar");
+  if (t.platform === "facebook" && t.kind !== "topic" && !facebookUrl(t.target)) throw new Error("pantauan Facebook butuh URL atau nama Page");
 }
 
 const cache = <T>() => {
@@ -109,7 +130,7 @@ const cache = <T>() => {
   };
 };
 
-export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfig }) {
+export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfig; browser?: BrowserConfig; cooldownMs?: number }) {
   const rate = { remaining: null as number | null, reset: null as number | null };
   const xs = cache<Awaited<ReturnType<typeof createXCollector>>>();
   const yts = cache<Awaited<ReturnType<typeof createYoutubeCollector>>>();
@@ -167,13 +188,32 @@ export function createCollector(o: { pool: CredentialPool; tiktok?: SidecarConfi
     });
   };
 
+  const meta = (platform: "instagram" | "facebook", run: (s: Session) => Promise<Dataset>) => {
+    if (!o.browser) throw new Error("browser belum dikonfigurasi");
+    return rotating(platform, async (l) => {
+      try {
+        return { value: await run(session(l.fields)) };
+      } catch (e) {
+        if (e instanceof Limited) return { value: undefined as unknown as Dataset, limitedUntil: Date.now() + (o.cooldownMs ?? 30 * 60_000) };
+        throw e;
+      }
+    });
+  };
+  const ig = o.browser ? createInstagramCollector(o.browser) : undefined;
+  const fb = o.browser ? createFacebookCollector(o.browser) : undefined;
+
   return {
     rate,
     tiktok: !!o.tiktok,
+    meta: !!o.browser,
     async collect(t: Target): Promise<Dataset> {
       validate(t);
       if (t.platform === "youtube") return youtube((c) => (t.kind === "post" ? c.video(videoId(t.target)!, { pages: t.pages }) : c.search(t.target, { videos: t.pages, pages: 2 })));
       if (t.platform === "telegram") return collectTelegram(channels(t.target), t.pages);
+      if (t.platform === "instagram")
+        return meta("instagram", (s) => (t.kind === "post" ? ig!.post(s, shortcode(t.target)!, { pages: t.pages }) : t.kind === "account" ? ig!.account(s, igUser(t.target)!, { pages: t.pages }) : ig!.tag(s, t.target, { pages: t.pages })));
+      if (t.platform === "facebook")
+        return meta("facebook", (s) => (t.kind === "post" ? fb!.post(s, t.target, { pages: t.pages }) : t.kind === "account" ? fb!.page(s, t.target, { pages: t.pages }) : fb!.search(s, t.target, { pages: t.pages })));
       if (t.platform === "tiktok") return tiktok((c, identity) => (t.kind === "post" ? c.video(tiktokVideo(t.target)!, { pages: t.pages, identity }) : c.search(t.target, { videos: t.pages, pages: 2, identity })));
       return x(async (c) => {
         if (t.kind !== "post") return c.search(xQuery(t.kind, t.target), { pages: t.pages, lang: t.kind === "topic" ? "in" : undefined });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link } from "@tanstack/react-router";
-import { AtSign, Bot, Clapperboard, Music2, Send, ShieldCheck, TvMinimalPlay, type LucideIcon } from "lucide-react";
+import { AtSign, Bot, Camera, Clapperboard, Music2, Send, ShieldCheck, ThumbsUp, TvMinimalPlay, type LucideIcon } from "lucide-react";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,12 @@ function Integrations() {
     { icon: TvMinimalPlay, title: "YouTube", text: "Komentar video, tanpa login atau memakai cookie", ok: true, status: ready("youtube") ? `${ready("youtube")} kredensial siap` : "Tanpa login" },
     { icon: Send, title: "Telegram", text: "Kanal publik dan jejak penerusan pesan", ok: true, status: "Tanpa login" },
     { icon: Music2, title: "TikTok", text: "Lewat sidecar, butuh cookie sesi", ok: !!caps.data?.tiktok && ready("tiktok") > 0, status: !caps.data?.tiktok ? "Sidecar mati" : ready("tiktok") ? `${ready("tiktok")} kredensial siap` : "Belum ada kredensial", to: "/credentials" },
+    ...(
+      [
+        ["instagram", "Instagram", Camera, "Tagar, akun, dan komentar post lewat browser"],
+        ["facebook", "Facebook", ThumbsUp, "Page, pencarian, dan komentar post lewat browser"],
+      ] as const
+    ).map(([p, title, icon, text]) => ({ icon, title, text, ok: !!caps.data?.meta && ready(p) > 0, status: !caps.data?.meta ? "Browser mati" : ready(p) ? `${ready(p)} kredensial siap` : "Belum ada kredensial", to: "/credentials" })),
     { icon: Bot, title: "Model bahasa", text: "Judul kasus, ringkasan, laporan, dan Perisai", ok: !!caps.data?.reasoner, status: caps.data?.reasoner ? "Terhubung" : "Belum dikonfigurasi" },
     {
       icon: Clapperboard,

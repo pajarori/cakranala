@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AtSign, LockKeyhole, Music2, Pause, Play, PlugZap, Plus, RotateCw, Trash2, TvMinimalPlay, type LucideIcon } from "lucide-react";
+import { AtSign, Camera, LockKeyhole, Music2, Pause, Play, PlugZap, Plus, RotateCw, ThumbsUp, Trash2, TvMinimalPlay, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary, Tiles } from "@/components/form-kit";
@@ -17,8 +17,8 @@ import { useAddCredential, useCredentialAction, useCredentials } from "@/lib/que
 import { ago, date, int } from "@/lib/format";
 import { api, type Credential, type CredentialPlatform, type Probe } from "@/lib/api";
 
-const PLATFORM: Record<CredentialPlatform, string> = { x: "X", youtube: "YouTube", tiktok: "TikTok" };
-const FIELD: Record<string, string> = { authToken: "Cookie auth_token", ct0: "Cookie ct0", userAgent: "User agent dari browser yang sama", cookie: "Header cookie" };
+const PLATFORM: Record<CredentialPlatform, string> = { x: "X", youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook" };
+const FIELD: Record<string, string> = { authToken: "Cookie auth_token", ct0: "Cookie ct0", userAgent: "User agent dari browser yang sama", cookie: "Header cookie", proxy: "Proxy khusus akun ini, opsional, http://user:pass@host:port" };
 
 function status(c: Credential) {
   if (!c.active) return <Badge variant="destructive">{c.lastError ? "Dimatikan setelah gagal" : "Dimatikan"}</Badge>;
@@ -129,7 +129,7 @@ function Credentials() {
   );
 }
 
-const ICON: Record<CredentialPlatform, LucideIcon> = { x: AtSign, youtube: TvMinimalPlay, tiktok: Music2 };
+const ICON: Record<CredentialPlatform, LucideIcon> = { x: AtSign, youtube: TvMinimalPlay, tiktok: Music2, instagram: Camera, facebook: ThumbsUp };
 
 function NewCredential() {
   const { data } = useCredentials();
@@ -154,7 +154,7 @@ function NewCredential() {
       .testCredential({ platform, fields: values() })
       .then((p) => {
         setResult({ key, probe: p });
-        if (p.ok && p.profile && !label.trim()) setLabel(p.profile.handle.startsWith("@") || p.profile.signedIn === undefined ? p.profile.handle : `TikTok ${p.profile.signedIn ? "masuk" : "anonim"}`);
+        if (p.ok && p.profile && !label.trim()) setLabel(platform !== "tiktok" || p.profile.handle.startsWith("@") ? p.profile.handle : `TikTok ${p.profile.signedIn ? "masuk" : "anonim"}`);
       })
       .catch((e: Error) => toast.error(e.message))
       .finally(() => setTesting(false));

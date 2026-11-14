@@ -103,7 +103,7 @@ function QuickView({ c, state }: { c: Case; state: State }) {
 }
 
 const SEVERITIES = ["all", "critical", "high", "medium", "low"] as const;
-const PLATFORM_LABEL: Record<string, string> = { all: "Semua platform", x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok" };
+const PLATFORM_LABEL: Record<string, string> = { all: "Semua platform", x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook" };
 
 const TABS: { value: string; label: string; match: (c: Case) => boolean }[] = [
   { value: "open", label: "Terbuka", match: (c) => c.status !== "dismissed" && c.status !== "confirmed" },

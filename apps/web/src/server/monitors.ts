@@ -1,13 +1,13 @@
 import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
-import { createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "cakranala-scrap";
+import { browserFromEnv, createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "cakranala-scrap";
 import { audit, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
 import { credentials, pool } from "./credentials";
 
 const scenario = seruni as Scenario;
 export const DEMO_MODE = /^(1|true|yes)$/i.test(process.env.DEMO_MODE ?? "");
 export const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
-export const collector = createCollector({ pool, tiktok: sidecarFromEnv() });
+export const collector = createCollector({ pool, tiktok: sidecarFromEnv(), browser: browserFromEnv() });
 
 export const rateState = () => ({ ...collector.rate });
 

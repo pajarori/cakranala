@@ -19,4 +19,4 @@ export const runShield = async (input: ShieldInput) =>
     reasoner,
   });
 
-export const capabilities = () => ({ demo: DEMO_MODE, live: credentials.count("x") > 0, tiktok: collector.tiktok, reasoner: !!reasoner, scenario: scenario.name, severity: SEVERITY });
+export const capabilities = () => ({ demo: DEMO_MODE, live: credentials.count("x") > 0, tiktok: collector.tiktok, meta: collector.meta, reasoner: !!reasoner, scenario: scenario.name, severity: SEVERITY });

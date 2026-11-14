@@ -23,6 +23,16 @@ services:
     command: bun test
     profiles: ["test"]
 
+  browser:
+    build:
+      context: .
+      dockerfile: browser.Dockerfile
+    profiles: ["meta"]
+    shm_size: 1gb
+    expose:
+      - "9223"
+    restart: unless-stopped
+
   tiktok-db:
     image: timescale/timescaledb:2.17.2-pg16
     profiles: ["tiktok"]

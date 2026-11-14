@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AtSign, Clapperboard, FileUp, Hash, LayoutTemplate, MessageSquareText, Music2, Pause, Play, Plus, ScanEye, Send, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
+import { AtSign, Camera, Clapperboard, FileUp, Hash, LayoutTemplate, MessageSquareText, Music2, Pause, Play, Plus, ScanEye, Send, ThumbsUp, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary, Tiles } from "@/components/form-kit";
@@ -32,6 +32,8 @@ const PLATFORMS: Record<Platform, { label: string; kinds: MonitorKind[] }> = {
   youtube: { label: "YouTube", kinds: ["topic", "post"] },
   telegram: { label: "Telegram", kinds: ["account"] },
   tiktok: { label: "TikTok", kinds: ["topic", "post"] },
+  instagram: { label: "Instagram", kinds: ["topic", "account", "post"] },
+  facebook: { label: "Facebook", kinds: ["topic", "account", "post"] },
 };
 
 const TARGETS: Record<string, { label: string; placeholder: string }> = {
@@ -43,6 +45,12 @@ const TARGETS: Record<string, { label: string; placeholder: string }> = {
   "telegram:account": { label: "Kanal publik", placeholder: "kanal_satu, kanal_dua" },
   "tiktok:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
   "tiktok:post": { label: "URL atau ID video", placeholder: "https://www.tiktok.com/@user/video/123" },
+  "instagram:topic": { label: "Tagar", placeholder: "#pulauseruni" },
+  "instagram:account": { label: "Nama akun", placeholder: "@tni_angkatan_darat" },
+  "instagram:post": { label: "URL post atau reel", placeholder: "https://www.instagram.com/p/AbCdEfGhIjK/" },
+  "facebook:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
+  "facebook:account": { label: "URL atau nama Page", placeholder: "https://www.facebook.com/nama.page" },
+  "facebook:post": { label: "URL post", placeholder: "https://www.facebook.com/nama.page/posts/123" },
   "demo:simulation": { label: "Seed skenario", placeholder: "1" },
 };
 
@@ -200,6 +208,8 @@ const SOURCES: { id: Platform | "demo"; label: string; icon: typeof Hash }[] = [
   { id: "youtube", label: "YouTube", icon: TvMinimalPlay },
   { id: "telegram", label: "Telegram", icon: Send },
   { id: "tiktok", label: "TikTok", icon: Music2 },
+  { id: "instagram", label: "Instagram", icon: Camera },
+  { id: "facebook", label: "Facebook", icon: ThumbsUp },
   { id: "demo", label: "Demo feed", icon: Clapperboard },
 ];
 
@@ -235,6 +245,7 @@ function NewMonitor({ template }: { template?: Template }) {
     if (p === "demo" || p === "telegram") return { ok: true, text: "Tanpa login" };
     if (p === "youtube") return { ok: true, text: ready("youtube") ? `${ready("youtube")} siap` : "Tanpa login" };
     if (p === "tiktok" && !caps.data?.tiktok) return { ok: false, text: "Sidecar mati" };
+    if ((p === "instagram" || p === "facebook") && !caps.data?.meta) return { ok: false, text: "Browser mati" };
     return ready(p) ? { ok: true, text: `${ready(p)} siap` } : { ok: false, text: "Belum ada kredensial" };
   };
   const blocked = !status(source).ok;
