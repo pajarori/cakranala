@@ -36,7 +36,6 @@ export const useUserAction = () => {
   });
 };
 export const useAudit = () => useQuery({ queryKey: ["audit"], queryFn: api.audit, refetchInterval: 15_000 });
-export const useAblation = () => useQuery({ queryKey: ["ablation"], queryFn: api.ablation, staleTime: Infinity, retry: 0 });
 export const useReports = () => useSuspenseQuery(reportsQuery).data;
 export const useReport = (id: string) => useSuspenseQuery(reportQuery(id)).data;
 

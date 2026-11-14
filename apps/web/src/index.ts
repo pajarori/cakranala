@@ -1,8 +1,8 @@
 import { serve } from "bun";
 import index from "./index.html";
-import { capabilities, runAblation, runShield } from "./server/engine";
+import { capabilities, runShield } from "./server/engine";
 import { refresh, snapshot } from "./server/analysis";
-import { createMonitor, importEnvCredential } from "./server/monitors";
+import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
@@ -257,17 +257,15 @@ const server = serve({
         return runShield({ text, image });
       }),
     },
-    "/api/ablation": { GET: authed(() => runAblation()) },
   },
   development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
 });
 
 await importEnvCredential();
-if (!monitors.all().length) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
+if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMonitor({ kind: "simulation", target: "1", label: "Demo feed, Pulau Seruni scenario", speed: 60 });
 const tick = () => refresh().catch((e) => console.error("refresh failed", e));
 tick();
 setInterval(tick, 15_000);
-runAblation();
 const sync = () => syncLibrary().catch((e) => console.error("library sync failed", e));
 sync();
 setInterval(sync, 3_600_000);

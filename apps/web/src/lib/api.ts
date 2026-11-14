@@ -17,19 +17,8 @@ export type Audit = { entries: number; valid: boolean; brokenAt: number | null; 
 export type { Credential, CredentialPlatform, Probe, User };
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
-export interface AblationRow {
-  name: string;
-  precision: number;
-  recall: number;
-  f1: number;
-  paid: number;
-  botfarm: number;
-  swarm: number;
-  organicFP: number;
-  viralFP: number;
-}
-
 export interface Capabilities {
+  demo: boolean;
   live: boolean;
   tiktok: boolean;
   reasoner: boolean;
@@ -74,5 +63,4 @@ export const api = {
   removeCredential: (id: string) => call<{ ok: true }>(`/api/credentials/${id}`, send("DELETE")),
   counter: (id: string) => call<string>(`/api/reports/${id}/counter`, send("POST")),
   shield: (body: { text?: string; image?: string }) => call<ShieldResult>("/api/shield", send("POST", body)),
-  ablation: () => call<{ seeds: number[]; rows: AblationRow[] }>("/api/ablation"),
 };

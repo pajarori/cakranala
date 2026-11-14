@@ -5,6 +5,7 @@ import { audit, monitors, store, type Monitor, type MonitorKind, type Platform }
 import { credentials, pool } from "./credentials";
 
 const scenario = seruni as Scenario;
+export const DEMO_MODE = /^(1|true|yes)$/i.test(process.env.DEMO_MODE ?? "");
 const secret = process.env.PSEUDONYM_SECRET ?? crypto.randomUUID();
 export const collector = createCollector({ pool, tiktok: sidecarFromEnv() });
 
@@ -62,7 +63,7 @@ export const simulationProgress = (m: Monitor, at = Date.now()) => Math.min(1, (
 export function due(m: Monitor, now = Date.now()) {
   if (!m.active) return false;
   if (m.lastRunAt === null) return true;
-  if (m.kind === "simulation") return now - m.createdAt > REPLAY_AFTER || (simulationProgress(m, m.lastRunAt) < 1 && now - m.lastRunAt >= 20_000);
+  if (m.kind === "simulation") return DEMO_MODE && (now - m.createdAt > REPLAY_AFTER || (simulationProgress(m, m.lastRunAt) < 1 && now - m.lastRunAt >= 20_000));
   return now - m.lastRunAt >= m.intervalMin * 60_000;
 }
 
@@ -70,6 +71,7 @@ export function createMonitor(input: { kind: MonitorKind; platform?: Platform; t
   if (!["topic", "account", "post", "simulation"].includes(input.kind)) throw new Error("unknown monitor type");
   if (!input.target?.trim() || input.target.length > 200) throw new Error("target must be 1 to 200 characters");
   const platform = input.platform ?? "x";
+  if (input.kind === "simulation" && !DEMO_MODE) throw new Error("demo feed is only available in demo mode");
   if (input.kind !== "simulation") validate({ platform, kind: input.kind as Kind, target: input.target });
   const m = {
     id: crypto.randomUUID(),

@@ -1,7 +1,7 @@
 import { analyze, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
 import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
 import { alerts, cases, monitors, store, type Alert, type CaseRow } from "./db";
-import { due, rateState, runMonitor, simulationProgress } from "./monitors";
+import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
 
 export const reasoner = reasonerFromEnv();
@@ -206,7 +206,7 @@ export async function refresh(force = false) {
 export const snapshot = () => ({
   ...state,
   alerts: alerts.recent(),
-  monitors: monitors.all().map((m) => ({ ...m, progress: m.kind === "simulation" ? simulationProgress(m) : null })),
+  monitors: monitors.all().filter((m) => DEMO_MODE || m.kind !== "simulation").map((m) => ({ ...m, progress: m.kind === "simulation" ? simulationProgress(m) : null })),
   rate: rateState(),
 });
 

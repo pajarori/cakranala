@@ -91,12 +91,12 @@ Stack: Bun, React 19, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui
 | `/monitors`, `/monitors/new` | What is being watched, and adding new monitors |
 | `/reports`, `/reports/:id` | Commander reports rendered as PDF (Typst), counter narrative drafts |
 | `/perisai` | Public message and screenshot checker |
-| `/system` | Real data validation, simulated accuracy, audit chain |
+| `/system` | Integrations, real data validation, audit chain |
 | `/login` | Sign in, or create the first account on a fresh install |
 | `/users` | Add users, change passwords, remove users |
 | `/credentials` | Encrypted platform credentials |
 
-On first start with an empty database the server creates a demo feed that replays the fictional Pulau Seruni scenario (8 hours in 8 minutes), so the dashboard comes alive without any external data.
+With `DEMO_MODE=1` the server creates a demo feed that replays the fictional Pulau Seruni scenario (8 hours in 8 minutes), so the dashboard comes alive without any external data. Without it, demo feeds are hidden and only real monitors run.
 
 ## Run
 
@@ -137,6 +137,7 @@ Only Caddy is exposed (ports 80 and 443). The dashboard requires signing in. Pas
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Language model for case titles, briefs, reports, counter narratives and Perisai. Any OpenAI compatible endpoint works, including a self hosted model. Optional. |
 | `PSEUDONYM_SECRET` | HMAC key used to pseudonymize collected accounts. |
 | `DOMAIN` | Public domain for HTTPS in the production compose file. |
+| `DEMO_MODE` | Set to `1` to replay the fictional demo scenario next to real monitors. Off by default. |
 | `LIBRARY_FEED` | RSS feed of published fact checks that Perisai matches against, refreshed hourly. |
 | `SHIELD_PER_MINUTE` | Perisai requests allowed per address per minute, 20 by default. |
 | `REPORT_CLASSIFICATION` | Classification marking printed on every report page, `RESTRICTED` by default. |

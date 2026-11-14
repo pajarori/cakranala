@@ -215,7 +215,7 @@ function NewMonitor() {
             value={source}
             onChange={setSource}
             cols="grid-cols-2 @xl/main:grid-cols-5"
-            items={SOURCES.map((x) => ({ ...x, badge: <Badge variant={status(x.id).ok ? "secondary" : "outline"}>{status(x.id).text}</Badge> }))}
+            items={SOURCES.filter((x) => x.id !== "demo" || caps.data?.demo).map((x) => ({ ...x, badge: <Badge variant={status(x.id).ok ? "secondary" : "outline"}>{status(x.id).text}</Badge> }))}
           />
         </Section>
         <Section step={2} title="Target">
