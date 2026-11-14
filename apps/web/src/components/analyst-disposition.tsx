@@ -48,7 +48,7 @@ export function AnalystDisposition({ caseId }: { caseId: string }) {
     setNote(decision.note);
   }, [query.data]);
 
-  const toggleReason = (reason: CaseDecisionReason) => setReasons((current) => current.includes(reason) ? current.filter((value) => value !== reason) : [...current, reason]);
+  const toggleReason = (reason: CaseDecisionReason) => { setSaved(false); setReasons((current) => current.includes(reason) ? current.filter((value) => value !== reason) : [...current, reason]); };
 
   return (
     <Card>
@@ -58,13 +58,14 @@ export function AnalystDisposition({ caseId }: { caseId: string }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {query.isError && <Alert variant="destructive"><AlertTitle>Disposition unavailable</AlertTitle><AlertDescription>{query.error instanceof Error ? query.error.message : String(query.error)}</AlertDescription></Alert>}
+        {save.isError && <Alert variant="destructive"><AlertTitle>Disposition gagal disimpan</AlertTitle><AlertDescription>{save.error instanceof Error ? save.error.message : String(save.error)}</AlertDescription></Alert>}
         <div className="grid gap-4 @xl/main:grid-cols-2">
-          <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-verdict">Verdict</label><Select value={verdict} onValueChange={(value) => setVerdict(value as CaseVerdict)}><SelectTrigger id="case-verdict"><SelectValue /></SelectTrigger><SelectContent>{VERDICTS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
-          <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-confidence">Confidence</label><Select value={confidence} onValueChange={(value) => setConfidence(value as CaseConfidence)}><SelectTrigger id="case-confidence"><SelectValue /></SelectTrigger><SelectContent>{CONFIDENCES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
+          <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-verdict">Verdict</label><Select value={verdict} onValueChange={(value) => { setSaved(false); setVerdict(value as CaseVerdict); }}><SelectTrigger id="case-verdict"><SelectValue /></SelectTrigger><SelectContent>{VERDICTS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
+          <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-confidence">Confidence</label><Select value={confidence} onValueChange={(value) => { setSaved(false); setConfidence(value as CaseConfidence); }}><SelectTrigger id="case-confidence"><SelectValue /></SelectTrigger><SelectContent>{CONFIDENCES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
         </div>
         <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">Evidence reasons</legend><div className="grid gap-2 @xl/main:grid-cols-2">{REASONS.map((item) => <label key={item.value} className="flex items-center gap-2 text-sm"><Input type="checkbox" className="size-4" checked={reasons.includes(item.value)} onChange={() => toggleReason(item.value)} />{item.label}</label>)}</div></fieldset>
-        <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-disposition-note">Analyst note</label><Textarea id="case-disposition-note" value={note} maxLength={4000} onChange={(event) => setNote(event.target.value)} placeholder="Apa yang mendukung atau melemahkan keputusan ini?" rows={4} /><p className="text-xs text-muted-foreground">{note.length}/4000</p></div>
-        <div className="flex items-center justify-between gap-3"><div className="text-sm text-muted-foreground">{saved ? "Disposition tersimpan dan masuk audit trail." : query.data ? `Terakhir ditinjau ${new Date(query.data.reviewedAt).toLocaleString("id-ID")}` : "Belum ada disposition."}</div><Button disabled={save.isPending || query.isPending} onClick={() => save.mutate({ verdict, confidence, reasons, note }, { onSuccess: () => setSaved(true) })}>{save.isPending && <Spinner />} Simpan disposition</Button></div>
+        <div className="flex flex-col gap-2"><label className="text-sm font-medium" htmlFor="case-disposition-note">Analyst note</label><Textarea id="case-disposition-note" value={note} maxLength={4000} onChange={(event) => { setSaved(false); setNote(event.target.value); }} placeholder="Apa yang mendukung atau melemahkan keputusan ini?" rows={4} /><p className="text-xs text-muted-foreground">{note.length}/4000</p></div>
+        <div className="flex items-center justify-between gap-3"><div className="text-sm text-muted-foreground">{saved ? "Disposition tersimpan dan masuk audit trail." : query.data ? `Terakhir ditinjau ${new Date(query.data.reviewedAt).toLocaleString("id-ID")}` : "Belum ada disposition."}</div><Button disabled={save.isPending || query.isPending} onClick={() => save.mutate({ verdict, confidence, reasons, note }, { onSuccess: () => setSaved(true), onError: () => setSaved(false) })}>{save.isPending && <Spinner />} Simpan disposition</Button></div>
       </CardContent>
     </Card>
   );
