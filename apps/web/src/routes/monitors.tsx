@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AtSign, Clapperboard, Hash, LayoutTemplate, MessageSquareText, Music2, Pause, Play, Plus, ScanEye, Send, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
+import { AtSign, Clapperboard, FileUp, Hash, LayoutTemplate, MessageSquareText, Music2, Pause, Play, Plus, ScanEye, Send, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary, Tiles } from "@/components/form-kit";
@@ -14,7 +14,8 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import { ensureState, useCapabilities, useCreateMonitor, useCredentials, useDeleteMonitor, useOps, useTemplates, useToggleMonitor } from "@/lib/queries";
-import { ago, int, pct } from "@/lib/format";
+import { ago, date, int, num, pct } from "@/lib/format";
+import { api, type ImportSummary } from "@/lib/api";
 import type { MonitorKind, MonitorState, Platform, Template } from "@/lib/api";
 
 const KINDS: Record<MonitorKind, { label: string; icon: typeof Hash }> = {
@@ -22,6 +23,7 @@ const KINDS: Record<MonitorKind, { label: string; icon: typeof Hash }> = {
   account: { label: "Akun", icon: UserRound },
   post: { label: "Post", icon: MessageSquareText },
   simulation: { label: "Demo feed", icon: Clapperboard },
+  import: { label: "Impor", icon: FileUp },
 };
 
 const PLATFORMS: Record<Platform, { label: string; kinds: MonitorKind[] }> = {
@@ -60,7 +62,9 @@ function Row({ m }: { m: MonitorState }) {
         </div>
       </TableCell>
       <TableCell>
-        {m.lastError ? (
+        {m.kind === "import" ? (
+          <Badge variant="secondary">Diimpor</Badge>
+        ) : m.lastError ? (
           <Badge variant="destructive">{m.lastError}</Badge>
         ) : m.active ? (
           <Badge variant="secondary">{m.kind === "simulation" && m.progress !== null && m.progress < 1 ? `Berjalan, ${pct(m.progress)}` : "Berjalan"}</Badge>
@@ -70,12 +74,14 @@ function Row({ m }: { m: MonitorState }) {
       </TableCell>
       <TableCell className="text-right tabular-nums">{int(m.collected)}</TableCell>
       <TableCell className="text-muted-foreground">{m.lastRunAt ? ago(m.lastRunAt) : "belum"}</TableCell>
-      <TableCell className="text-muted-foreground">{m.kind === "simulation" ? "tiap 20 detik" : `tiap ${m.intervalMin} menit`}</TableCell>
+      <TableCell className="text-muted-foreground">{m.kind === "import" ? "sekali" : m.kind === "simulation" ? "tiap 20 detik" : `tiap ${m.intervalMin} menit`}</TableCell>
       <TableCell>
         <div className="flex justify-end gap-1">
+          {m.kind !== "import" && (
           <Button variant="ghost" size="icon" aria-label={m.active ? "Jeda" : "Lanjutkan"} onClick={() => toggle.mutate({ id: m.id, active: !m.active }, { onError: err })}>
             {m.active ? <Pause /> : <Play />}
           </Button>
+          )}
           <Button variant="ghost" size="icon" aria-label="Hapus" onClick={() => remove.mutate(m.id, { onSuccess: () => toast.success("Pantauan dihapus"), onError: err })}>
             <Trash2 />
           </Button>
@@ -114,7 +120,8 @@ function Monitors() {
   const [tab, setTab] = useState("all");
   const groups = [
     { id: "all", label: "Semua", rows: state.monitors },
-    ...(Object.keys(PLATFORMS) as Platform[]).map((p) => ({ id: p, label: PLATFORMS[p].label, rows: state.monitors.filter((m) => m.kind !== "simulation" && m.platform === p) })),
+    ...(Object.keys(PLATFORMS) as Platform[]).map((p) => ({ id: p, label: PLATFORMS[p].label, rows: state.monitors.filter((m) => m.kind !== "simulation" && m.kind !== "import" && m.platform === p) })),
+    { id: "import", label: "Impor", rows: state.monitors.filter((m) => m.kind === "import") },
     { id: "demo", label: "Demo feed", rows: state.monitors.filter((m) => m.kind === "simulation") },
   ].filter((g) => g.id === "all" || g.rows.length);
   const current = groups.find((g) => g.id === tab) ?? groups[0];
@@ -132,6 +139,12 @@ function Monitors() {
               ))}
             </TabsList>
             <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/monitors/import">
+                  <FileUp />
+                  Impor data
+                </Link>
+              </Button>
               <Button variant="outline" asChild>
                 <Link to="/monitors/templates">
                   <LayoutTemplate />
@@ -390,7 +403,84 @@ function FromTemplate() {
   return <NewMonitor key={template} template={t} />;
 }
 
+function ImportData() {
+  const navigate = useNavigate();
+  const [file, setFile] = useState<{ name: string; content: string; size: number } | null>(null);
+  const [label, setLabel] = useState("");
+  const [preview, setPreview] = useState<ImportSummary | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pick = async (f?: File) => {
+    if (!f) return;
+    setError(null);
+    setPreview(null);
+    const content = await f.text();
+    setFile({ name: f.name, content, size: f.size });
+    setBusy(true);
+    api
+      .previewImport({ name: f.name, content })
+      .then(setPreview)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
+  };
+  const rows: [string, React.ReactNode][] = file
+    ? [
+        ["Berkas", <span className="font-mono break-all">{file.name}</span>],
+        ["Ukuran", `${num(file.size / 1_000_000)} MB`],
+        ...(preview
+          ? ([
+              ["Post", int(preview.posts)],
+              ["Akun", int(preview.accounts)],
+              ["Rentang asli", `${date(preview.from)} sampai ${date(preview.to)}`],
+              ["Durasi", `${num(preview.spanHours)} jam`],
+            ] as [string, React.ReactNode][])
+          : []),
+      ]
+    : [["Berkas", <span className="text-muted-foreground">belum dipilih</span>]];
+  const tooLong = !!preview && preview.spanHours > 24;
+  return (
+    <form
+      className="grid gap-4 px-4 md:gap-6 lg:px-6 @5xl/main:grid-cols-[minmax(0,1fr)_360px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!file) return;
+        setBusy(true);
+        api
+          .importData({ name: file.name, label, content: file.content })
+          .then((r) => {
+            toast.success(`${int(r.added)} post diimpor, analisis berjalan`);
+            navigate({ to: "/monitors" });
+          })
+          .catch((e: Error) => setError(e.message))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+        <Section step={1} title="Berkas">
+          <Input type="file" accept=".csv,.json" onChange={(e) => pick(e.target.files?.[0])} className="h-11" />
+          <p className="text-sm text-muted-foreground">CSV format arsip transparansi X/Twitter, atau JSON format dataset Cakra Nala. Maksimal 24 jam data; waktunya digeser ke 24 jam terakhir dengan jarak antarpost tetap.</p>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {tooLong && <p className="text-sm text-destructive">Rentang data lebih dari 24 jam. Potong berkas menjadi maksimal satu hari.</p>}
+        </Section>
+        <Section step={2} title="Nama">
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional, misalnya nama sumber data" className="h-11" />
+        </Section>
+      </div>
+      <Summary title="Ringkasan berkas" rows={rows}>
+        <Button type="submit" className="w-full" disabled={!preview || tooLong || busy}>
+          {busy ? <Spinner /> : <FileUp />}
+          Impor dan analisis
+        </Button>
+        <Button type="button" variant="ghost" className="w-full" asChild>
+          <Link to="/monitors">Batal</Link>
+        </Button>
+      </Summary>
+    </form>
+  );
+}
+
 export const monitorsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors", staticData: { title: "Monitors" }, loader: ensureState, component: Monitors });
 export const newMonitorRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/new", staticData: { title: "New monitor" }, component: () => <NewMonitor /> });
 export const newFromTemplateRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/new/$template", staticData: { title: "New monitor" }, component: FromTemplate });
+export const importRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/import", staticData: { title: "Import" }, component: ImportData });
 export const templatesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/monitors/templates", staticData: { title: "Templates" }, loader: ensureState, component: Templates });

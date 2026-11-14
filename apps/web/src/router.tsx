@@ -3,7 +3,7 @@ import { rootRoute, shellRoute } from "@/routes/root";
 import { situationRoute } from "@/routes/situation";
 import { threatsRoute } from "@/routes/threats";
 import { threatRoute, threatTabs } from "@/routes/threat";
-import { monitorsRoute, newFromTemplateRoute, newMonitorRoute, templatesRoute } from "@/routes/monitors";
+import { importRoute, monitorsRoute, newFromTemplateRoute, newMonitorRoute, templatesRoute } from "@/routes/monitors";
 import { reportRoute, reportsRoute } from "@/routes/reports";
 import { perisaiRoute } from "@/routes/perisai";
 import { systemRoute } from "@/routes/system";
@@ -12,7 +12,7 @@ import { newUserRoute, passwordRoute, usersRoute } from "@/routes/users";
 import { credentialsRoute, newCredentialRoute } from "@/routes/credentials";
 import { actorRoute, actorsRoute, watchlistRoute } from "@/routes/actors";
 
-const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, threatsRoute, threatRoute.addChildren(threatTabs), actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute])]);
+const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, threatsRoute, threatRoute.addChildren(threatTabs), actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute])]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
 

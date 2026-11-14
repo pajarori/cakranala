@@ -12,6 +12,7 @@ import { CREDENTIAL_FIELDS, credentials } from "./server/credentials";
 import { probe, sidecarFromEnv } from "cakranala-scrap";
 import { list as listActors, notifyWatchlist, profile, watchlist } from "./server/actors";
 import templates from "../config/templates.json";
+import { importDataset, parseImport, summarize } from "./server/imports";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
 
 class HttpError extends Error {
@@ -66,7 +67,7 @@ const signIn = async (req: Bun.BunRequest, username: unknown, password: unknown)
 
 const server = serve({
   port: Number(process.env.PORT ?? 3000),
-  maxRequestBodySize: 7_000_000,
+  maxRequestBodySize: 60_000_000,
   idleTimeout: 255,
   routes: {
     "/*": index,
@@ -130,6 +131,21 @@ const server = serve({
     },
     "/api/state": { GET: authed(() => snapshot()) },
     "/api/templates": { GET: authed(() => templates) },
+    "/api/imports/preview": {
+      POST: authed(async (req) => {
+        const { name, content } = await req.json();
+        return summarize(parseImport(String(name ?? ""), String(content ?? "")));
+      }),
+    },
+    "/api/imports": {
+      POST: authed(async (req, me) => {
+        const { name, label, content } = await req.json();
+        const r = await importDataset(String(name ?? "data"), String(label ?? ""), parseImport(String(name ?? ""), String(content ?? "")));
+        audit.add("data.imported", r.id, { name, posts: r.posts, accounts: r.accounts, by: me.username });
+        refresh(true);
+        return r;
+      }),
+    },
     "/api/actors": {
       GET: authed((req) => {
         const u = new URL(req.url);

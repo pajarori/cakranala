@@ -89,7 +89,7 @@ Stack: Bun, React 19, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui
 | `/threats` | All threat cases by status |
 | `/threats/:id` | Case summary, with `/evidence`, `/network` and `/accounts` |
 | `/actors`, `/actors/:id`, `/actors/watchlist` | Actor profiles across cases and the account watchlist, with alerts when a watched account joins an operation |
-| `/monitors`, `/monitors/new`, `/monitors/templates` | Monitors per platform, new monitors, and ready made templates plus one click monitors from current trends |
+| `/monitors`, `/monitors/new`, `/monitors/templates`, `/monitors/import` | Monitors per platform, new monitors, ready made templates, one click monitors from current trends, and data import (X transparency archive CSV or Cakra Nala dataset JSON, up to 24 hours, shifted into the analysis window) |
 | `/reports`, `/reports/:id` | Commander reports rendered as PDF (Typst), counter narrative drafts |
 | `/perisai` | Public message and screenshot checker |
 | `/system` | Integrations, real data validation, audit chain |

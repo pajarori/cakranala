@@ -6,6 +6,7 @@ import type { Credential, CredentialPlatform } from "../server/credentials";
 import type { User } from "../server/auth";
 import type { list as listActors, profile as actorProfile, WatchEntry } from "../server/actors";
 import type templates from "../../config/templates.json";
+import type { summarize as summarizeImport } from "../server/imports";
 import type { Probe } from "cakranala-scrap";
 
 export type State = ReturnType<typeof snapshot>;
@@ -20,6 +21,7 @@ export type { Credential, CredentialPlatform, Probe, User, WatchEntry };
 export type ActorPage = ReturnType<typeof listActors>;
 export type ActorProfile = NonNullable<ReturnType<typeof actorProfile>>;
 export type Template = (typeof templates)[number];
+export type ImportSummary = ReturnType<typeof summarizeImport>;
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface Capabilities {
@@ -47,6 +49,8 @@ export const api = {
   watch: (id: string, note: string) => call<WatchEntry>(`/api/actors/${id}/watch`, send("POST", { note })),
   unwatch: (id: string) => call<{ ok: true }>(`/api/actors/${id}/watch`, send("DELETE")),
   watchlist: () => call<(WatchEntry & { profile: ActorProfile | undefined })[]>("/api/watchlist"),
+  previewImport: (body: { name: string; content: string }) => call<ImportSummary>("/api/imports/preview", send("POST", body)),
+  importData: (body: { name: string; label: string; content: string }) => call<ImportSummary & { id: string; added: number }>("/api/imports", send("POST", body)),
   templates: () => call<Template[]>("/api/templates"),
   me: () => call<{ user: User | null; setup: boolean }>("/api/auth/me"),
   login: (body: { username: string; password: string }) => call<{ user: User }>("/api/auth/login", send("POST", body)),
