@@ -1,4 +1,6 @@
 import { serve } from "bun";
+import { existsSync } from "node:fs";
+import { basename, join } from "node:path";
 import index from "./index.html";
 import favicon from "./icons/favicon.ico" with { type: "file" };
 import { capabilities, runShield } from "./server/engine";
@@ -84,7 +86,7 @@ export const server = serve({
   idleTimeout: 255,
   routes: {
     "/*": index,
-    "/favicon.ico": new Response(await Bun.file(new URL(favicon, import.meta.url)).bytes(), { headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400" } }),
+    "/favicon.ico": new Response(await Bun.file(existsSync(favicon) ? favicon : join(import.meta.dir, basename(favicon))).bytes(), { headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400" } }),
     "/api/capabilities": { GET: json(() => capabilities()) },
     "/api/auth/me": { GET: json((req) => ({ user: currentUser(req) ?? null, setup: users.count() === 0 })) },
     "/api/auth/login": {
