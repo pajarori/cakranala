@@ -9,28 +9,15 @@ x-dtk: &dtk
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     env_file: .env
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-
-  test:
-    build: .
-    working_dir: /app
-    command: bun test
-    profiles: ["test"]
-
-  browser:
-    build:
-      context: .
-      dockerfile: browser.Dockerfile
-    profiles: ["meta"]
+      - ./data:/data
     shm_size: 1gb
-    expose:
-      - "9223"
     restart: unless-stopped
 
   tiktok-db:

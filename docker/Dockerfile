@@ -1,16 +1,13 @@
-FROM alpine:3.20 AS typst
-RUN apk add --no-cache curl xz \
- && curl -fsSL https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ -C /tmp \
- && mv /tmp/typst-x86_64-unknown-linux-musl/typst /typst
-
-FROM oven/bun:1.4 AS app
-RUN apt-get update && apt-get install -y --no-install-recommends unzip && rm -rf /var/lib/apt/lists/*
-COPY --from=typst /typst /usr/local/bin/typst
+FROM oven/bun:1.4
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates unzip xz-utils fonts-liberation fonts-noto-color-emoji \
+    libasound2 libatk-bridge2.0-0 libatk1.0-0 libcairo2 libcups2 libdbus-1-3 libdrm2 libgbm1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 \
+    libpango-1.0-0 libx11-xcb1 libxcomposite1 libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 libxshmfence1 \
+ && rm -rf /var/lib/apt/lists/*
+ENV CAKRANALA_CACHE=/opt/cakranala CAKRANALA_DATA=/data NODE_ENV=production PORT=3000
 WORKDIR /app
-COPY . .
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
-WORKDIR /app/apps/web
-RUN bun -e 'const { createE5Embedder } = await import("cakranala-embeder"); await (await createE5Embedder()).embed(["siap"]);'
-ENV NODE_ENV=production PORT=3000
+COPY . .
+RUN bun run build && bun bin/cakranala.js install
 EXPOSE 3000
-CMD ["bun", "src/index.ts"]
+CMD ["bun", "bin/cakranala.js", "serve"]

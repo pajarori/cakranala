@@ -1,23 +1,8 @@
-x-dtk: &dtk
-  image: evil0ctal/douyin_tiktok_download_api:5.1.8
-  profiles: ["tiktok"]
-  environment:
-    DTK_SECRET_KEY: ${TIKTOK_SECRET_KEY:-}
-    DTK_DATABASE_URL: postgresql+asyncpg://dtk:${TIKTOK_DB_PASSWORD:-dtk}@tiktok-db:5432/dtk
-    DTK_REDIS_URL: redis://tiktok-redis:6379/0
-  restart: unless-stopped
-
 services:
   web:
-    build: .
-    env_file: .env
-    environment:
-      NODE_ENV: production
+    ports: !reset []
     expose:
       - "3000"
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/capabilities').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 30s
@@ -34,7 +19,7 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -42,78 +27,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  browser:
-    build:
-      context: .
-      dockerfile: browser.Dockerfile
-    profiles: ["meta"]
-    shm_size: 1gb
-    expose:
-      - "9223"
-    restart: unless-stopped
-
-  tiktok-db:
-    image: timescale/timescaledb:2.17.2-pg16
-    profiles: ["tiktok"]
-    environment:
-      POSTGRES_USER: dtk
-      POSTGRES_PASSWORD: ${TIKTOK_DB_PASSWORD:-dtk}
-      POSTGRES_DB: dtk
-    volumes:
-      - tiktok_db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "dtk"]
-      interval: 5s
-      retries: 20
-    restart: unless-stopped
-
-  tiktok-redis:
-    image: redis:7
-    profiles: ["tiktok"]
-    restart: unless-stopped
-
-  tiktok-migrate:
-    <<: *dtk
-    command: ["migrate"]
-    restart: "no"
-    depends_on:
-      tiktok-db:
-        condition: service_healthy
-
-  tiktok-user:
-    <<: *dtk
-    entrypoint: ["sh", "-c", "printf '%s' \"$$TIKTOK_SIDECAR_PASSWORD\" | dtk user create cakranala --stdin || true"]
-    environment:
-      DTK_SECRET_KEY: ${TIKTOK_SECRET_KEY:-}
-      DTK_DATABASE_URL: postgresql+asyncpg://dtk:${TIKTOK_DB_PASSWORD:-dtk}@tiktok-db:5432/dtk
-      DTK_REDIS_URL: redis://tiktok-redis:6379/0
-      TIKTOK_SIDECAR_PASSWORD: ${TIKTOK_SIDECAR_PASSWORD:-}
-    restart: "no"
-    depends_on:
-      tiktok-migrate:
-        condition: service_completed_successfully
-
-  tiktok:
-    <<: *dtk
-    command: ["api"]
-    expose:
-      - "8000"
-    depends_on:
-      tiktok-user:
-        condition: service_completed_successfully
-      tiktok-redis:
-        condition: service_started
-
-  tiktok-worker:
-    <<: *dtk
-    command: ["worker"]
-    depends_on:
-      tiktok-migrate:
-        condition: service_completed_successfully
-      tiktok-redis:
-        condition: service_started
-
 volumes:
-  tiktok_db:
   caddy_data:
   caddy_config:
