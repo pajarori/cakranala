@@ -1,5 +1,5 @@
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { CREDENTIAL_FIELDS as SPEC, type CredentialPool } from "@cakranala/collect";
+import { CREDENTIAL_FIELDS as SPEC, type CredentialPool } from "jala";
 import { db, DIR } from "./db";
 
 export type CredentialPlatform = "x" | "youtube" | "tiktok";

@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import type { Actor, Event } from "cakranala";
-import type { Platform } from "@cakranala/collect";
+import type { Platform } from "jala";
 
 export const DIR = new URL("../../../../data/", import.meta.url).pathname;
 mkdirSync(DIR, { recursive: true });

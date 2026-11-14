@@ -13,9 +13,6 @@
       "name": "@cakranala/web",
       "version": "0.1.0",
       "dependencies": {
-        "@cakranala/collect": "workspace:*",
-        "@cakranala/embed-e5": "workspace:*",
-        "@cakranala/reasoner-openai": "workspace:*",
         "@react-sigma/core": "5.0.6",
         "@tanstack/react-query": "^5.107.1",
         "@tanstack/react-router": "^1.170.46",
@@ -27,7 +24,9 @@
         "cmdk": "^1.1.1",
         "graphology": "^0.26.0",
         "graphology-layout-forceatlas2": "^0.10.1",
+        "jala": "workspace:*",
         "lucide-react": "^1",
+        "nalar": "workspace:*",
         "radix-ui": "^1.8.1",
         "react": "^19",
         "react-dom": "^19",
@@ -52,8 +51,8 @@
         "graphology-communities-louvain": "^2.0.2",
       },
     },
-    "packages/collect": {
-      "name": "@cakranala/collect",
+    "packages/jala": {
+      "name": "jala",
       "version": "0.1.0",
       "dependencies": {
         "cakranala": "workspace:*",
@@ -61,30 +60,17 @@
         "youtubei.js": "18.3.0",
       },
     },
-    "packages/embed-e5": {
-      "name": "@cakranala/embed-e5",
+    "packages/nalar": {
+      "name": "nalar",
       "version": "0.1.0",
       "dependencies": {
         "@huggingface/transformers": "^3.7.0",
         "cakranala": "workspace:*",
       },
     },
-    "packages/reasoner-openai": {
-      "name": "@cakranala/reasoner-openai",
-      "version": "0.1.0",
-      "dependencies": {
-        "cakranala": "workspace:*",
-      },
-    },
   },
   "packages": {
     "@bufbuild/protobuf": ["@bufbuild/protobuf@2.17.0", "", {}, "sha512-hcPkSz6D7MiTU/5VBBhK+kxaYDoOdQ6yJRFJ3kS8Nydp+VZXfg1vrpABKPNod8bXMufsVCmiUJVIKFzCzta4uw=="],
-
-    "@cakranala/collect": ["@cakranala/collect@workspace:packages/collect"],
-
-    "@cakranala/embed-e5": ["@cakranala/embed-e5@workspace:packages/embed-e5"],
-
-    "@cakranala/reasoner-openai": ["@cakranala/reasoner-openai@workspace:packages/reasoner-openai"],
 
     "@cakranala/web": ["@cakranala/web@workspace:apps/web"],
 
@@ -472,6 +458,8 @@
 
     "isbot": ["isbot@5.2.3", "", {}, "sha512-e8gGz3VzAuImtTMnB5PqNRRWGAswObTc+X+X5a8PttKT78VSSFec98w9ZwUoy6jJdlvJkVdLiN+WMgA8TewoZg=="],
 
+    "jala": ["jala@workspace:packages/jala"],
+
     "json-stringify-safe": ["json-stringify-safe@5.0.1", "", {}, "sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA=="],
 
     "linkedom": ["linkedom@0.18.15", "", { "dependencies": { "css-select": "^7.0.0", "cssomnom": "^0.1.11", "html-escaper": "^3.0.3", "htmlparser2": "^10.1.0", "uhyphen": "^0.2.0" }, "peerDependencies": { "canvas": ">= 2" }, "optionalPeers": ["canvas"] }, "sha512-o0w7eD/SvoCao+pUi6dzocCLuMR11g4Tv/et0W2OUzwWmUcewntSzyl+Ua/K+0yKym0Y/Mav3nFAaI5Av5jvZg=="],
@@ -489,6 +477,8 @@
     "minizlib": ["minizlib@3.1.0", "", { "dependencies": { "minipass": "^7.1.2" } }, "sha512-KZxYo1BUkWD2TVFLr0MQoM8vUUigWD3LlD83a/75BqC+4qE0Hb1Vo5v1FgcfaNXvfXzr+5EhQ6ing/CaBijTlw=="],
 
     "mnemonist": ["mnemonist@0.39.8", "", { "dependencies": { "obliterator": "^2.0.1" } }, "sha512-vyWo2K3fjrUw8YeeZ1zF0fy6Mu59RHokURlld8ymdUPjMlD9EC9ov1/YPqTgqRvUN9nTr3Gqfz29LYAmu0PHPQ=="],
+
+    "nalar": ["nalar@workspace:packages/nalar"],
 
     "nth-check": ["nth-check@3.0.1", "", { "dependencies": { "boolbase": "^2.0.0" } }, "sha512-GX0gsdbGVCgnRgbeGaubfjpBXyYRWOOCVeYh08bSQvDZqxz5ndXs1OTfAt/h36G1xvI94YIspsI0sVFqAV9+RQ=="],
 

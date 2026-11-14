@@ -9,9 +9,9 @@ Cakra Nala detects coordinated influence operations (buzzers, bot farms, LLM swa
 ## Layout
 
 - `packages/cakranala`: the engine. Detection, simulation, evaluation, Perisai and privacy. Pure TypeScript with no IO, no network and no framework. It depends only on `graphology` and `graphology-communities-louvain`. It must stay reusable anywhere.
-- `packages/collect`: the collector module. X, YouTube, Telegram and TikTok scrapers behind one `createCollector({ pool, tiktok }).collect(target)` call, with target validation and credential rotation through a `CredentialPool` interface. It has no storage; applications supply the pool.
-- `packages/embed-e5`, `packages/reasoner-openai`: adapters for the engine's `Embedder` and `Reasoner` ports.
-- Adapters and the collector depend on `cakranala`; `cakranala` never depends on them.
+- `packages/jala`: the collector module ("net"). X, YouTube, Telegram and TikTok scrapers behind one `createCollector({ pool, tiktok }).collect(target)` call, with target validation and credential rotation through a `CredentialPool` interface. It has no storage; applications supply the pool.
+- `packages/nalar`: the reasoning module ("reason"). The multilingual e5 `Embedder` (transformers.js, loaded lazily) and an OpenAI compatible `Reasoner`, implementing the engine's ports.
+- `jala` and `nalar` depend on `cakranala`; `cakranala` never depends on them.
 - `apps/web`: the product. All operational logic lives here: monitors, scheduler, SQLite storage, threat cases, alerts, reports, API and UI.
   - `src/server/`: `db.ts` (SQLite), `monitors.ts` (collection and demo feed), `analysis.ts` (analysis loop, cases, alerts), `reports.ts`, `engine.ts` (Perisai and accuracy)
   - `src/routes/`: one file per route, each exporting its TanStack Router route

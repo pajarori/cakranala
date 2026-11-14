@@ -1,6 +1,5 @@
 import { analyze, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
-import { createE5Embedder } from "@cakranala/embed-e5";
-import { reasonerFromEnv } from "@cakranala/reasoner-openai";
+import { createE5Embedder, reasonerFromEnv } from "nalar";
 import { alerts, cases, monitors, store, type Alert, type CaseRow } from "./db";
 import { due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";

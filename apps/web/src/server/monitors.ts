@@ -1,6 +1,6 @@
 import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
-import { createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "@cakranala/collect";
+import { createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "jala";
 import { audit, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
 import { credentials, pool } from "./credentials";
 

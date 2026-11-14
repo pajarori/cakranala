@@ -1,4 +1,4 @@
-import { pipeline, type FeatureExtractionPipeline } from "@huggingface/transformers";
+import type { FeatureExtractionPipeline } from "@huggingface/transformers";
 import type { Embedder } from "cakranala";
 
 export interface E5Options {
@@ -8,6 +8,7 @@ export interface E5Options {
 }
 
 export async function createE5Embedder(opts: E5Options = {}): Promise<Embedder> {
+  const { pipeline } = await import("@huggingface/transformers");
   const load = pipeline as (task: string, model: string, o: object) => Promise<FeatureExtractionPipeline>;
   const extract = await load("feature-extraction", opts.model ?? "Xenova/multilingual-e5-small", { dtype: opts.dtype ?? "q8" });
   const batch = opts.batch ?? 64;
