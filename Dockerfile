@@ -4,6 +4,7 @@ RUN apk add --no-cache curl xz \
  && mv /tmp/typst-x86_64-unknown-linux-musl/typst /typst
 
 FROM oven/bun:1.4 AS app
+RUN apt-get update && apt-get install -y --no-install-recommends unzip && rm -rf /var/lib/apt/lists/*
 COPY --from=typst /typst /usr/local/bin/typst
 WORKDIR /app
 COPY . .

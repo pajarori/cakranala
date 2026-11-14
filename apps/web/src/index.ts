@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "./index.html";
 import { capabilities, runShield } from "./server/engine";
-import { redescribe, refresh, snapshot } from "./server/analysis";
+import { caseEvidence, redescribe, refresh, snapshot } from "./server/analysis";
 import { createMonitor, DEMO_MODE, importEnvCredential } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
@@ -13,6 +13,7 @@ import { probe, sidecarFromEnv } from "cakranala-scrap";
 import { list as listActors, notifyWatchlist, profile, watchlist } from "./server/actors";
 import templates from "../config/templates.json";
 import { importDataset, parseImport, summarize } from "./server/imports";
+import { startArchive } from "./server/archive";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
 
 class HttpError extends Error {
@@ -137,6 +138,14 @@ const server = serve({
         return summarize(parseImport(String(name ?? ""), String(content ?? "")));
       }),
     },
+    "/api/imports/archive": {
+      POST: authed(async (req, me) => {
+        const { url, label } = await req.json();
+        const m = startArchive(String(url ?? ""), String(label ?? ""));
+        audit.add("data.archive", m.id, { url, by: me.username });
+        return m;
+      }),
+    },
     "/api/imports": {
       POST: authed(async (req, me) => {
         const { name, label, content } = await req.json();
@@ -259,6 +268,13 @@ const server = serve({
         alerts.add({ ts: Date.now(), kind: "status", caseId: c.id, text: `${c.title} ditandai ${({ new: "baru", investigating: "diselidiki", confirmed: "terkonfirmasi", dismissed: "diabaikan" } as Record<string, string>)[status]}` });
         await refresh(true);
         return { ok: true };
+      }),
+    },
+    "/api/cases/:id/evidence": {
+      GET: authed((req) => {
+        const ev = caseEvidence(req.params.id);
+        if (!ev) throw new HttpError(404, "bukti kasus belum tersedia");
+        return ev;
       }),
     },
     "/api/cases/:id/describe": {

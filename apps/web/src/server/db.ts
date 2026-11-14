@@ -12,6 +12,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS monitors (id TEXT PRIMARY KEY, kind TEXT NOT NULL, target TEXT NOT NULL, label TEXT NOT NULL, interval_min INTEGER NOT NULL, pages INTEGER NOT NULL, speed INTEGER NOT NULL DEFAULT 1, active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, last_run_at INTEGER, last_error TEXT, collected INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, monitor TEXT NOT NULL, ts INTEGER NOT NULL, json TEXT NOT NULL);
   CREATE INDEX IF NOT EXISTS events_ts ON events (ts);
+  CREATE INDEX IF NOT EXISTS events_monitor_ts ON events (monitor, ts);
   CREATE TABLE IF NOT EXISTS actors (id TEXT PRIMARY KEY, json TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS cases (id TEXT PRIMARY KEY, title TEXT NOT NULL, brief TEXT, status TEXT NOT NULL, members TEXT NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, peak INTEGER NOT NULL, created_at INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT NOT NULL, case_id TEXT NOT NULL, text TEXT NOT NULL);
@@ -40,6 +41,8 @@ export interface Monitor {
   lastRunAt: number | null;
   lastError: string | null;
   collected: number;
+  importProgress?: number | null;
+  note?: string | null;
 }
 
 const toMonitor = (r: any): Monitor => ({
@@ -56,6 +59,8 @@ const toMonitor = (r: any): Monitor => ({
   lastRunAt: r.last_run_at,
   lastError: r.last_error,
   collected: r.collected,
+  importProgress: r.progress ?? null,
+  note: r.note ?? null,
 });
 
 export const monitors = {
@@ -66,6 +71,7 @@ export const monitors = {
   },
   insert: (m: Omit<Monitor, "lastRunAt" | "lastError" | "collected">) =>
     db.query("INSERT INTO monitors (id, kind, platform, target, label, interval_min, pages, speed, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(m.id, m.kind, m.platform, m.target, m.label, m.intervalMin, m.pages, m.speed, m.active ? 1 : 0, m.createdAt),
+  progress: (id: string, progress: number | null, note: string | null) => db.query("UPDATE monitors SET progress = ?, note = ? WHERE id = ?").run(progress, note, id),
   setActive: (id: string, active: boolean) => db.query("UPDATE monitors SET active = ? WHERE id = ?").run(active ? 1 : 0, id),
   ran: (id: string, at: number, error: string | null, added: number) => db.query("UPDATE monitors SET last_run_at = ?, last_error = ?, collected = collected + ? WHERE id = ?").run(at, error, added, id),
   replay: (id: string, at: number) => {
@@ -78,7 +84,12 @@ export const monitors = {
   },
 };
 
-const putEvent = db.query("INSERT OR IGNORE INTO events (id, monitor, ts, json) VALUES (?, ?, ?, ?)");
+for (const [table, col, type] of [["events", "actor", "TEXT"], ["monitors", "progress", "REAL"], ["monitors", "note", "TEXT"]] as const)
+  if (!(db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+db.exec("UPDATE events SET actor = json_extract(json, '$.actor') WHERE actor IS NULL");
+db.exec("CREATE INDEX IF NOT EXISTS events_actor_ts ON events (actor, ts)");
+
+const putEvent = db.query("INSERT OR IGNORE INTO events (id, monitor, ts, json, actor) VALUES (?, ?, ?, ?, ?)");
 const putActor = db.query("INSERT OR REPLACE INTO actors (id, json) VALUES (?, ?)");
 const getActor = db.query("SELECT json FROM actors WHERE id = ?");
 
@@ -91,7 +102,7 @@ export const store = {
         const reshared = [...new Set([...((prev && (JSON.parse(prev.json) as Actor).reshared) || []), ...(a.reshared ?? [])])];
         putActor.run(a.id, JSON.stringify(reshared.length ? { ...a, reshared } : a));
       }
-      for (const e of events) added += putEvent.run(e.id, monitor, e.ts, JSON.stringify(e)).changes;
+      for (const e of events) added += putEvent.run(e.id, monitor, e.ts, JSON.stringify(e), e.actor).changes;
     })();
     return added;
   },
@@ -102,11 +113,22 @@ export const store = {
     const actors = db.query("SELECT json FROM actors").all().map((r: any) => JSON.parse(r.json) as Actor).filter((a) => ids.has(a.id) || a.reshared?.some((t) => posts.has(t)));
     return { actors, events };
   },
-  rows: (actors: string[], since: number) => {
+  rows: (actors: string[], since: number, until = Number.MAX_SAFE_INTEGER) => {
     const set = new Set(actors);
-    return (db.query("SELECT id, json FROM events WHERE ts >= ? ORDER BY id").all(since) as { id: string; json: string }[]).filter((r) => set.has((JSON.parse(r.json) as Event).actor));
+    return (db.query("SELECT id, json FROM events WHERE ts >= ? AND ts < ? ORDER BY id").all(since, until) as { id: string; json: string }[]).filter((r) => set.has((JSON.parse(r.json) as Event).actor));
   },
-  monitorOf: () => new Map(db.query("SELECT id, monitor FROM events").all().map((r: any) => [r.id as string, r.monitor as string])),
+  monitorOf: (since: number, until = Number.MAX_SAFE_INTEGER) => new Map(db.query("SELECT id, monitor FROM events WHERE ts >= ? AND ts < ?").all(since, until).map((r: any) => [r.id as string, r.monitor as string])),
+  bounds: (monitor: string) => db.query("SELECT MIN(ts) AS from_, MAX(ts) AS to_, COUNT(*) AS n FROM events WHERE monitor = ?").get(monitor) as { from_: number | null; to_: number | null; n: number },
+  count: (monitor: string, from: number, to: number) => (db.query("SELECT COUNT(*) AS n FROM events WHERE monitor = ? AND ts >= ? AND ts < ?").get(monitor, from, to) as { n: number }).n,
+  range(monitor: string, from: number, to: number) {
+    const events = db.query("SELECT json FROM events WHERE monitor = ? AND ts >= ? AND ts < ? ORDER BY ts").all(monitor, from, to).map((r: any) => JSON.parse(r.json) as Event);
+    const ids = [...new Set(events.map((e) => e.actor))];
+    const actors = ids.flatMap((id) => {
+      const r = db.query("SELECT json FROM actors WHERE id = ?").get(id) as { json: string } | null;
+      return r ? [JSON.parse(r.json) as Actor] : [];
+    });
+    return { actors, events };
+  },
 };
 
 export type CaseStatus = "new" | "investigating" | "confirmed" | "dismissed";
@@ -136,6 +158,16 @@ export const cases = {
       .query("INSERT OR REPLACE INTO cases (id, title, brief, status, members, first_seen, last_seen, peak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(c.id, c.title, c.brief, c.status, JSON.stringify(c.members), c.firstSeen, c.lastSeen, c.peak, c.createdAt),
   setStatus: (id: string, status: CaseStatus) => db.query("UPDATE cases SET status = ? WHERE id = ?").run(status, id),
+};
+
+db.exec("CREATE TABLE IF NOT EXISTS case_evidence (case_id TEXT PRIMARY KEY, ts INTEGER NOT NULL, json TEXT NOT NULL)");
+
+export const evidence = {
+  put: (caseId: string, ts: number, data: unknown) => db.query("INSERT OR REPLACE INTO case_evidence (case_id, ts, json) VALUES (?, ?, ?)").run(caseId, ts, JSON.stringify(data)),
+  get: <T>(caseId: string) => {
+    const r = db.query("SELECT json FROM case_evidence WHERE case_id = ?").get(caseId) as { json: string } | null;
+    return r ? (JSON.parse(r.json) as T) : undefined;
+  },
 };
 
 export interface Alert {

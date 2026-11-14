@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { ensureState, useCapabilities, useCreateMonitor, useCredentials, useDeleteMonitor, useOps, useTemplates, useToggleMonitor } from "@/lib/queries";
 import { ago, date, int, num, pct } from "@/lib/format";
@@ -62,8 +63,17 @@ function Row({ m }: { m: MonitorState }) {
         </div>
       </TableCell>
       <TableCell>
-        {m.kind === "import" ? (
-          <Badge variant="secondary">Diimpor</Badge>
+        {m.kind === "import" && m.lastError ? (
+          <Badge variant="destructive">{m.lastError}</Badge>
+        ) : m.kind === "import" && m.importProgress !== null && m.importProgress !== undefined && m.importProgress < 1 ? (
+          <div className="flex min-w-48 flex-col gap-1.5">
+            <Progress value={m.importProgress * 100} />
+            <span className="text-xs text-muted-foreground">{m.note}</span>
+          </div>
+        ) : m.kind === "import" ? (
+          <Badge variant="secondary" title={m.note ?? undefined}>
+            {m.note ?? "Diimpor"}
+          </Badge>
         ) : m.lastError ? (
           <Badge variant="destructive">{m.lastError}</Badge>
         ) : m.active ? (
@@ -410,6 +420,7 @@ function ImportData() {
   const [preview, setPreview] = useState<ImportSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [archiveUrl, setArchiveUrl] = useState("");
   const pick = async (f?: File) => {
     if (!f) return;
     setError(null);
@@ -462,7 +473,33 @@ function ImportData() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           {tooLong && <p className="text-sm text-destructive">Rentang data lebih dari 24 jam. Potong berkas menjadi maksimal satu hari.</p>}
         </Section>
-        <Section step={2} title="Nama">
+        <Section step={2} title="Atau arsip besar dari URL">
+          <div className="flex flex-col gap-3 @3xl/main:flex-row">
+            <Input value={archiveUrl} onChange={(e) => setArchiveUrl(e.target.value)} placeholder="https://.../arsip_tweets.zip" className="h-11" />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={!archiveUrl.trim() || busy}
+              onClick={() => {
+                setBusy(true);
+                api
+                  .importArchive({ url: archiveUrl.trim(), label })
+                  .then(() => {
+                    toast.success("Arsip sedang diunduh dan dianalisis");
+                    navigate({ to: "/monitors" });
+                  })
+                  .catch((e: Error) => setError(e.message))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <FileUp />
+              Impor arsip
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Untuk arsip berukuran besar (ZIP atau CSV format arsip X/Twitter). Waktu asli dipertahankan; Cakra Nala memutar ulang seluruh arsip hari demi hari dan melacak kasus lintas hari.</p>
+        </Section>
+        <Section step={3} title="Nama">
           <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional, misalnya nama sumber data" className="h-11" />
         </Section>
       </div>

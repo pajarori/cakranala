@@ -1,5 +1,5 @@
 import type { ShieldResult } from "cakranala";
-import type { snapshot, CaseView, Severity } from "../server/analysis";
+import type { snapshot, CaseEvidence, CaseView, Severity } from "../server/analysis";
 import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow } from "../server/db";
 import type { ReportContent } from "../server/reports";
 import type { Credential, CredentialPlatform } from "../server/credentials";
@@ -14,6 +14,7 @@ export type Report = NonNullable<State["report"]>;
 export type Narrative = Report["narratives"][number];
 export type Cluster = Report["clusters"][number];
 export type Case = CaseView;
+export type { CaseEvidence };
 export type MonitorState = State["monitors"][number];
 export type ReportItem = ReportRow<ReportContent>;
 export type Audit = { entries: number; valid: boolean; brokenAt: number | null; recent: AuditEntry[] };
@@ -50,6 +51,7 @@ export const api = {
   unwatch: (id: string) => call<{ ok: true }>(`/api/actors/${id}/watch`, send("DELETE")),
   watchlist: () => call<(WatchEntry & { profile: ActorProfile | undefined })[]>("/api/watchlist"),
   previewImport: (body: { name: string; content: string }) => call<ImportSummary>("/api/imports/preview", send("POST", body)),
+  importArchive: (body: { url: string; label: string }) => call<Monitor>("/api/imports/archive", send("POST", body)),
   importData: (body: { name: string; label: string; content: string }) => call<ImportSummary & { id: string; added: number }>("/api/imports", send("POST", body)),
   templates: () => call<Template[]>("/api/templates"),
   me: () => call<{ user: User | null; setup: boolean }>("/api/auth/me"),
@@ -66,6 +68,7 @@ export const api = {
   toggleMonitor: (id: string, active: boolean) => call<Monitor>(`/api/monitors/${id}`, send("PATCH", { active })),
   deleteMonitor: (id: string) => call<{ ok: true }>(`/api/monitors/${id}`, send("DELETE")),
   setStatus: (id: string, status: CaseStatus) => call<{ ok: true }>(`/api/cases/${id}`, send("PATCH", { status })),
+  evidence: (caseId: string) => call<CaseEvidence>(`/api/cases/${caseId}/evidence`),
   redescribe: (caseId: string) => call<{ title: string; brief: string | null }>(`/api/cases/${caseId}/describe`, send("POST")),
   createReport: (caseId: string) => call<ReportItem>(`/api/cases/${caseId}/reports`, send("POST")),
   reports: () => call<ReportItem[]>("/api/reports"),

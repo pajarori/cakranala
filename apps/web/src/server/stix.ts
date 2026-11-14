@@ -1,5 +1,5 @@
 import { uuidFrom } from "cakranala";
-import { caseView, snapshot } from "./analysis";
+import { caseEvidence, caseView } from "./analysis";
 import { store } from "./db";
 import { DISARM_SOURCE } from "./disarm";
 
@@ -7,9 +7,11 @@ const iso = (ts: number) => new Date(ts).toISOString();
 const sid = (type: string, key: string) => `${type}--${uuidFrom(`${type}:${key}`)}`;
 
 export function stixBundle(caseId: string) {
-  const c = caseView(caseId);
-  const { report, window } = snapshot();
-  if (!c || !report) throw new Error("kasus tidak aktif di jendela analisis saat ini");
+  const ev = caseEvidence(caseId);
+  const c = ev && { ...ev.view, ...(caseView(caseId) ?? {}) };
+  const report = ev?.report;
+  const window = ev?.window ?? { from: 0, to: 0 };
+  if (!c || !report) throw new Error("bukti kasus belum tersedia");
   const now = iso(Date.now());
   const common = { spec_version: "2.1", created: now, modified: now };
   const identity = { type: "identity", id: sid("identity", "cakranala"), ...common, name: "Cakra Nala", identity_class: "system" };
@@ -31,7 +33,7 @@ export function stixBundle(caseId: string) {
   }
   for (const k of report.clusters.filter((x) => c.clusters.includes(x.id))) {
     const accounts = k.members.map((m) => ({ type: "user-account", spec_version: "2.1", id: sid("user-account", m), user_id: m, account_type: "social-media" }));
-    const posts = store.rows(k.members, window.from).length;
+    const posts = store.rows(k.members, window.from, window.to + 1).length;
     const observed = {
       type: "observed-data",
       id: sid("observed-data", k.id),

@@ -1,6 +1,6 @@
 import { plain } from "cakranala";
 import { audit, reports, sha256, store, type ReportRow } from "./db";
-import { caseView, reasoner, snapshot } from "./analysis";
+import { caseEvidence, caseView, reasoner } from "./analysis";
 
 const SEVERITY = { critical: "Kritis", high: "Tinggi", medium: "Sedang", low: "Rendah" } as const;
 
@@ -18,22 +18,24 @@ export interface ReportContent {
 
 const clean = (s: unknown) => plain(String(s ?? ""));
 
-function evidence(members: string[], since: number) {
-  const items = store.rows(members, since).map((r) => ({ id: r.id, sha256: sha256(r.json) }));
+function evidence(members: string[], since: number, until: number) {
+  const items = store.rows(members, since, until).map((r) => ({ id: r.id, sha256: sha256(r.json) }));
   return { events: items.length, root: sha256(items.map((i) => i.sha256).join("")), items };
 }
 
 function facts(id: string) {
-  const c = caseView(id);
-  const { report, window } = snapshot();
-  if (!c || !report) throw new Error("kasus tidak aktif di jendela analisis saat ini");
+  const ev = caseEvidence(id);
+  if (!ev) throw new Error("bukti kasus belum tersedia");
+  const c = { ...ev.view, ...(caseView(id) ?? {}) };
+  const report = ev.report;
+  const window = ev.window;
   const narratives = report.narratives.filter((n) => c.narratives.includes(n.id));
   const clusters = report.clusters.filter((k) => c.clusters.includes(k.id));
   return {
     c,
     narratives,
     clusters,
-    evidence: evidence([...new Set(clusters.flatMap((k) => k.members))], window.from),
+    evidence: evidence([...new Set(clusters.flatMap((k) => k.members))], window.from, window.to + 1),
     table: [
       { label: "Tingkat ancaman", value: SEVERITY[c.severity] },
       { label: "Pendukung tampak", value: String(c.apparent) },

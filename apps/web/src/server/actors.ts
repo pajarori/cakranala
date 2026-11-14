@@ -30,7 +30,7 @@ const actorRow = (id: string) => {
 };
 
 const eventsOf = (id: string, limit: number) =>
-  (db.query("SELECT json FROM events WHERE json_extract(json, '$.actor') = ? ORDER BY ts DESC LIMIT ?").all(id, limit) as { json: string }[]).map((r) => JSON.parse(r.json) as Event);
+  (db.query("SELECT json FROM events WHERE actor = ? ORDER BY ts DESC LIMIT ?").all(id, limit) as { json: string }[]).map((r) => JSON.parse(r.json) as Event);
 
 const DAY = 86_400_000;
 
@@ -84,7 +84,7 @@ export function list(o: { q?: string; filter?: string; page?: number; size?: num
   for (const c of views) for (const m of c.members) caseCount.set(m, (caseCount.get(m) ?? 0) + 1);
   const ids = new Set([...Object.keys(report?.scores ?? {}), ...flagged.keys(), ...watched]);
   const posts = new Map(
-    (db.query("SELECT json_extract(json, '$.actor') AS actor, COUNT(*) AS n FROM events WHERE ts >= ? GROUP BY actor").all(window.from) as { actor: string; n: number }[]).map((r) => [r.actor, r.n]),
+    (db.query("SELECT actor, COUNT(*) AS n FROM events WHERE ts >= ? GROUP BY actor").all(window.from) as { actor: string; n: number }[]).map((r) => [r.actor, r.n]),
   );
   const q = (o.q ?? "").trim().toLowerCase();
   const rows = [...ids]

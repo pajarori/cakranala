@@ -1,5 +1,7 @@
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { CircleCheck, Download, Eye, EyeOff, FileText, RefreshCw } from "lucide-react";
+import { CircleCheck, Download, Eye, EyeOff, FileText, History, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +17,20 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ensureState, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
+import { ensureState, evidenceQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
 import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, pct, ratio, short } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
-import type { CaseStatus } from "@/lib/api";
+import type { CaseStatus, State } from "@/lib/api";
 
 function useCase() {
   const { id } = threatRoute.useParams();
-  const state = useOps();
-  const c = state.cases.find((x) => x.id === id)!;
+  const live = useOps();
+  const c = live.cases.find((x) => x.id === id)!;
+  const ev = useQuery({ ...evidenceQuery(id), enabled: !c.active }).data;
+  const state: State = c.active || !ev ? live : { ...live, report: { ...live.report, ...ev.report } as State["report"], actors: ev.actors };
   const narratives = state.report?.narratives.filter((n) => c.narratives.includes(n.id)).sort((a, b) => b.supporters - a.supporters) ?? [];
   const clusters = state.report?.clusters.filter((k) => c.clusters.includes(k.id)) ?? [];
-  return { state, c, narratives, clusters };
+  return { state, c, narratives, clusters, ev };
 }
 
 const TABS = [
@@ -37,7 +41,7 @@ const TABS = [
 ] as const;
 
 function ThreatLayout() {
-  const { c, clusters } = useCase();
+  const { c, clusters, ev } = useCase();
   const navigate = useNavigate();
   const setStatus = useSetStatus();
   const report = useCreateReport();
@@ -79,7 +83,7 @@ function ThreatLayout() {
               Perbarui ringkasan
             </Button>
           )}
-          {c.active && (
+          {(c.active || ev) && (
             <Button variant="outline" asChild>
               <a href={`/api/cases/${c.id}/stix`} download>
                 <Download />
@@ -87,7 +91,7 @@ function ThreatLayout() {
               </a>
             </Button>
           )}
-          <Button disabled={!c.active || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: (e) => toast.error(e.message) })}>
+          <Button disabled={(!c.active && !ev) || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: (e) => toast.error(e.message) })}>
             {report.isPending ? <Spinner /> : <FileText />}
             Buat laporan
           </Button>
@@ -105,7 +109,16 @@ function ThreatLayout() {
           ))}
         </TabsList>
       </Tabs>
-      {c.active ? (
+      {!c.active && ev && (
+        <Alert>
+          <History />
+          <AlertTitle>Kasus tidak aktif</AlertTitle>
+          <AlertDescription>
+            Bukti dari jendela analisis terakhir, {date(ev.window.from)} sampai {date(ev.window.to)}.
+          </AlertDescription>
+        </Alert>
+      )}
+      {c.active || ev ? (
         <Outlet />
       ) : (
         <Empty className="border">

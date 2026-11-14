@@ -1,6 +1,6 @@
 import { analyze, evaluate, plain, SCHEMA_VERSION, type Dataset, type Embedder, type Evaluation, type Report } from "cakranala";
 import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
-import { alerts, cases, monitors, store, type Alert, type CaseRow } from "./db";
+import { alerts, cases, evidence, monitors, store, type Alert, type CaseRow } from "./db";
 import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
 import { notifyWatchlist } from "./actors";
@@ -117,7 +117,31 @@ async function describe(report: Report, narrativeIds: string[], clusterIds: stri
   }
 }
 
-async function track(report: Report, now: number, monitorOf: Map<string, string>, events: Dataset["events"]) {
+export interface CaseEvidence {
+  view: CaseView;
+  window: { from: number; to: number };
+  report: Pick<Report, "clusters" | "narratives" | "edges" | "scores" | "null">;
+  actors: State["actors"];
+}
+
+function snapshotCase(view: CaseView, report: Report, actors: Dataset["actors"], now: number): CaseEvidence {
+  const clusters = report.clusters.filter((k) => view.clusters.includes(k.id));
+  const members = new Set(clusters.flatMap((k) => k.members));
+  return {
+    view,
+    window: { from: now - WINDOW, to: now },
+    report: {
+      clusters,
+      narratives: report.narratives.filter((n) => view.narratives.includes(n.id)),
+      edges: report.edges.filter((e) => members.has(e.a) && members.has(e.b)),
+      scores: Object.fromEntries([...members].map((m) => [m, report.scores[m] ?? 0])),
+      null: report.null,
+    },
+    actors: actors.filter((a) => members.has(a.id)).map((a: any) => ({ id: a.id, handle: a.handle, label: a.label, followers: a.followers, createdAt: a.createdAt })),
+  };
+}
+
+export async function track(report: Report, now: number, monitorOf: Map<string, string>, events: Dataset["events"], actors: Dataset["actors"]) {
   const existing = cases.all();
   const seen = new Set<string>();
   const views: CaseView[] = [];
@@ -141,13 +165,23 @@ async function track(report: Report, now: number, monitorOf: Map<string, string>
     seen.add(row.id);
     const memberSet = new Set(row.members);
     const mons = [...new Set(events.filter((e) => memberSet.has(e.actor)).map((e) => monitorOf.get(e.id)).filter(Boolean) as string[])];
-    views.push({ ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), disarm: techniques(report, g.clusters, g.narratives, events), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons });
+    const view: CaseView = { ...row, active: true, severity: severity(manufactured), escalation: escalation(severity(manufactured), apparent, independent), disarm: techniques(report, g.clusters, g.narratives, events), narratives: g.narratives, clusters: g.clusters, apparent, independent, monitors: mons };
+    evidence.put(row.id, now, snapshotCase(view, report, actors, now));
+    views.push(view);
   }
   return order([...views, ...dormant(seen)]);
 }
 
 const dormant = (seen = new Set<string>()): CaseView[] =>
-  cases.all().filter((c) => !seen.has(c.id)).map((c) => ({ ...c, active: false, severity: severity(c.peak), escalation: "watch" as Escalation, disarm: [], narratives: [], clusters: [], apparent: 0, independent: 0, monitors: [] }));
+  cases
+    .all()
+    .filter((c) => !seen.has(c.id))
+    .map((c) => {
+      const last = evidence.get<CaseEvidence>(c.id)?.view;
+      return last ? { ...last, ...c, active: false } : { ...c, active: false, severity: severity(c.peak), escalation: "watch" as Escalation, disarm: [], narratives: [], clusters: [], apparent: 0, independent: 0, monitors: [] };
+    });
+
+export const caseEvidence = (id: string) => evidence.get<CaseEvidence>(id);
 
 function order(views: CaseView[]) {
   const rank = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -196,7 +230,7 @@ export async function refresh(force = false) {
       window: { from, to: now },
       report,
       actors: actors.filter((a) => involved.has(a.id)).map((a: any) => ({ id: a.id, handle: a.handle, label: a.label, followers: a.followers, createdAt: a.createdAt })),
-      cases: await track(report, now, store.monitorOf(), events),
+      cases: await track(report, now, store.monitorOf(from), events, actors),
       alerts: alerts.recent(),
       activity: activity(report, events, from, now),
       evaluation: ds.truth ? evaluate(report, ds.truth) : null,
