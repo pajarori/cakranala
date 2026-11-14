@@ -88,6 +88,7 @@ for (const [table, col, type] of [["events", "actor", "TEXT"], ["monitors", "pro
   if (!(db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
 db.exec("UPDATE events SET actor = json_extract(json, '$.actor') WHERE actor IS NULL");
 db.exec("CREATE INDEX IF NOT EXISTS events_actor_ts ON events (actor, ts)");
+db.exec("CREATE INDEX IF NOT EXISTS events_ts_actor ON events (ts, actor)");
 
 const putEvent = db.query("INSERT OR IGNORE INTO events (id, monitor, ts, json, actor) VALUES (?, ?, ?, ?, ?)");
 const putActor = db.query("INSERT OR REPLACE INTO actors (id, json) VALUES (?, ?)");

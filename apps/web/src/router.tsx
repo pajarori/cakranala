@@ -1,6 +1,6 @@
 import { createRouter } from "@tanstack/react-router";
 import { rootRoute, shellRoute } from "@/routes/root";
-import { situationRoute } from "@/routes/situation";
+import { situationPeriodRoute, situationRoute } from "@/routes/situation";
 import { threatsRoute } from "@/routes/threats";
 import { threatRoute, threatTabs } from "@/routes/threat";
 import { importRoute, monitorsRoute, newFromTemplateRoute, newMonitorRoute, templatesRoute } from "@/routes/monitors";
@@ -12,7 +12,7 @@ import { newUserRoute, passwordRoute, usersRoute } from "@/routes/users";
 import { credentialsRoute, newCredentialRoute } from "@/routes/credentials";
 import { actorRoute, actorsRoute, watchlistRoute } from "@/routes/actors";
 
-const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, threatsRoute, threatRoute.addChildren(threatTabs), actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute])]);
+const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, situationPeriodRoute, threatsRoute, threatRoute.addChildren(threatTabs), actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute])]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
 

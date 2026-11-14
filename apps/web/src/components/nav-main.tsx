@@ -6,7 +6,7 @@ export type NavItem = { title: string; url: string; icon: LucideIcon; badge?: nu
 
 export function useIsActive() {
   const path = useRouterState({ select: (s) => s.location.pathname });
-  return (url: string) => (url === "/" ? path === "/" : path === url || path.startsWith(`${url}/`));
+  return (url: string) => (url === "/" ? path === "/" || path.startsWith("/situation/") : path === url || path.startsWith(`${url}/`));
 }
 
 export function NavMain({ items }: { items: NavItem[] }) {

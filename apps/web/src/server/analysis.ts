@@ -56,11 +56,10 @@ export interface State {
   actors: { id: string; handle?: string; label?: string; followers?: number; createdAt?: number }[];
   cases: CaseView[];
   alerts: Alert[];
-  activity: { binSec: number; start: number; total: number[]; coordinated: number[] };
   evaluation: Evaluation | null;
 }
 
-let state: State = { updatedAt: null, analyzing: false, window: { from: 0, to: 0 }, report: null, actors: [], cases: [], alerts: [], activity: { binSec: 0, start: 0, total: [], coordinated: [] }, evaluation: null };
+let state: State = { updatedAt: null, analyzing: false, window: { from: 0, to: 0 }, report: null, actors: [], cases: [], alerts: [], evaluation: null };
 let lastCount = -1;
 
 const jaccard = (a: Set<string>, b: Set<string>) => {
@@ -188,21 +187,6 @@ function order(views: CaseView[]) {
   return views.sort((a, b) => Number(b.active) - Number(a.active) || rank[a.severity] - rank[b.severity] || b.lastSeen - a.lastSeen);
 }
 
-function activity(report: Report, events: Dataset["events"], from: number, to: number) {
-  const flagged = new Set(report.clusters.flatMap((c) => c.members));
-  const start = events.length ? Math.min(...events.map((e) => e.ts)) : from;
-  const binMs = Math.max(60_000, Math.ceil((to - start) / 60 / 60_000) * 60_000);
-  const bins = Math.floor((to - start) / binMs) + 1;
-  const total = new Array(bins).fill(0);
-  const coordinated = new Array(bins).fill(0);
-  for (const e of events) {
-    const b = Math.min(bins - 1, Math.floor((e.ts - start) / binMs));
-    total[b]++;
-    if (flagged.has(e.actor)) coordinated[b]++;
-  }
-  return { binSec: binMs / 1000, start, total, coordinated };
-}
-
 export async function refresh(force = false) {
   if (state.analyzing) return;
   const now = Date.now();
@@ -215,7 +199,7 @@ export async function refresh(force = false) {
   }
   lastCount = events.length;
   if (events.length < 30) {
-    state = { ...state, updatedAt: now, window: { from, to: now }, report: null, actors: [], cases: order(dormant()), activity: { binSec: 0, start: from, total: [], coordinated: [] }, evaluation: null };
+    state = { ...state, updatedAt: now, window: { from, to: now }, report: null, actors: [], cases: order(dormant()), evaluation: null };
     return;
   }
   state = { ...state, analyzing: true };
@@ -232,7 +216,6 @@ export async function refresh(force = false) {
       actors: actors.filter((a) => involved.has(a.id)).map((a: any) => ({ id: a.id, handle: a.handle, label: a.label, followers: a.followers, createdAt: a.createdAt })),
       cases: await track(report, now, store.monitorOf(from), events, actors),
       alerts: alerts.recent(),
-      activity: activity(report, events, from, now),
       evaluation: ds.truth ? evaluate(report, ds.truth) : null,
     };
     notifyWatchlist(state.cases);

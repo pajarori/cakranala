@@ -6,6 +6,7 @@ export const int = (x: number) => integer.format(x);
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
 export const ratio = (x: number) => `${number.format(x)}×`;
 export const approx = (x: number) => `≈${integer.format(x)}`;
+export const day = (ts: number) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" });
 export const clock = (ts: number) => new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
 const thisYear = (ts: number) => new Date(ts).getFullYear() === new Date().getFullYear();
 export const date = (ts: number) => `${new Date(ts).toLocaleString("id-ID", { day: "2-digit", month: "short", year: thisYear(ts) ? undefined : "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB`;

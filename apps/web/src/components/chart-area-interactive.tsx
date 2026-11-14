@@ -1,50 +1,25 @@
-import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { State } from "@/lib/api";
-import { clock } from "@/lib/format";
+import type { Overview } from "@/lib/api";
+import { clock, day } from "@/lib/format";
 
 const config = {
   total: { label: "Semua post", color: "var(--chart-2)" },
   coordinated: { label: "Dari akun terkoordinasi", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
-const RANGES = { "1h": 3600_000, "6h": 6 * 3600_000, "24h": 24 * 3600_000 };
-
-export function ChartAreaInteractive({ activity, title = "Aktivitas", description = "Post yang dikumpulkan semua pantauan" }: { activity: State["activity"]; title?: string; description?: string }) {
-  const [range, setRange] = useState<keyof typeof RANGES>("24h");
-  const end = activity.start + activity.total.length * activity.binSec * 1000;
-  const data = activity.total
-    .map((v, i) => ({ ts: activity.start + i * activity.binSec * 1000, total: v, coordinated: activity.coordinated[i] }))
-    .filter((d) => d.ts >= end - RANGES[range]);
+export function ChartAreaInteractive({ activity, title = "Aktivitas", description = "Post yang dikumpulkan semua pantauan" }: { activity: Overview["activity"]; title?: string; description?: string }) {
+  const label = activity.binSec >= 86_400 ? day : clock;
+  const data = activity.total.map((v, i) => ({ ts: activity.start + i * activity.binSec * 1000, total: v, coordinated: activity.coordinated[i] }));
   return (
     <Card className="@container/card">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
-        <CardAction>
-          <ToggleGroup type="single" value={range} onValueChange={(v) => v && setRange(v as keyof typeof RANGES)} variant="outline" className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex">
-            <ToggleGroupItem value="24h">24 jam terakhir</ToggleGroupItem>
-            <ToggleGroupItem value="6h">6 jam terakhir</ToggleGroupItem>
-            <ToggleGroupItem value="1h">1 jam terakhir</ToggleGroupItem>
-          </ToggleGroup>
-          <Select value={range} onValueChange={(v) => setRange(v as keyof typeof RANGES)}>
-            <SelectTrigger className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden" size="sm" aria-label="Time range">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="24h">24 jam terakhir</SelectItem>
-              <SelectItem value="6h">6 jam terakhir</SelectItem>
-              <SelectItem value="1h">1 jam terakhir</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        {data.length ? (
+        {data.some((d) => d.total) ? (
           <ChartContainer config={config} className="aspect-auto h-[250px] w-full">
             <AreaChart data={data}>
               <defs>
@@ -56,8 +31,8 @@ export function ChartAreaInteractive({ activity, title = "Aktivitas", descriptio
                 ))}
               </defs>
               <CartesianGrid vertical={false} />
-              <XAxis dataKey="ts" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} tickFormatter={(v) => clock(v)} />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={(_, p) => clock(p?.[0]?.payload?.ts ?? 0)} indicator="dot" />} />
+              <XAxis dataKey="ts" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} tickFormatter={(v) => label(v)} />
+              <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={(_, p) => label(p?.[0]?.payload?.ts ?? 0)} indicator="dot" />} />
               <Area dataKey="total" type="natural" fill="url(#fill-total)" stroke="var(--color-total)" />
               <Area dataKey="coordinated" type="natural" fill="url(#fill-coordinated)" stroke="var(--color-coordinated)" />
             </AreaChart>

@@ -14,6 +14,7 @@ import { list as listActors, notifyWatchlist, profile, watchlist } from "./serve
 import templates from "../config/templates.json";
 import { importDataset, parseImport, summarize } from "./server/imports";
 import { startArchive } from "./server/archive";
+import { overview, PERIODS, type Period } from "./server/overview";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
 
 class HttpError extends Error {
@@ -131,6 +132,13 @@ const server = serve({
       }),
     },
     "/api/state": { GET: authed(() => snapshot()) },
+    "/api/overview/:period": {
+      GET: authed((req) => {
+        const period = req.params.period as Period;
+        if (!(period in PERIODS)) throw new HttpError(404, "periode tidak dikenal");
+        return overview(period);
+      }),
+    },
     "/api/templates": { GET: authed(() => templates) },
     "/api/imports/preview": {
       POST: authed(async (req) => {

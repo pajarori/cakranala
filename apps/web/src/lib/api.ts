@@ -7,6 +7,7 @@ import type { User } from "../server/auth";
 import type { list as listActors, profile as actorProfile, WatchEntry } from "../server/actors";
 import type templates from "../../config/templates.json";
 import type { summarize as summarizeImport } from "../server/imports";
+import type { overview, Period } from "../server/overview";
 import type { Probe } from "cakranala-scrap";
 
 export type State = ReturnType<typeof snapshot>;
@@ -23,6 +24,8 @@ export type ActorPage = ReturnType<typeof listActors>;
 export type ActorProfile = NonNullable<ReturnType<typeof actorProfile>>;
 export type Template = (typeof templates)[number];
 export type ImportSummary = ReturnType<typeof summarizeImport>;
+export type Overview = ReturnType<typeof overview>;
+export type { Period };
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface Capabilities {
@@ -64,6 +67,7 @@ export const api = {
   removeUser: (id: string) => call<{ ok: true }>(`/api/users/${id}`, send("DELETE")),
   capabilities: () => call<Capabilities>("/api/capabilities"),
   state: () => call<State>("/api/state"),
+  overview: (period: Period) => call<Overview>(`/api/overview/${period}`),
   createMonitor: (body: { kind: MonitorKind; platform?: Platform; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => call<Monitor>("/api/monitors", send("POST", body)),
   toggleMonitor: (id: string, active: boolean) => call<Monitor>(`/api/monitors/${id}`, send("PATCH", { active })),
   deleteMonitor: (id: string) => call<{ ok: true }>(`/api/monitors/${id}`, send("DELETE")),

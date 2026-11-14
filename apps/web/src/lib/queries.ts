@@ -1,5 +1,5 @@
 import { QueryClient, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { api, type CaseStatus, type MonitorKind, type Platform } from "./api";
+import { api, type CaseStatus, type MonitorKind, type Period, type Platform } from "./api";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
@@ -8,6 +8,8 @@ export const reportsQuery = queryOptions({ queryKey: ["reports"], queryFn: api.r
 export const reportQuery = (id: string) => queryOptions({ queryKey: ["report", id], queryFn: () => api.report(id) });
 
 export const useOps = () => useSuspenseQuery(stateQuery).data;
+export const overviewQuery = (period: Period) => queryOptions({ queryKey: ["overview", period], queryFn: () => api.overview(period), refetchInterval: 30_000 });
+export const useOverview = (period: Period) => useSuspenseQuery(overviewQuery(period)).data;
 export const useLiveState = () => useQuery(stateQuery);
 export const ensureState = () => queryClient.ensureQueryData(stateQuery);
 export const useCapabilities = () => useQuery({ queryKey: ["capabilities"], queryFn: api.capabilities, staleTime: Infinity });
