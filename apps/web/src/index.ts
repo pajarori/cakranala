@@ -82,6 +82,7 @@ const server = serve({
   idleTimeout: 255,
   routes: {
     "/*": index,
+    "/favicon.ico": new Response(await Bun.file(new URL("./icons/favicon.ico", import.meta.url)).bytes(), { headers: { "content-type": "image/x-icon", "cache-control": "public, max-age=86400" } }),
     "/api/capabilities": { GET: json(() => capabilities()) },
     "/api/auth/me": { GET: json((req) => ({ user: currentUser(req) ?? null, setup: users.count() === 0 })) },
     "/api/auth/login": {

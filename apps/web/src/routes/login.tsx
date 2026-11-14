@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { Radar } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { toast } from "sonner";
 import { shellRoute } from "@/routes/root";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,7 @@ function Login() {
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <div className="flex items-center gap-2 self-center font-medium">
-          <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Radar className="size-4" />
-          </div>
+          <Logo className="size-7" />
           Cakra Nala
         </div>
         <Card>
