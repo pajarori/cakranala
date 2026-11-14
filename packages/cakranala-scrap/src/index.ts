@@ -2,7 +2,7 @@ import type { Dataset } from "cakranala";
 import { createXCollector, type Profile } from "./x";
 import { createYoutubeCollector } from "./youtube";
 import { collectTelegram } from "./telegram";
-import { createTiktokCollector, type SidecarConfig } from "./tiktok";
+import { createTiktokCollector, tiktokAccount, type SidecarConfig } from "./tiktok";
 
 export { createXCollector, sessionFromEnv, type XSession, type XRateState, type Profile } from "./x";
 export { createYoutubeCollector } from "./youtube";
@@ -33,7 +33,8 @@ export async function probe(platform: Platform, fields: Record<string, string>, 
     if (platform === "tiktok") {
       if (!tiktok) throw new Error("TikTok sidecar is not configured");
       const r = await createTiktokCollector(tiktok).check(fields.cookie, fields.userAgent);
-      return { ok: true, profile: { id: "tiktok", handle: r.authenticated ? "Signed in session" : "Anonymous session", name: r.browser ?? "", signedIn: r.authenticated } };
+      const account = r.authenticated ? await tiktokAccount(fields.cookie, fields.userAgent).catch(() => undefined) : undefined;
+      return { ok: true, profile: account ? { ...account, signedIn: true } : { id: "tiktok", handle: r.authenticated ? "Signed in session" : "Anonymous session", name: r.browser ?? "", signedIn: r.authenticated } };
     }
     return { ok: true };
   } catch (e) {

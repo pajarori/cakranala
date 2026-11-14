@@ -43,6 +43,16 @@ export function sidecarFromEnv(env: Record<string, string | undefined> = process
   return { baseUrl: env.TIKTOK_SIDECAR_URL.replace(/\/$/, ""), username: env.TIKTOK_SIDECAR_USER ?? "cakranala", password: env.TIKTOK_SIDECAR_PASSWORD };
 }
 
+export async function tiktokAccount(cookie: string, userAgent?: string) {
+  const res = await fetch("https://www.tiktok.com/passport/web/account/info/?aid=1459&app_language=en", {
+    headers: { cookie, "user-agent": userAgent ?? "Mozilla/5.0", referer: "https://www.tiktok.com/" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const d = ((await res.json().catch(() => ({}))) as { data?: { username?: string; screen_name?: string; user_id_str?: string } }).data;
+  if (!d?.username) return undefined;
+  return { id: `tt:${d.user_id_str ?? d.username}`, handle: `@${d.username}`, name: d.screen_name ?? "" };
+}
+
 export function createTiktokCollector(config: SidecarConfig) {
   let session: string | undefined;
 
