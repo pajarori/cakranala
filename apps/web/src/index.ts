@@ -6,6 +6,7 @@ import { createMonitor, importEnvCredential } from "./server/monitors";
 import { alerts, audit, cases, monitors, reports, type CaseStatus, type MonitorKind } from "./server/db";
 import { counterNarrative, createReport } from "./server/reports";
 import { stixBundle } from "./server/stix";
+import { reportPdf } from "./server/pdf";
 import { syncLibrary } from "./server/library";
 import { CREDENTIAL_FIELDS, credentials } from "./server/credentials";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
@@ -211,6 +212,20 @@ const server = serve({
         if (!r) throw new HttpError(404, "report not found");
         return { ...r, custody: audit.of(r.id) };
       }),
+    },
+    "/api/reports/:id/pdf": {
+      GET: async (req) => {
+        try {
+          guard(req);
+          const r = reports.get(req.params.id) as Parameters<typeof reportPdf>[0] | undefined;
+          if (!r) throw new HttpError(404, "report not found");
+          const pdf = await reportPdf(r, audit.of(r.id));
+          const name = r.content.title.replace(/[^\w ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "report";
+          return new Response(pdf, { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${name}.pdf"`, "cache-control": "no-store" } });
+        } catch (e) {
+          return fail(e);
+        }
+      },
     },
     "/api/reports/:id/counter": { POST: authed((req, me) => counterNarrative(req.params.id, me.username)) },
     "/api/shield": {

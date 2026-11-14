@@ -3,9 +3,10 @@ import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
+import { Section, Summary } from "@/components/form-kit";
+import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,51 +75,49 @@ function Users() {
 
 function UserForm({ id }: { id?: string }) {
   const act = useUserAction();
+  const { data } = useUsers();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const target = data?.find((u) => u.id === id);
   return (
-    <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
-      <form
-        className="max-w-md"
-        onSubmit={(e) => {
-          e.preventDefault();
-          act.mutate(id ? { kind: "password", id, password } : { kind: "add", username, password }, {
-            onSuccess: () => (toast.success(id ? "Password changed" : "User added"), navigate({ to: "/users" })),
-            onError: (err) => toast.error(err.message),
-          });
-        }}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>{id ? "Change password" : "New user"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FieldGroup>
-              {!id && (
-                <Field>
-                  <FieldLabel htmlFor="username">Username</FieldLabel>
-                  <Input id="username" required autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
-                </Field>
-              )}
+    <form
+      className="grid gap-4 px-4 md:gap-6 lg:px-6 @5xl/main:grid-cols-[minmax(0,1fr)_360px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        act.mutate(id ? { kind: "password", id, password } : { kind: "add", username, password }, {
+          onSuccess: () => (toast.success(id ? "Password changed" : "User added"), navigate({ to: "/users" })),
+          onError: (err) => toast.error(err.message),
+        });
+      }}
+    >
+      <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+        <Section step={1} title={id ? `New password for ${target?.username ?? ""}` : "Account"}>
+          <FieldGroup className="grid gap-4 @3xl/main:grid-cols-2">
+            {!id && (
               <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input id="password" type="password" required minLength={10} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <FieldLabel htmlFor="username">Username</FieldLabel>
+                <Input id="username" required autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} className="h-11" />
               </Field>
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="justify-end gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/users">Cancel</Link>
-            </Button>
-            <Button type="submit" disabled={act.isPending}>
-              {act.isPending && <Spinner />}
-              Save
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
-    </div>
+            )}
+            <Field>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Input id="password" type="password" required minLength={10} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" />
+            </Field>
+          </FieldGroup>
+          <Progress value={Math.min(100, (password.length / 16) * 100)} className="h-1.5" />
+        </Section>
+      </div>
+      <Summary title="Users" rows={(data ?? []).map((u) => [u.username, u.lastLogin ? ago(u.lastLogin) : "never signed in"] as [string, string])}>
+        <Button type="submit" className="w-full" disabled={act.isPending || password.length < 10 || (!id && !username.trim())}>
+          {act.isPending && <Spinner />}
+          {id ? "Change password" : "Add user"}
+        </Button>
+        <Button type="button" variant="ghost" className="w-full" asChild>
+          <Link to="/users">Cancel</Link>
+        </Button>
+      </Summary>
+    </form>
   );
 }
 

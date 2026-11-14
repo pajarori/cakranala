@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Pause, Play, Plus, RotateCw, Trash2 } from "lucide-react";
+import { AtSign, LockKeyhole, Music2, Pause, Play, Plus, RotateCw, Trash2, TvMinimalPlay, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
+import { Section, Summary, Tiles } from "@/components/form-kit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,6 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAddCredential, useCredentialAction, useCredentials } from "@/lib/queries";
 import { ago, int } from "@/lib/format";
 import type { Credential, CredentialPlatform } from "@/lib/api";
@@ -105,6 +104,8 @@ function Credentials() {
   );
 }
 
+const ICON: Record<CredentialPlatform, LucideIcon> = { x: AtSign, youtube: TvMinimalPlay, tiktok: Music2 };
+
 function NewCredential() {
   const { data } = useCredentials();
   const add = useAddCredential();
@@ -113,36 +114,37 @@ function NewCredential() {
   const [label, setLabel] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const names = data?.platforms[platform] ?? [];
+  const of = (p: CredentialPlatform) => data?.items.filter((c) => c.platform === p) ?? [];
+  const ready = (p: CredentialPlatform) => of(p).filter((c) => c.active && !(c.cooldownUntil && c.cooldownUntil > Date.now())).length;
+  const filled = names.filter((n) => (fields[`${platform}:${n}`] ?? "").trim()).length;
   return (
-    <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
-      <form
-        className="max-w-2xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          add.mutate(
-            { platform, label, fields: Object.fromEntries(names.map((n) => [n, fields[`${platform}:${n}`] ?? ""])) },
-            { onSuccess: () => (toast.success("Credential added"), navigate({ to: "/credentials" })), onError: (err) => toast.error(err.message) },
-          );
-        }}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>New credential</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <ToggleGroup type="single" variant="outline" value={platform} onValueChange={(v) => v && setPlatform(v as CredentialPlatform)} className="w-full">
-              {(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => (
-                <ToggleGroupItem key={p} value={p} className="flex-1">
-                  {PLATFORM[p]}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            <div className="flex flex-col gap-2">
+    <form
+      className="grid gap-4 px-4 md:gap-6 lg:px-6 @5xl/main:grid-cols-[minmax(0,1fr)_360px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        add.mutate(
+          { platform, label, fields: Object.fromEntries(names.map((n) => [n, fields[`${platform}:${n}`] ?? ""])) },
+          { onSuccess: () => (toast.success("Credential added"), navigate({ to: "/credentials" })), onError: (err) => toast.error(err.message) },
+        );
+      }}
+    >
+      <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+        <Section step={1} title="Platform">
+          <Tiles
+            value={platform}
+            onChange={setPlatform}
+            cols="grid-cols-3"
+            items={(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => ({ id: p, label: PLATFORM[p], icon: ICON[p], badge: <Badge variant={ready(p) ? "secondary" : "outline"}>{ready(p)} ready</Badge> }))}
+          />
+        </Section>
+        <Section step={2} title="Session">
+          <div className="grid gap-4 @3xl/main:grid-cols-2">
+            <div className="flex flex-col gap-2 @3xl/main:col-span-2">
               <Label htmlFor="label">Name</Label>
-              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Optional" autoComplete="off" />
+              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Optional" autoComplete="off" className="h-11" />
             </div>
             {names.map((n) => (
-              <div key={`${platform}:${n}`} className="flex flex-col gap-2">
+              <div key={`${platform}:${n}`} className={`flex flex-col gap-2 ${n === "cookie" || n === "userAgent" ? "@3xl/main:col-span-2" : ""}`}>
                 <Label htmlFor={n}>{FIELD[n] ?? n}</Label>
                 <Input
                   id={n}
@@ -152,22 +154,30 @@ function NewCredential() {
                   onChange={(e) => setFields({ ...fields, [`${platform}:${n}`]: e.target.value })}
                   autoComplete="off"
                   spellCheck={false}
+                  className="h-11 font-mono"
                 />
               </div>
             ))}
-          </CardContent>
-          <CardFooter className="justify-end gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/credentials">Cancel</Link>
-            </Button>
-            <Button type="submit" disabled={add.isPending || !names.length}>
-              {add.isPending && <Spinner />}
-              Save encrypted
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
-    </div>
+          </div>
+        </Section>
+      </div>
+      <Summary
+        title="Vault"
+        rows={[
+          ...(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => [PLATFORM[p], `${ready(p)} ready of ${of(p).length}`] as [string, string]),
+          ["Fields", `${filled} of ${names.length}`],
+          ["Encryption", "AES-GCM"],
+        ]}
+      >
+        <Button type="submit" className="w-full" disabled={add.isPending || !names.length}>
+          {add.isPending ? <Spinner /> : <LockKeyhole />}
+          Save encrypted
+        </Button>
+        <Button type="button" variant="ghost" className="w-full" asChild>
+          <Link to="/credentials">Cancel</Link>
+        </Button>
+      </Summary>
+    </form>
   );
 }
 

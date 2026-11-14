@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Hash, MessageSquareText, Pause, Play, Plus, Trash2, UserRound, Clapperboard } from "lucide-react";
+import { AtSign, Clapperboard, Hash, MessageSquareText, Music2, Pause, Play, Plus, Send, Trash2, TvMinimalPlay, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
+import { Section, Summary, Tiles } from "@/components/form-kit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ensureState, useCapabilities, useCreateMonitor, useDeleteMonitor, useOps, useToggleMonitor } from "@/lib/queries";
+import { ensureState, useCapabilities, useCreateMonitor, useCredentials, useDeleteMonitor, useOps, useToggleMonitor } from "@/lib/queries";
 import { ago, int, pct } from "@/lib/format";
 import type { MonitorKind, MonitorState, Platform } from "@/lib/api";
 
@@ -138,8 +138,28 @@ function Monitors() {
   );
 }
 
+const SOURCES: { id: Platform | "demo"; label: string; icon: typeof Hash }[] = [
+  { id: "x", label: "X", icon: AtSign },
+  { id: "youtube", label: "YouTube", icon: TvMinimalPlay },
+  { id: "telegram", label: "Telegram", icon: Send },
+  { id: "tiktok", label: "TikTok", icon: Music2 },
+  { id: "demo", label: "Demo feed", icon: Clapperboard },
+];
+
+const xQuery = (kind: MonitorKind, t: string) => {
+  const v = t.trim();
+  if (!v) return "";
+  if (kind === "account") {
+    const h = v.replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//, "").split(/[/?]/)[0];
+    return `(to:${h} OR @${h})`;
+  }
+  if (kind === "post") return `conversation ${v.match(/status\/(\d+)/)?.[1] ?? v}`;
+  return v;
+};
+
 function NewMonitor() {
   const caps = useCapabilities();
+  const creds = useCredentials();
   const create = useCreateMonitor();
   const navigate = useNavigate();
   const [source, setSource] = useState<Platform | "demo">("x");
@@ -153,115 +173,106 @@ function NewMonitor() {
   const kind = kinds.includes(picked) ? picked : kinds[0];
   const T = TARGETS[`${source}:${kind}`];
   const live = source !== "demo";
-  const blocked = (source === "x" && !caps.data?.live) || (source === "tiktok" && !caps.data?.tiktok);
+  const ready = (p: Platform) => creds.data?.items.filter((c) => c.platform === p && c.active && !(c.cooldownUntil && c.cooldownUntil > Date.now())).length ?? 0;
+  const status = (p: Platform | "demo") => {
+    if (p === "demo" || p === "telegram") return { ok: true, text: "No login" };
+    if (p === "youtube") return { ok: true, text: ready("youtube") ? `${ready("youtube")} ready` : "No login" };
+    if (p === "tiktok" && !caps.data?.tiktok) return { ok: false, text: "Sidecar off" };
+    return ready(p) ? { ok: true, text: `${ready(p)} ready` } : { ok: false, text: "No credential" };
+  };
+  const blocked = !status(source).ok;
+  const videos = source === "youtube" || source === "tiktok";
+  const runs = Math.round(1440 / Number(interval));
+  const submit = () =>
+    create.mutate(
+      { kind, platform: live ? source : undefined, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
+      { onSuccess: () => (toast.success("Monitor created"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
+    );
+  const summary: [string, React.ReactNode][] = [
+    ["Source", SOURCES.find((x) => x.id === source)!.label],
+    ["Type", KINDS[kind].label],
+    ["Target", target.trim() ? <span className="font-mono break-all">{target.trim()}</span> : <span className="text-muted-foreground">not set</span>],
+    ...(source === "x" && target.trim() ? ([["Query", <span className="font-mono break-all">{xQuery(kind, target)}</span>]] as [string, React.ReactNode][]) : []),
+    ...(live
+      ? ([
+          ["Runs per day", int(runs)],
+          [videos ? "Videos per day" : "Requests per day", int(runs * Number(pages))],
+          ["Credentials", <Badge variant={status(source).ok ? "secondary" : "destructive"}>{status(source).text}</Badge>],
+        ] as [string, React.ReactNode][])
+      : ([["Replay", `${Math.round(480 / Number(speed))} minutes`]] as [string, React.ReactNode][])),
+  ];
   return (
-    <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
-      <form
-        className="max-w-2xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          create.mutate(
-            { kind, platform: live ? source : undefined, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
-            { onSuccess: () => (toast.success("Monitor created"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
-          );
-        }}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>New monitor</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <ToggleGroup type="single" variant="outline" value={source} onValueChange={(v) => v && setSource(v as Platform | "demo")} className="w-full">
-              {[...(Object.keys(PLATFORMS) as Platform[]).map((p) => [p, PLATFORMS[p].label]), ["demo", "Demo feed"]].map(([p, l]) => (
-                <ToggleGroupItem key={p} value={p} className="flex-1">
-                  {l}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            {kinds.length > 1 && (
-            <ToggleGroup type="single" variant="outline" value={kind} onValueChange={(v) => v && setKind(v as MonitorKind)} className="w-full">
-              {kinds.map((k) => {
-                const I = KINDS[k].icon;
-                return (
-                  <ToggleGroupItem key={k} value={k} className="flex-1">
-                    <I />
-                    {KINDS[k].label}
-                  </ToggleGroupItem>
-                );
-              })}
-            </ToggleGroup>
-            )}
+    <form
+      className="grid gap-4 px-4 md:gap-6 lg:px-6 @5xl/main:grid-cols-[minmax(0,1fr)_360px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+        <Section step={1} title="Source">
+          <Tiles
+            value={source}
+            onChange={setSource}
+            cols="grid-cols-2 @xl/main:grid-cols-5"
+            items={SOURCES.map((x) => ({ ...x, badge: <Badge variant={status(x.id).ok ? "secondary" : "outline"}>{status(x.id).text}</Badge> }))}
+          />
+        </Section>
+        <Section step={2} title="Target">
+          {kinds.length > 1 && <Tiles value={kind} onChange={setKind} cols={kinds.length === 3 ? "grid-cols-3" : "grid-cols-2"} items={kinds.map((k) => ({ id: k, label: KINDS[k].label, icon: KINDS[k].icon }))} />}
+          <div className="grid gap-4 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <div className="flex flex-col gap-2">
               <Label htmlFor="target">{T.label}</Label>
-              <Input id="target" required value={target} onChange={(e) => setTarget(e.target.value)} placeholder={T.placeholder} autoComplete="off" spellCheck={false} />
+              <Input id="target" required value={target} onChange={(e) => setTarget(e.target.value)} placeholder={T.placeholder} autoComplete="off" spellCheck={false} className="h-11" />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="label">Name</Label>
-              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Optional" />
+              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Optional" className="h-11" />
             </div>
-            {live ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label>Collect every</Label>
-                  <Select value={interval} onValueChange={setInterval_}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["5", "15", "30", "60"].map((v) => (
-                        <SelectItem key={v} value={v}>
-                          {v} minutes
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>{source === "youtube" || source === "tiktok" ? "Videos per run" : "Pages per run"}</Label>
-                  <Select value={pages} onValueChange={setPages}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["1", "3", "5", "10"].map((v) => (
-                        <SelectItem key={v} value={v}>
-                          {source === "youtube" || source === "tiktok" ? `${v} videos` : `${v} pages`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ) : (
+          </div>
+        </Section>
+        <Section step={3} title={live ? "Schedule" : "Replay"}>
+          {live ? (
+            <div className="grid gap-5 @3xl/main:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label>Replay speed</Label>
-                <Select value={speed} onValueChange={setSpeed}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30">8 hours in 16 minutes</SelectItem>
-                    <SelectItem value="60">8 hours in 8 minutes</SelectItem>
-                    <SelectItem value="240">8 hours in 2 minutes</SelectItem>
-                    <SelectItem value="600">Almost instant</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Collect every</Label>
+                <Tiles value={interval} onChange={setInterval_} cols="grid-cols-4" items={["5", "15", "30", "60"].map((v) => ({ id: v, label: `${v} min` }))} />
               </div>
-            )}
-            {blocked && <p className="text-sm text-destructive">{source === "tiktok" ? "TikTok sidecar is not configured on this server." : "X collection is not configured on this server."}</p>}
-          </CardContent>
-          <CardFooter className="justify-end gap-2">
-            <Button type="button" variant="outline" asChild>
-              <Link to="/monitors">Cancel</Link>
-            </Button>
-            <Button type="submit" disabled={blocked || !target.trim() || create.isPending}>
-              {create.isPending && <Spinner />}
-              Start monitoring
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
-    </div>
+              <div className="flex flex-col gap-2">
+                <Label>{videos ? "Videos per run" : "Pages per run"}</Label>
+                <Tiles value={pages} onChange={setPages} cols="grid-cols-4" items={["1", "3", "5", "10"].map((v) => ({ id: v, label: v }))} />
+              </div>
+            </div>
+          ) : (
+            <Tiles
+              value={speed}
+              onChange={setSpeed}
+              cols="grid-cols-2 @xl/main:grid-cols-4"
+              items={[
+                { id: "30", label: "16 minutes" },
+                { id: "60", label: "8 minutes" },
+                { id: "240", label: "2 minutes" },
+                { id: "600", label: "Instant" },
+              ]}
+            />
+          )}
+        </Section>
+      </div>
+      <Summary rows={summary}>
+        <Button type="submit" className="w-full" disabled={blocked || !target.trim() || create.isPending}>
+          {create.isPending ? <Spinner /> : <Play />}
+          Start monitoring
+        </Button>
+        {blocked && (
+          <Button type="button" variant="outline" className="w-full" asChild>
+            <Link to="/credentials/new">Add credential</Link>
+          </Button>
+        )}
+        <Button type="button" variant="ghost" className="w-full" asChild>
+          <Link to="/monitors">Cancel</Link>
+        </Button>
+      </Summary>
+    </form>
   );
 }
 
