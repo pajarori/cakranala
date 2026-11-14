@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute, createRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -8,6 +8,7 @@ import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/em
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { meQuery, queryClient } from "@/lib/queries";
 
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
@@ -29,12 +30,26 @@ function Layout() {
           </div>
         </div>
       </SidebarInset>
-      <Toaster position="bottom-right" />
     </SidebarProvider>
   );
 }
 
-export const rootRoute = createRootRoute({
+export const shellRoute = createRootRoute({
+  component: () => (
+    <>
+      <Outlet />
+      <Toaster position="bottom-right" />
+    </>
+  ),
+});
+
+export const rootRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  id: "app",
+  beforeLoad: async () => {
+    const me = await queryClient.fetchQuery(meQuery);
+    if (!me.user) throw redirect({ to: "/login" });
+  },
   component: Layout,
   pendingComponent: () => (
     <div className="flex flex-col gap-4 px-4 lg:px-6">

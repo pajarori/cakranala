@@ -24,6 +24,17 @@ export const useAddCredential = () => {
   const done = useInvalidate(["credentials"], ["capabilities"]);
   return useMutation({ mutationFn: api.addCredential, onSuccess: done });
 };
+export const meQuery = queryOptions({ queryKey: ["me"], queryFn: api.me, staleTime: 60_000 });
+export const useMe = () => useQuery(meQuery);
+export const useUsers = () => useQuery({ queryKey: ["users"], queryFn: api.users });
+export const useUserAction = () => {
+  const done = useInvalidate(["users"]);
+  return useMutation({
+    mutationFn: async (a: { kind: "add"; username: string; password: string } | { kind: "password"; id: string; password: string } | { kind: "remove"; id: string }): Promise<unknown> =>
+      a.kind === "add" ? api.addUser({ username: a.username, password: a.password }) : a.kind === "password" ? api.setPassword(a.id, a.password) : api.removeUser(a.id),
+    onSuccess: done,
+  });
+};
 export const useAudit = () => useQuery({ queryKey: ["audit"], queryFn: api.audit, refetchInterval: 15_000 });
 export const useAblation = () => useQuery({ queryKey: ["ablation"], queryFn: api.ablation, staleTime: Infinity, retry: 0 });
 export const useReports = () => useSuspenseQuery(reportsQuery).data;

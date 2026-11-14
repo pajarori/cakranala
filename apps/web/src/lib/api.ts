@@ -3,6 +3,7 @@ import type { snapshot, CaseView, Severity } from "../server/analysis";
 import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow } from "../server/db";
 import type { ReportContent } from "../server/reports";
 import type { Credential, CredentialPlatform } from "../server/credentials";
+import type { User } from "../server/auth";
 
 export type State = ReturnType<typeof snapshot>;
 export type Report = NonNullable<State["report"]>;
@@ -12,7 +13,7 @@ export type Case = CaseView;
 export type MonitorState = State["monitors"][number];
 export type ReportItem = ReportRow<ReportContent>;
 export type Audit = { entries: number; valid: boolean; brokenAt: number | null; recent: AuditEntry[] };
-export type { Credential, CredentialPlatform };
+export type { Credential, CredentialPlatform, User };
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface AblationRow {
@@ -36,39 +37,29 @@ export interface Capabilities {
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { ...init, headers: { "content-type": "application/json", ...init?.headers } });
+  const res = await fetch(path, { ...init, credentials: "same-origin", headers: { "content-type": "application/json", ...init?.headers } });
+  if (res.status === 401 && !path.startsWith("/api/auth/") && location.pathname !== "/login") location.assign("/login");
   const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
   if (!res.ok || data?.error) throw new Error(data?.error ?? `HTTP ${res.status}`);
   return data as T;
 }
 
-const KEY = "cakranala.operator";
-
-export const operatorToken = {
-  get: () => {
-    try {
-      return sessionStorage.getItem(KEY) ?? "";
-    } catch {
-      return "";
-    }
-  },
-  set: (token: string) => {
-    try {
-      if (token) sessionStorage.setItem(KEY, token);
-      else sessionStorage.removeItem(KEY);
-    } catch {}
-  },
-};
-
-const send = (method: string, body?: unknown, token = operatorToken.get()): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body), headers: token ? { "x-operator-token": token } : undefined });
+const send = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) });
 
 export const api = {
+  me: () => call<{ user: User | null; setup: boolean }>("/api/auth/me"),
+  login: (body: { username: string; password: string }) => call<{ user: User }>("/api/auth/login", send("POST", body)),
+  setup: (body: { username: string; password: string }) => call<{ user: User }>("/api/auth/setup", send("POST", body)),
+  logout: () => call<{ ok: true }>("/api/auth/logout", send("POST")),
+  users: () => call<User[]>("/api/users"),
+  addUser: (body: { username: string; password: string }) => call<User>("/api/users", send("POST", body)),
+  setPassword: (id: string, password: string) => call<{ ok: true }>(`/api/users/${id}`, send("PATCH", { password })),
+  removeUser: (id: string) => call<{ ok: true }>(`/api/users/${id}`, send("DELETE")),
   capabilities: () => call<Capabilities>("/api/capabilities"),
   state: () => call<State>("/api/state"),
   createMonitor: (body: { kind: MonitorKind; platform?: Platform; target: string; label?: string; intervalMin?: number; pages?: number; speed?: number }) => call<Monitor>("/api/monitors", send("POST", body)),
   toggleMonitor: (id: string, active: boolean) => call<Monitor>(`/api/monitors/${id}`, send("PATCH", { active })),
   deleteMonitor: (id: string) => call<{ ok: true }>(`/api/monitors/${id}`, send("DELETE")),
-  verifyOperator: (token: string) => call<{ ok: true }>("/api/operator", send("POST", undefined, token)),
   setStatus: (id: string, status: CaseStatus) => call<{ ok: true }>(`/api/cases/${id}`, send("PATCH", { status })),
   createReport: (caseId: string) => call<ReportItem>(`/api/cases/${caseId}/reports`, send("POST")),
   reports: () => call<ReportItem[]>("/api/reports"),

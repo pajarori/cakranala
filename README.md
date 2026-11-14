@@ -82,7 +82,9 @@ Stack: Bun, React 19, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui
 | `/reports`, `/reports/:id` | Commander reports, print or save as PDF, counter narrative drafts |
 | `/perisai` | Public message and screenshot checker |
 | `/system` | Real data validation, simulated accuracy, audit chain |
-| `/operator` | Operator sign in for actions that change state |
+| `/login` | Sign in, or create the first account on a fresh install |
+| `/users` | Add users, change passwords, remove users |
+| `/credentials` | Encrypted platform credentials |
 
 On first start with an empty database the server creates a demo feed that replays the fictional Pulau Seruni scenario (8 hours in 8 minutes), so the dashboard comes alive without any external data.
 
@@ -106,8 +108,8 @@ docker compose --profile test run --rm test
 ### Deploy to a server
 
 1. Point a DNS record at the server and install Docker with Compose.
-2. Clone the repository, `cp .env.example .env`, and set `DOMAIN`, `OPERATOR_TOKEN` (a long random string) and `PSEUDONYM_SECRET`.
-3. Start it with automatic HTTPS:
+2. Clone the repository, `cp .env.example .env`, and set `DOMAIN` and `PSEUDONYM_SECRET`.
+3. Start it with automatic HTTPS, then open the site right away and create the first account (the first visitor to a fresh install creates it):
 
    ```bash
    docker compose -f docker-compose.prod.yml up -d --build
@@ -116,14 +118,13 @@ docker compose --profile test run --rm test
 4. Back up `./data` regularly. It holds the SQLite database with cases, reports and the audit chain.
 5. Update with `git pull` followed by the same `up -d --build` command.
 
-Only Caddy is exposed (ports 80 and 443). Anyone can view the dashboard and use Perisai (rate limited per address). Creating monitors, changing case status and writing reports require signing in at `/operator` with the operator token.
+Only Caddy is exposed (ports 80 and 443). The dashboard requires signing in. Passwords are hashed with Argon2id, sessions are HttpOnly cookies, and sign in attempts are rate limited per address. There is a single role: every user can do everything, and every change is recorded in the audit log with the username. The Perisai API (`/api/shield`) stays public and rate limited.
 
 ### Configuration
 
 | Variable | Purpose |
 |---|---|
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Language model for case titles, briefs, reports, counter narratives and Perisai. Any OpenAI compatible endpoint works, including a self hosted model. Optional. |
-| `OPERATOR_TOKEN` | Required to change monitors, case status and reports. |
 | `PSEUDONYM_SECRET` | HMAC key used to pseudonymize collected accounts. |
 | `DOMAIN` | Public domain for HTTPS in the production compose file. |
 | `LIBRARY_FEED` | RSS feed of published fact checks that Perisai matches against, refreshed hourly. |

@@ -9,7 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -45,11 +45,6 @@ function Credentials() {
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>{error.message}</AlertTitle>
-          <AlertDescription>
-            <Link to="/operator" className="underline">
-              Sign in as operator
-            </Link>
-          </AlertDescription>
         </Alert>
       ) : isPending || !data ? (
         <Skeleton className="h-48 rounded-xl" />

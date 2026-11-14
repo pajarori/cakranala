@@ -1,6 +1,6 @@
 import type * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { FileText, KeyRound, LockKeyhole, LayoutDashboard, Radar, ScanEye, Settings, ShieldAlert, ShieldCheck } from "lucide-react";
+import { FileText, LockKeyhole, Users, LayoutDashboard, Radar, ScanEye, Settings, ShieldAlert, ShieldCheck } from "lucide-react";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -41,7 +41,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             { title: "Perisai", url: "/perisai", icon: ShieldCheck },
             { title: "System", url: "/system", icon: Settings },
             { title: "Credentials", url: "/credentials", icon: LockKeyhole },
-            { title: "Operator", url: "/operator", icon: KeyRound },
+            { title: "Users", url: "/users", icon: Users },
           ]}
         />
       </SidebarContent>

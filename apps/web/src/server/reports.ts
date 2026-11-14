@@ -44,7 +44,7 @@ function facts(id: string) {
   };
 }
 
-export async function createReport(caseId: string): Promise<ReportRow<ReportContent>> {
+export async function createReport(caseId: string, by: string): Promise<ReportRow<ReportContent>> {
   const { c, narratives, clusters, table, evidence } = facts(caseId);
   let content: ReportContent = {
     title: c.title,
@@ -83,11 +83,11 @@ export async function createReport(caseId: string): Promise<ReportRow<ReportCont
   }
   const row: ReportRow<ReportContent> = { id: crypto.randomUUID(), caseId, createdAt: Date.now(), content, counter: null };
   const hash = reports.insert(row);
-  audit.add("report.created", row.id, { caseId, sha256: hash, evidenceRoot: evidence.root, events: evidence.events });
+  audit.add("report.created", row.id, { caseId, sha256: hash, evidenceRoot: evidence.root, events: evidence.events, by });
   return { ...row, hash };
 }
 
-export async function counterNarrative(reportId: string) {
+export async function counterNarrative(reportId: string, by: string) {
   const r = reports.get(reportId) as ReportRow<ReportContent> | undefined;
   if (!r) throw new Error("report not found");
   if (!reasoner) throw new Error("no language model configured");
@@ -100,6 +100,6 @@ export async function counterNarrative(reportId: string) {
   ].join("\n\n");
   const text = clean(await reasoner.complete(prompt));
   reports.setCounter(reportId, text);
-  audit.add("report.counter", reportId, { sha256: sha256(text) });
+  audit.add("report.counter", reportId, { sha256: sha256(text), by });
   return text;
 }
