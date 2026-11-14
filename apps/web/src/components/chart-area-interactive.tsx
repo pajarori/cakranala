@@ -8,13 +8,13 @@ import type { State } from "@/lib/api";
 import { clock } from "@/lib/format";
 
 const config = {
-  total: { label: "All posts", color: "var(--chart-2)" },
-  coordinated: { label: "From coordinated accounts", color: "var(--chart-5)" },
+  total: { label: "Semua post", color: "var(--chart-2)" },
+  coordinated: { label: "Dari akun terkoordinasi", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 const RANGES = { "1h": 3600_000, "6h": 6 * 3600_000, "24h": 24 * 3600_000 };
 
-export function ChartAreaInteractive({ activity, title = "Activity", description = "Posts collected by all monitors" }: { activity: State["activity"]; title?: string; description?: string }) {
+export function ChartAreaInteractive({ activity, title = "Aktivitas", description = "Post yang dikumpulkan semua pantauan" }: { activity: State["activity"]; title?: string; description?: string }) {
   const [range, setRange] = useState<keyof typeof RANGES>("24h");
   const end = activity.start + activity.total.length * activity.binSec * 1000;
   const data = activity.total
@@ -27,18 +27,18 @@ export function ChartAreaInteractive({ activity, title = "Activity", description
         <CardDescription>{description}</CardDescription>
         <CardAction>
           <ToggleGroup type="single" value={range} onValueChange={(v) => v && setRange(v as keyof typeof RANGES)} variant="outline" className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex">
-            <ToggleGroupItem value="24h">Last 24 hours</ToggleGroupItem>
-            <ToggleGroupItem value="6h">Last 6 hours</ToggleGroupItem>
-            <ToggleGroupItem value="1h">Last hour</ToggleGroupItem>
+            <ToggleGroupItem value="24h">24 jam terakhir</ToggleGroupItem>
+            <ToggleGroupItem value="6h">6 jam terakhir</ToggleGroupItem>
+            <ToggleGroupItem value="1h">1 jam terakhir</ToggleGroupItem>
           </ToggleGroup>
           <Select value={range} onValueChange={(v) => setRange(v as keyof typeof RANGES)}>
             <SelectTrigger className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden" size="sm" aria-label="Time range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="24h">Last 24 hours</SelectItem>
-              <SelectItem value="6h">Last 6 hours</SelectItem>
-              <SelectItem value="1h">Last hour</SelectItem>
+              <SelectItem value="24h">24 jam terakhir</SelectItem>
+              <SelectItem value="6h">6 jam terakhir</SelectItem>
+              <SelectItem value="1h">1 jam terakhir</SelectItem>
             </SelectContent>
           </Select>
         </CardAction>

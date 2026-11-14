@@ -3,6 +3,7 @@ import { createE5Embedder, reasonerFromEnv } from "cakranala-embeder";
 import { alerts, cases, monitors, store, type Alert, type CaseRow } from "./db";
 import { DEMO_MODE, due, rateState, runMonitor, simulationProgress } from "./monitors";
 import { techniques, type Technique } from "./disarm";
+import { notifyWatchlist } from "./actors";
 
 export const reasoner = reasonerFromEnv();
 const WINDOW = 24 * 3600_000;
@@ -174,7 +175,10 @@ export async function refresh(force = false) {
   for (const m of monitors.all()) if (due(m, now)) await runMonitor(m, now);
   const from = now - WINDOW;
   const { actors, events } = store.window(from);
-  if (!force && events.length === lastCount) return;
+  if (!force && events.length === lastCount) {
+    notifyWatchlist(state.cases);
+    return;
+  }
   lastCount = events.length;
   if (events.length < 30) {
     state = { ...state, updatedAt: now, window: { from, to: now }, report: null, actors: [], cases: order(dormant()), activity: { binSec: 0, start: from, total: [], coordinated: [] }, evaluation: null };
@@ -197,6 +201,8 @@ export async function refresh(force = false) {
       activity: activity(report, events, from, now),
       evaluation: ds.truth ? evaluate(report, ds.truth) : null,
     };
+    notifyWatchlist(state.cases);
+    state = { ...state, alerts: alerts.recent() };
   } catch (e) {
     console.error("analysis failed", e);
     state = { ...state, analyzing: false };

@@ -4,8 +4,8 @@ import type { Narrative } from "@/lib/api";
 import { clock } from "@/lib/format";
 
 const config = {
-  observed: { label: "Observed", color: "var(--chart-5)" },
-  organic: { label: "Without coordinated accounts", color: "var(--chart-2)" },
+  observed: { label: "Teramati", color: "var(--chart-5)" },
+  organic: { label: "Tanpa akun terkoordinasi", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
 export function Counterfactual({ narrative, height = 260 }: { narrative: Narrative; height?: number }) {

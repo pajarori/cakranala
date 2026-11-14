@@ -1,6 +1,6 @@
 import type * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { FileText, LockKeyhole, Users, LayoutDashboard, Radar, ScanEye, Settings, ShieldAlert, ShieldCheck } from "lucide-react";
+import { FileText, LockKeyhole, Users, LayoutDashboard, Radar, ScanEye, Settings, ShieldAlert, ShieldCheck, UserSearch } from "lucide-react";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -30,6 +30,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           items={[
             { title: "Situation", url: "/", icon: LayoutDashboard },
             { title: "Threats", url: "/threats", icon: ShieldAlert, badge: open },
+            { title: "Actors", url: "/actors", icon: UserSearch },
             { title: "Monitors", url: "/monitors", icon: ScanEye },
             { title: "Reports", url: "/reports", icon: FileText },
           ]}

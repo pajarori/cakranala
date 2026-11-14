@@ -35,6 +35,15 @@ export const useUserAction = () => {
     onSuccess: done,
   });
 };
+export const actorQuery = (id: string) => queryOptions({ queryKey: ["actor", id], queryFn: () => api.actor(id) });
+export const useActors = (q: { q: string; filter: string; page: number }) => useQuery({ queryKey: ["actors", q], queryFn: () => api.actors(q), placeholderData: (prev) => prev });
+export const useActor = (id: string) => useSuspenseQuery(actorQuery(id)).data;
+export const useWatchlist = () => useQuery({ queryKey: ["watchlist"], queryFn: api.watchlist });
+export const useTemplates = () => useQuery({ queryKey: ["templates"], queryFn: api.templates, staleTime: Infinity });
+export const useWatch = () => {
+  const done = useInvalidate(["actor"], ["actors"], ["watchlist"]);
+  return useMutation({ mutationFn: async (a: { id: string; watch: boolean; note?: string }): Promise<unknown> => (a.watch ? api.watch(a.id, a.note ?? "") : api.unwatch(a.id)), onSuccess: done });
+};
 export const useAudit = () => useQuery({ queryKey: ["audit"], queryFn: api.audit, refetchInterval: 15_000 });
 export const useReports = () => useSuspenseQuery(reportsQuery).data;
 export const useReport = (id: string) => useSuspenseQuery(reportQuery(id)).data;

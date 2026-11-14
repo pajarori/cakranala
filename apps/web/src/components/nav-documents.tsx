@@ -9,7 +9,7 @@ export function NavDocuments() {
   if (!data?.length) return null;
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Recent reports</SidebarGroupLabel>
+      <SidebarGroupLabel>Laporan terbaru</SidebarGroupLabel>
       <SidebarMenu>
         {data.slice(0, 4).map((r) => (
           <SidebarMenuItem key={r.id}>
@@ -25,7 +25,7 @@ export function NavDocuments() {
           <SidebarMenuButton asChild className="text-sidebar-foreground/70">
             <Link to="/reports">
               <MoreHorizontal className="text-sidebar-foreground/70" />
-              <span>All reports</span>
+              <span>Semua laporan</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

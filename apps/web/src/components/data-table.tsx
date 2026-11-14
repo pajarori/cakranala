@@ -20,16 +20,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Counterfactual } from "@/components/counterfactual";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useSetStatus } from "@/lib/queries";
-import { SEVERITY_VARIANT, STATUS_LABEL, ago, approx, int, ratio } from "@/lib/format";
+import { SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, int, ratio } from "@/lib/format";
 import { inflation } from "@/lib/profile";
 import type { Case, CaseStatus, State } from "@/lib/api";
 
@@ -45,12 +45,13 @@ const features = tableFeatures({
 
 const helper = createColumnHelper<typeof features, Case>();
 const RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+const COLUMN_LABEL: Record<string, string> = { severity: "Tingkat", status: "Status", apparent: "Pendukung", inflation: "Inflasi", clusters: "Cluster", lastSeen: "Aktivitas terakhir" };
 
 function StatusSelect({ c }: { c: Case }) {
   const set = useSetStatus();
   return (
     <Select value={c.status} onValueChange={(v) => set.mutate({ id: c.id, status: v as CaseStatus })}>
-      <SelectTrigger size="sm" className="w-36" aria-label={`Status of ${c.title}`}>
+      <SelectTrigger size="sm" className="w-36" aria-label={`Status ${c.title}`}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
@@ -65,66 +66,50 @@ function StatusSelect({ c }: { c: Case }) {
 }
 
 function QuickView({ c, state }: { c: Case; state: State }) {
-  const isMobile = useIsMobile();
   const narratives = state.report?.narratives.filter((n) => c.narratives.includes(n.id)) ?? [];
-  const lead = narratives.sort((a, b) => b.supporters - a.supporters)[0];
+  const lead = [...narratives].sort((a, b) => b.supporters - a.supporters)[0];
   return (
-    <Drawer direction={isMobile ? "bottom" : "right"}>
-      <DrawerTrigger asChild>
-        <Button variant="link" className="h-auto w-fit max-w-[420px] justify-start px-0 text-left whitespace-normal text-foreground">
+    <HoverCard openDelay={250}>
+      <HoverCardTrigger asChild>
+        <Link to="/threats/$id" params={{ id: c.id }} className="block max-w-[440px] font-medium whitespace-normal hover:underline">
           {c.title}
-        </Button>
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader className="gap-1">
-          <DrawerTitle>{c.title}</DrawerTitle>
-          <DrawerDescription>
-            First seen {ago(c.firstSeen)}
-          </DrawerDescription>
-        </DrawerHeader>
-        <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
-          {lead && !isMobile && <Counterfactual narrative={lead} height={180} />}
+        </Link>
+      </HoverCardTrigger>
+      <HoverCardContent align="start" className="w-[420px]">
+        <div className="flex flex-col gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Badge variant={SEVERITY_VARIANT[c.severity]}>{SEVERITY_LABEL[c.severity]}</Badge>
+            <span className="text-muted-foreground">Pertama terlihat {ago(c.firstSeen)}</span>
+          </div>
           {c.brief && <p className="leading-relaxed">{c.brief}</p>}
+          {lead && <Counterfactual narrative={lead} height={120} />}
           <Separator />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground">Apparent supporters</Label>
-              <span className="text-lg font-semibold tabular-nums">{int(c.apparent)}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground">Independent voices</Label>
-              <span className="text-lg font-semibold tabular-nums">{approx(c.independent)}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground">Clusters</Label>
-              <span className="text-lg font-semibold tabular-nums">{c.clusters.length}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground">Severity</Label>
-              <span className="text-lg font-semibold capitalize">{c.severity}</span>
-            </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              ["Pendukung tampak", int(c.apparent)],
+              ["Suara independen", approx(c.independent)],
+              ["Cluster", String(c.clusters.length)],
+            ].map(([k, v]) => (
+              <div key={k} className="flex flex-col gap-0.5">
+                <span className="text-xs text-muted-foreground">{k}</span>
+                <span className="font-semibold tabular-nums">{v}</span>
+              </div>
+            ))}
           </div>
         </div>
-        <DrawerFooter>
-          <Button asChild>
-            <Link to="/threats/$id" params={{ id: c.id }}>
-              Open case
-            </Link>
-          </Button>
-          <DrawerClose asChild>
-            <Button variant="outline">Close</Button>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
+const SEVERITIES = ["all", "critical", "high", "medium", "low"] as const;
+const PLATFORM_LABEL: Record<string, string> = { all: "Semua platform", x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok" };
+
 const TABS: { value: string; label: string; match: (c: Case) => boolean }[] = [
-  { value: "open", label: "Open", match: (c) => c.status !== "dismissed" && c.status !== "confirmed" },
-  { value: "confirmed", label: "Confirmed", match: (c) => c.status === "confirmed" },
-  { value: "dismissed", label: "Dismissed", match: (c) => c.status === "dismissed" },
-  { value: "all", label: "All", match: () => true },
+  { value: "open", label: "Terbuka", match: (c) => c.status !== "dismissed" && c.status !== "confirmed" },
+  { value: "confirmed", label: "Terkonfirmasi", match: (c) => c.status === "confirmed" },
+  { value: "dismissed", label: "Diabaikan", match: (c) => c.status === "dismissed" },
+  { value: "all", label: "Semua", match: () => true },
 ];
 
 export function DataTable({ state }: { state: State }) {
@@ -133,28 +118,31 @@ export function DataTable({ state }: { state: State }) {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
-  const data = state.cases.filter(TABS.find((t) => t.value === tab)!.match);
+  const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("all");
+  const [platform, setPlatform] = useState("all");
+  const platformOf = new Map(state.monitors.map((m) => [m.id, m.kind === "simulation" ? "demo" : m.platform]));
+  const platforms = ["all", ...new Set(state.cases.flatMap((c) => c.monitors.map((m) => platformOf.get(m) ?? "")).filter((p) => p && p !== "demo"))];
+  const data = state.cases
+    .filter(TABS.find((t) => t.value === tab)!.match)
+    .filter((c) => severity === "all" || c.severity === severity)
+    .filter((c) => platform === "all" || c.monitors.some((m) => platformOf.get(m) === platform));
 
   const columns = helper.columns([
-    helper.accessor("title", { header: "Threat", cell: ({ row }) => <QuickView c={row.original} state={state} />, enableHiding: false }),
+    helper.accessor("title", { header: "Kasus", cell: ({ row }) => <QuickView c={row.original} state={state} />, enableHiding: false }),
     helper.accessor((c) => RANK[c.severity], {
       id: "severity",
-      header: "Severity",
-      cell: ({ row }) => (
-        <Badge variant={SEVERITY_VARIANT[row.original.severity]} className="capitalize">
-          {row.original.severity}
-        </Badge>
-      ),
+      header: "Tingkat",
+      cell: ({ row }) => <Badge variant={SEVERITY_VARIANT[row.original.severity]}>{SEVERITY_LABEL[row.original.severity]}</Badge>,
     }),
     helper.accessor("status", { header: "Status", cell: ({ row }) => <StatusSelect c={row.original} /> }),
-    helper.accessor("apparent", { header: () => <div className="text-right">Apparent</div>, cell: ({ row }) => <div className="text-right tabular-nums">{row.original.active ? int(row.original.apparent) : "dormant"}</div> }),
+    helper.accessor("apparent", { header: () => <div className="text-right">Pendukung</div>, cell: ({ row }) => <div className="text-right tabular-nums">{row.original.active ? int(row.original.apparent) : "tidak aktif"}</div> }),
     helper.accessor((c) => (c.apparent ? inflation({ supporters: c.apparent, sie: { value: c.independent } }) : 0), {
       id: "inflation",
-      header: () => <div className="text-right">Inflation</div>,
+      header: () => <div className="text-right">Inflasi</div>,
       cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue() ? ratio(getValue()) : "n/a"}</div>,
     }),
-    helper.accessor((c) => c.clusters.length, { id: "clusters", header: () => <div className="text-right">Clusters</div>, cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue()}</div> }),
-    helper.accessor("lastSeen", { header: "Last activity", cell: ({ getValue }) => <span className="text-muted-foreground">{ago(getValue())}</span> }),
+    helper.accessor((c) => c.clusters.length, { id: "clusters", header: () => <div className="text-right">Cluster</div>, cell: ({ getValue }) => <div className="text-right tabular-nums">{getValue()}</div> }),
+    helper.accessor("lastSeen", { header: "Aktivitas terakhir", cell: ({ getValue }) => <span className="text-muted-foreground">{ago(getValue())}</span> }),
   ]);
 
   const table = useTable({
@@ -173,7 +161,7 @@ export function DataTable({ state }: { state: State }) {
     <Tabs value={tab} onValueChange={setTab} className="w-full flex-col justify-start gap-6">
       <div className="flex items-center justify-between px-4 lg:px-6">
         <Label htmlFor="view-selector" className="sr-only">
-          View
+          Tampilan
         </Label>
         <Select value={tab} onValueChange={setTab}>
           <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="view-selector">
@@ -198,11 +186,33 @@ export function DataTable({ state }: { state: State }) {
             );
           })}
         </TabsList>
+        <div className="flex items-center gap-2">
+          <ToggleGroup type="single" variant="outline" size="sm" value={severity} onValueChange={(v) => v && setSeverity(v as typeof severity)} className="hidden @5xl/main:flex">
+            {SEVERITIES.map((s) => (
+              <ToggleGroupItem key={s} value={s} className="px-3">
+                {s === "all" ? "Semua" : SEVERITY_LABEL[s]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {platforms.length > 2 && (
+            <Select value={platform} onValueChange={setPlatform}>
+              <SelectTrigger size="sm" className="w-40" aria-label="Platform">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {platforms.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PLATFORM_LABEL[p] ?? p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
               <Columns3 />
-              <span className="hidden lg:inline">Columns</span>
+              <span className="hidden lg:inline">Kolom</span>
               <ChevronDown />
             </Button>
           </DropdownMenuTrigger>
@@ -211,12 +221,13 @@ export function DataTable({ state }: { state: State }) {
               .getAllColumns()
               .filter((column) => column.getCanHide())
               .map((column) => (
-                <DropdownMenuCheckboxItem key={column.id} className="capitalize" checked={column.getIsVisible()} onCheckedChange={(value) => column.toggleVisibility(!!value)}>
-                  {column.id}
+                <DropdownMenuCheckboxItem key={column.id} checked={column.getIsVisible()} onCheckedChange={(value) => column.toggleVisibility(!!value)}>
+                  {COLUMN_LABEL[column.id] ?? column.id}
                 </DropdownMenuCheckboxItem>
               ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
       <TabsContent value={tab} className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
         <div className="overflow-hidden rounded-lg border">
@@ -252,7 +263,7 @@ export function DataTable({ state }: { state: State }) {
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                    No threats here
+                    Tidak ada kasus
                   </TableCell>
                 </TableRow>
               )}
@@ -260,11 +271,11 @@ export function DataTable({ state }: { state: State }) {
           </Table>
         </div>
         <div className="flex items-center justify-between px-4">
-          <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">{table.getFilteredRowModel().rows.length} threats</div>
+          <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">{table.getFilteredRowModel().rows.length} kasus</div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
             <div className="hidden items-center gap-2 lg:flex">
               <Label htmlFor="rows-per-page" className="text-sm font-medium">
-                Rows per page
+                Baris per halaman
               </Label>
               <Select value={`${table.state.pagination.pageSize}`} onValueChange={(v) => table.setPageSize(Number(v))}>
                 <SelectTrigger size="sm" className="w-20" id="rows-per-page">
@@ -280,23 +291,23 @@ export function DataTable({ state }: { state: State }) {
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page {table.state.pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}
+              Halaman {table.state.pagination.pageIndex + 1} dari {Math.max(1, table.getPageCount())}
             </div>
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Button variant="outline" className="hidden h-8 w-8 p-0 lg:flex" onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()}>
-                <span className="sr-only">First page</span>
+                <span className="sr-only">Halaman pertama</span>
                 <ChevronsLeft />
               </Button>
               <Button variant="outline" className="size-8" size="icon" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-                <span className="sr-only">Previous page</span>
+                <span className="sr-only">Halaman sebelumnya</span>
                 <ChevronLeft />
               </Button>
               <Button variant="outline" className="size-8" size="icon" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-                <span className="sr-only">Next page</span>
+                <span className="sr-only">Halaman berikutnya</span>
                 <ChevronRight />
               </Button>
               <Button variant="outline" className="hidden size-8 lg:flex" size="icon" onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()}>
-                <span className="sr-only">Last page</span>
+                <span className="sr-only">Halaman terakhir</span>
                 <ChevronsRight />
               </Button>
             </div>

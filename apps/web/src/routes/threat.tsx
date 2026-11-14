@@ -1,5 +1,5 @@
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { CircleCheck, Download, FileText } from "lucide-react";
+import { CircleCheck, Download, Eye, EyeOff, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,10 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/u
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ensureState, useCreateReport, useOps, useSetStatus } from "@/lib/queries";
-import { LAYERS, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, pct, ratio, short } from "@/lib/format";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ensureState, useCreateReport, useOps, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
+import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, clock, date, graphColor, int, num, pct, ratio, short } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
 import type { CaseStatus } from "@/lib/api";
 
@@ -47,23 +49,19 @@ function ThreatLayout() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span className="font-mono text-foreground" title={c.id}>{short(c.id)}</span>
-            <Badge variant={SEVERITY_VARIANT[c.severity]} className="capitalize">
-              {c.severity}
-            </Badge>
+            <Badge variant={SEVERITY_VARIANT[c.severity]}>{SEVERITY_LABEL[c.severity]}</Badge>
             {c.active && (
-              <Badge variant={c.escalation === "urgent" ? "destructive" : c.escalation === "alert" ? "default" : "secondary"} className="capitalize">
-                {c.escalation}
-              </Badge>
+              <Badge variant={c.escalation === "urgent" ? "destructive" : c.escalation === "alert" ? "default" : "secondary"}>{ESCALATION_LABEL[c.escalation]}</Badge>
             )}
-            {!c.active && <Badge variant="outline">Dormant</Badge>}
-            <span>First seen {date(c.firstSeen)}</span>
-            <span>Last activity {ago(c.lastSeen)}</span>
+            {!c.active && <Badge variant="outline">Tidak aktif</Badge>}
+            <span>Pertama terlihat {date(c.firstSeen)}</span>
+            <span>Aktivitas terakhir {ago(c.lastSeen)}</span>
           </div>
           <h1 className="mt-2 text-2xl font-semibold">{c.title}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={c.status} onValueChange={(v) => setStatus.mutate({ id: c.id, status: v as CaseStatus }, { onSuccess: () => toast.success(`Marked ${STATUS_LABEL[v as CaseStatus].toLowerCase()}`) })}>
-            <SelectTrigger className="w-40" aria-label="Case status">
+          <Select value={c.status} onValueChange={(v) => setStatus.mutate({ id: c.id, status: v as CaseStatus }, { onSuccess: () => toast.success(`Ditandai ${STATUS_LABEL[v as CaseStatus].toLowerCase()}`) })}>
+            <SelectTrigger className="w-40" aria-label="Status kasus">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -84,7 +82,7 @@ function ThreatLayout() {
           )}
           <Button disabled={!c.active || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: (e) => toast.error(e.message) })}>
             {report.isPending ? <Spinner /> : <FileText />}
-            Create report
+            Buat laporan
           </Button>
         </div>
       </div>
@@ -105,8 +103,8 @@ function ThreatLayout() {
       ) : (
         <Empty className="border">
           <EmptyHeader>
-            <EmptyTitle>Not active in the last 24 hours</EmptyTitle>
-            <EmptyDescription>The evidence returns when these accounts act again.</EmptyDescription>
+            <EmptyTitle>Tidak aktif dalam 24 jam terakhir</EmptyTitle>
+            <EmptyDescription>Bukti kembali muncul saat akun-akun ini bergerak lagi.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
@@ -115,9 +113,9 @@ function ThreatLayout() {
 }
 
 const RESPONSE = {
-  watch: ["Keep monitoring", "Review evidence"],
-  alert: ["Assign an analyst", "Create a commander report", "Prepare a public clarification"],
-  urgent: ["Brief the commander now", "Publish a clarification on official channels", "Report the accounts to the platform", "Create a commander report"],
+  watch: ["Lanjutkan pemantauan", "Tinjau bukti"],
+  alert: ["Tugaskan analis", "Buat laporan komandan", "Siapkan klarifikasi publik"],
+  urgent: ["Laporkan ke komandan sekarang", "Terbitkan klarifikasi di kanal resmi", "Laporkan akun ke platform", "Buat laporan komandan"],
 };
 
 function Summary() {
@@ -126,12 +124,12 @@ function Summary() {
   const coordinated = clusters.reduce((s, k) => s + k.members.length, 0);
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      <div className="grid gap-4 *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      <div className="grid gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         {[
-          ["Apparent supporters", int(c.apparent), "Accounts that pushed these narratives"],
-          ["Independent voices", approx(c.independent), "What the support is really worth"],
-          ["Inflation", ratio(inflation({ supporters: c.apparent, sie: { value: c.independent } })), "Apparent support divided by independent voices"],
-          ["Coordinated accounts", int(coordinated), `In ${clusters.length} cluster${clusters.length === 1 ? "" : "s"}`],
+          ["Pendukung tampak", int(c.apparent), "Akun yang mendorong narasi ini"],
+          ["Suara independen", approx(c.independent), "Nilai dukungan yang sebenarnya"],
+          ["Inflasi", ratio(inflation({ supporters: c.apparent, sie: { value: c.independent } })), "Pendukung tampak dibagi suara independen"],
+          ["Akun terkoordinasi", int(coordinated), `Dalam ${clusters.length} cluster`],
         ].map(([label, value, foot]) => (
           <Card key={label} className="@container/card">
             <CardHeader>
@@ -144,11 +142,9 @@ function Summary() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Response</CardTitle>
+          <CardTitle>Respons</CardTitle>
           <CardAction>
-            <Badge variant="outline" className="capitalize">
-              {c.escalation}
-            </Badge>
+            <Badge variant="outline">{ESCALATION_LABEL[c.escalation]}</Badge>
           </CardAction>
         </CardHeader>
         <CardContent>
@@ -165,7 +161,7 @@ function Summary() {
       {!!c.disarm.length && (
         <Card>
           <CardHeader>
-            <CardTitle>DISARM techniques</CardTitle>
+            <CardTitle>Teknik DISARM</CardTitle>
             <CardDescription>DISARM Framework, CC BY-SA 4.0</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -183,8 +179,8 @@ function Summary() {
       {c.brief && (
         <Card>
           <CardHeader>
-            <CardTitle>Assessment</CardTitle>
-            <CardDescription>What the operators appear to be pushing</CardDescription>
+            <CardTitle>Penilaian</CardTitle>
+            <CardDescription>Yang tampaknya didorong operator</CardDescription>
           </CardHeader>
           <CardContent className="leading-relaxed">{c.brief}</CardContent>
         </Card>
@@ -192,8 +188,8 @@ function Summary() {
       {lead && (
         <Card>
           <CardHeader>
-            <CardTitle>Without the operation</CardTitle>
-            <CardDescription>Volume of the main narrative, with and without the coordinated accounts</CardDescription>
+            <CardTitle>Tanpa operasi</CardTitle>
+            <CardDescription>Volume narasi utama, dengan dan tanpa akun terkoordinasi</CardDescription>
           </CardHeader>
           <CardContent>
             <Counterfactual narrative={lead} height={260} />
@@ -203,26 +199,45 @@ function Summary() {
       <div className="grid gap-4 @5xl/main:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Narratives</CardTitle>
-            <CardDescription>Messages pushed in this operation</CardDescription>
+            <CardTitle>Narasi</CardTitle>
+            <CardDescription>Pesan yang didorong dalam operasi ini</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            {narratives.map((n) => (
-              <div key={n.id}>
-                <p className="mb-2 leading-relaxed">“{n.sample}”</p>
-                <Progress value={Math.max(1, (n.sie.value / Math.max(1, n.supporters)) * 100)} aria-label="Independent share" />
-                <div className="mt-1.5 flex justify-between text-sm text-muted-foreground tabular-nums">
-                  <span>{approx(n.sie.value)} independent</span>
-                  <span>{int(n.supporters)} apparent</span>
-                </div>
-              </div>
-            ))}
+          <CardContent>
+            <Accordion type="single" collapsible defaultValue={narratives[0]?.id}>
+              {narratives.map((n) => (
+                <AccordionItem key={n.id} value={n.id}>
+                  <AccordionTrigger className="gap-4">
+                    <span className="line-clamp-2 text-left">{n.sample}</span>
+                    <Badge variant={n.verdict === "manufactured" ? "destructive" : "secondary"} className="shrink-0">
+                      {n.verdict === "manufactured" ? "Buatan" : "Organik"}
+                    </Badge>
+                  </AccordionTrigger>
+                  <AccordionContent className="flex flex-col gap-3">
+                    <p className="leading-relaxed">“{n.sample}”</p>
+                    <Progress value={Math.max(1, (n.sie.value / Math.max(1, n.supporters)) * 100)} aria-label="Porsi independen" />
+                    <div className="flex justify-between text-sm text-muted-foreground tabular-nums">
+                      <span>{approx(n.sie.value)} independen (SIE)</span>
+                      <span>{int(n.supporters)} tampak</span>
+                    </div>
+                    {!!n.tags.length && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {n.tags.map((t) => (
+                          <Badge key={t} variant="outline">
+                            #{t}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Operators</CardTitle>
-            <CardDescription>Coordinated clusters behind the narratives</CardDescription>
+            <CardTitle>Operator</CardTitle>
+            <CardDescription>Cluster terkoordinasi di balik narasi</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {clusters.map((k) => (
@@ -231,23 +246,23 @@ function Summary() {
                   <span className="size-2.5 rounded-full" style={{ background: graphColor(k.id) }} />
                   <span className="font-medium" title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></span>
                   <Badge variant="outline">{profile(k)}</Badge>
-                  <span className="ml-auto text-sm text-muted-foreground tabular-nums">{k.members.length} accounts</span>
+                  <span className="ml-auto text-sm text-muted-foreground tabular-nums">{k.members.length} akun</span>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <div className="text-muted-foreground">Started</div>
+                    <div className="text-muted-foreground">Mulai</div>
                     <div className="tabular-nums">{clock(k.forensics.onset.ts)}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Waves</div>
+                    <div className="text-muted-foreground">Gelombang</div>
                     <div className="tabular-nums">{k.forensics.waves}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Cadence</div>
-                    <div className="tabular-nums">{k.forensics.cadence ? `${num(k.forensics.cadence.medianSec)}s` : "n/a"}</div>
+                    <div className="text-muted-foreground">Kadens</div>
+                    <div className="tabular-nums">{k.forensics.cadence ? `${num(k.forensics.cadence.medianSec)} detik` : "n/a"}</div>
                   </div>
                 </div>
-                {(k.forensics.rotation ?? 0) >= 0.7 && <p className="mt-3 text-sm text-destructive">Accounts post in the same order every wave, which points to automation.</p>}
+                {(k.forensics.rotation ?? 0) >= 0.7 && <p className="mt-3 text-sm text-destructive">Akun memposting dengan urutan yang sama di setiap gelombang, indikasi otomatisasi.</p>}
               </div>
             ))}
           </CardContent>
@@ -270,11 +285,11 @@ function Evidence() {
               <CardTitle title={k.id}>Cluster <span className="font-mono">{short(k.id)}</span></CardTitle>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">Cluster p {k.p <= 0.05 ? "≤ 0.05" : num(k.p)}</Badge>
-                <Badge variant="outline">Score {int(k.score)}</Badge>
+                <Badge variant="outline">Skor {int(k.score)}</Badge>
                 <Badge variant="outline">Decoy FDR {pct(decoy)}</Badge>
                 {k.families.map((f) => (
                   <Badge key={f.layers.join()} variant="secondary">
-                    {f.layers.map((l) => LAYERS[l] ?? l).join(" and ")} {int(f.strength)}
+                    {f.layers.map((l) => LAYERS[l] ?? l).join(" dan ")} {int(f.strength)}
                   </Badge>
                 ))}
               </div>
@@ -284,11 +299,11 @@ function Evidence() {
                 <Table>
                   <TableHeader className="bg-muted">
                     <TableRow>
-                      <TableHead>Evidence layer</TableHead>
-                      <TableHead className="text-right">Account pairs</TableHead>
-                      <TableHead className="text-right">Observed</TableHead>
-                      <TableHead className="text-right">Expected by chance</TableHead>
-                      <TableHead className="text-right">Above chance</TableHead>
+                      <TableHead>Lapis bukti</TableHead>
+                      <TableHead className="text-right">Pasangan akun</TableHead>
+                      <TableHead className="text-right">Teramati</TableHead>
+                      <TableHead className="text-right">Harapan acak</TableHead>
+                      <TableHead className="text-right">Di atas acak</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -299,7 +314,7 @@ function Evidence() {
                           <TableCell className="font-medium">{LAYERS[l.layer] ?? l.layer}</TableCell>
                           <TableCell className="text-right tabular-nums">{l.pairs}</TableCell>
                           <TableCell className="text-right tabular-nums">{num(l.meanObserved)}</TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">{l.meanExpected < 0.01 ? "under 0.01" : num(l.meanExpected)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{l.meanExpected < 0.01 ? "di bawah 0,01" : num(l.meanExpected)}</TableCell>
                           <TableCell className="text-right font-medium tabular-nums">{x >= 1000 ? `${Math.round(x / 1000)}k×` : ratio(x)}</TableCell>
                         </TableRow>
                       );
@@ -336,33 +351,38 @@ function Network() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{a?.handle ?? "Select an account"}</CardTitle>
-          <CardDescription>{a ? (() => { const k = state.report?.clusters.find((x) => x.members.includes(a.id)); return k ? `Cluster ${short(k.id)}` : "Organic account"; })() : "Click a node to inspect it"}</CardDescription>
+          <CardTitle>{a?.handle ?? "Pilih akun"}</CardTitle>
+          <CardDescription>{a ? (() => { const k = state.report?.clusters.find((x) => x.members.includes(a.id)); return k ? `Cluster ${short(k.id)}` : "Akun organik"; })() : "Klik node untuk melihat detail"}</CardDescription>
         </CardHeader>
         {a && (
           <CardContent className="flex flex-col gap-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Ties</span>
+              <span className="text-muted-foreground">Ikatan</span>
               <span className="tabular-nums">{state.report?.edges.filter((e) => e.a === a.id || e.b === a.id).length}</span>
             </div>
             {a.followers !== undefined && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Followers</span>
+                <span className="text-muted-foreground">Pengikut</span>
                 <span className="tabular-nums">{int(a.followers)}</span>
               </div>
             )}
             {a.createdAt && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Account created</span>
+                <span className="text-muted-foreground">Akun dibuat</span>
                 <span>{date(a.createdAt)}</span>
               </div>
             )}
             {a.label && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Simulation label</span>
+                <span className="text-muted-foreground">Label simulasi</span>
                 <span>{a.label}</span>
               </div>
             )}
+            <Button variant="outline" className="mt-2" asChild>
+              <Link to="/actors/$id" params={{ id: a.id }}>
+                Buka profil aktor
+              </Link>
+            </Button>
           </CardContent>
         )}
       </Card>
@@ -371,16 +391,21 @@ function Network() {
 }
 
 function Accounts() {
-  const { state, c, clusters } = useCase();
-  const handle = (id: string) => state.actors.find((a) => a.id === id)?.handle ?? id;
+  const { state, clusters } = useCase();
+  const { data: watch } = useWatchlist();
+  const toggle = useWatch();
+  const watched = new Set((watch ?? []).map((w) => w.actorId));
+  const handle = (id: string) => state.actors.find((a) => a.id === id)?.handle ?? short(id);
   return (
     <div className="overflow-hidden rounded-lg border">
       <Table>
         <TableHeader className="bg-muted">
           <TableRow>
-            <TableHead>Account</TableHead>
+            <TableHead>Akun</TableHead>
             <TableHead>Cluster</TableHead>
-            <TableHead>Role</TableHead>
+            <TableHead>Peran</TableHead>
+            <TableHead className="text-right">Skor</TableHead>
+            <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -389,12 +414,27 @@ function Accounts() {
             return k.members.map((m) => (
               <TableRow key={m}>
                 <TableCell>
-                  <Link to="/threats/$id/network/$actor" params={{ id: c.id, actor: m }} className="font-medium hover:underline">
+                  <Link to="/actors/$id" params={{ id: m }} className="flex items-center gap-3 font-medium hover:underline">
+                    <Avatar className="size-7">
+                      <AvatarFallback className="text-xs">{handle(m).replace(/^akun_/, "").slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
                     {handle(m)}
                   </Link>
                 </TableCell>
                 <TableCell className="font-mono" title={k.id}>{short(k.id)}</TableCell>
-                <TableCell className="text-muted-foreground">{seeders.has(m) ? `Seeder, posts first ${Math.round(seeders.get(m)! * 100)}% of the time` : "Amplifier"}</TableCell>
+                <TableCell className="text-muted-foreground">{seeders.has(m) ? `Pemicu, memposting lebih dulu ${Math.round(seeders.get(m)! * 100)}% waktu` : "Penguat"}</TableCell>
+                <TableCell className="text-right tabular-nums">{int(state.report?.scores[m] ?? 0)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant={watched.has(m) ? "secondary" : "ghost"}
+                    size="sm"
+                    disabled={toggle.isPending}
+                    onClick={() => toggle.mutate({ id: m, watch: !watched.has(m) }, { onSuccess: () => toast.success(watched.has(m) ? "Dihapus dari daftar pantau" : "Ditambahkan ke daftar pantau"), onError: (e) => toast.error(e.message) })}
+                  >
+                    {watched.has(m) ? <EyeOff /> : <Eye />}
+                    {watched.has(m) ? "Dipantau" : "Pantau"}
+                  </Button>
+                </TableCell>
               </TableRow>
             ));
           })}

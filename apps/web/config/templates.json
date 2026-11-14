@@ -1,0 +1,10 @@
+[
+  { "id": "rekrutmen-palsu", "title": "Rekrutmen TNI palsu", "description": "Tawaran jalur khusus, pungutan biaya, dan tautan pendaftaran tiruan", "platform": "x", "kind": "topic", "target": "rekrutmen tni (jalur khusus OR biaya OR transfer)", "intervalMin": 15, "pages": 3 },
+  { "id": "isu-perbatasan", "title": "Isu perbatasan", "description": "Narasi pos ditinggalkan, wilayah dicaplok, atau prajurit ditarik", "platform": "x", "kind": "topic", "target": "perbatasan (tni OR prajurit OR pos)", "intervalMin": 15, "pages": 3 },
+  { "id": "hoaks-bencana", "title": "Hoaks bencana", "description": "Klaim palsu saat bencana dan operasi bantuan TNI", "platform": "x", "kind": "topic", "target": "bencana tni (hoaks OR bantuan OR evakuasi)", "intervalMin": 30, "pages": 3 },
+  { "id": "kesejahteraan-prajurit", "title": "Kesejahteraan prajurit", "description": "Isu gaji, tunjangan, dan kenaikan pangkat yang mudah dipelintir", "platform": "x", "kind": "topic", "target": "gaji prajurit OR tunjangan tni OR kenaikan pangkat tni", "intervalMin": 30, "pages": 2 },
+  { "id": "akun-resmi", "title": "Serangan ke akun resmi", "description": "Balasan dan mention ke akun resmi untuk mendeteksi serbuan komentar", "platform": "x", "kind": "account", "target": "@tni_ad", "intervalMin": 15, "pages": 3 },
+  { "id": "video-isu-tni", "title": "Komentar video isu TNI", "description": "Komentar di video YouTube terbaru tentang TNI", "platform": "youtube", "kind": "topic", "target": "tni ad", "intervalMin": 60, "pages": 3 },
+  { "id": "tiktok-isu-tni", "title": "Komentar TikTok isu TNI", "description": "Komentar di video TikTok tentang TNI", "platform": "tiktok", "kind": "topic", "target": "tni ad", "intervalMin": 60, "pages": 2 },
+  { "id": "kanal-telegram", "title": "Kanal Telegram publik", "description": "Penerusan pesan antarkanal untuk melacak asal narasi", "platform": "telegram", "kind": "account", "target": "nama_kanal_satu, nama_kanal_dua", "intervalMin": 30, "pages": 1 }
+]

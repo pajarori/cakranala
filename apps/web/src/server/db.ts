@@ -141,7 +141,7 @@ export const cases = {
 export interface Alert {
   id: number;
   ts: number;
-  kind: "new" | "escalated" | "status";
+  kind: "new" | "escalated" | "status" | "watchlist";
   caseId: string;
   text: string;
 }

@@ -8,12 +8,15 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useQuery } from "@tanstack/react-query";
 import { reportsQuery, useLiveState } from "@/lib/queries";
-import { short } from "@/lib/format";
+import { SEVERITY_LABEL, short } from "@/lib/format";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 const PAGES = [
   { to: "/", label: "Situation" },
   { to: "/threats", label: "Threats" },
+  { to: "/actors", label: "Actors" },
   { to: "/monitors", label: "Monitors" },
+  { to: "/monitors/templates", label: "Template pantauan" },
   { to: "/reports", label: "Reports" },
   { to: "/perisai", label: "Perisai" },
   { to: "/system", label: "System" },
@@ -41,14 +44,17 @@ function Search_() {
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="hidden w-56 justify-start gap-2 text-muted-foreground sm:flex">
         <Search />
-        Search threats
-        <kbd className="ml-auto rounded border bg-muted px-1.5 text-xs">Ctrl K</kbd>
+        Cari
+        <KbdGroup className="ml-auto">
+          <Kbd>Ctrl</Kbd>
+          <Kbd>K</Kbd>
+        </KbdGroup>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Search pages and threats…" />
+        <CommandInput placeholder="Cari halaman, kasus, atau aktor" />
         <CommandList>
-          <CommandEmpty>No results</CommandEmpty>
-          <CommandGroup heading="Pages">
+          <CommandEmpty>Tidak ada hasil</CommandEmpty>
+          <CommandGroup heading="Halaman">
             {PAGES.map((p) => (
               <CommandItem key={p.to} onSelect={() => go(p.to)}>
                 {p.label}
@@ -56,11 +62,20 @@ function Search_() {
             ))}
           </CommandGroup>
           {!!data?.cases.length && (
-            <CommandGroup heading="Threats">
+            <CommandGroup heading="Kasus">
               {data.cases.map((c) => (
                 <CommandItem key={c.id} value={`${c.title} ${c.id}`} onSelect={() => go(`/threats/${c.id}`)}>
                   <span className="truncate">{c.title}</span>
-                  <span className="ml-auto text-muted-foreground capitalize">{c.severity}</span>
+                  <span className="ml-auto text-muted-foreground">{SEVERITY_LABEL[c.severity]}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          {!!data?.actors.length && (
+            <CommandGroup heading="Aktor">
+              {data.actors.slice(0, 50).map((a) => (
+                <CommandItem key={a.id} value={`${a.handle ?? ""} ${a.id}`} onSelect={() => go(`/actors/${a.id}`)}>
+                  <span className="truncate">{a.handle ?? short(a.id)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

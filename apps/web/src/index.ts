@@ -10,6 +10,8 @@ import { reportPdf } from "./server/pdf";
 import { syncLibrary } from "./server/library";
 import { CREDENTIAL_FIELDS, credentials } from "./server/credentials";
 import { probe, sidecarFromEnv } from "cakranala-scrap";
+import { list as listActors, notifyWatchlist, profile, watchlist } from "./server/actors";
+import templates from "../config/templates.json";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
 
 class HttpError extends Error {
@@ -127,6 +129,36 @@ const server = serve({
       }),
     },
     "/api/state": { GET: authed(() => snapshot()) },
+    "/api/templates": { GET: authed(() => templates) },
+    "/api/actors": {
+      GET: authed((req) => {
+        const u = new URL(req.url);
+        return listActors({ q: u.searchParams.get("q") ?? "", filter: u.searchParams.get("filter") ?? "all", page: Number(u.searchParams.get("page") ?? 1), size: Number(u.searchParams.get("size") ?? 25) });
+      }),
+    },
+    "/api/actors/:id": {
+      GET: authed((req) => {
+        const p = profile(req.params.id);
+        if (!p) throw new HttpError(404, "aktor tidak ditemukan");
+        return p;
+      }),
+    },
+    "/api/actors/:id/watch": {
+      POST: authed(async (req, me) => {
+        if (!profile(req.params.id)) throw new HttpError(404, "aktor tidak ditemukan");
+        const { note } = await req.json().catch(() => ({}));
+        watchlist.add(req.params.id, String(note ?? ""), me.username);
+        audit.add("actor.watched", req.params.id, { by: me.username });
+        notifyWatchlist(snapshot().cases);
+        return watchlist.get(req.params.id);
+      }),
+      DELETE: authed((req, me) => {
+        watchlist.remove(req.params.id);
+        audit.add("actor.unwatched", req.params.id, { by: me.username });
+        return { ok: true };
+      }),
+    },
+    "/api/watchlist": { GET: authed(() => watchlist.all().map((w) => ({ ...w, profile: profile(w.actorId) }))) },
     "/api/monitors": {
       POST: authed(async (req, me) => {
         const body = await req.json();

@@ -4,6 +4,8 @@ import type { AuditEntry, CaseStatus, Monitor, MonitorKind, Platform, ReportRow 
 import type { ReportContent } from "../server/reports";
 import type { Credential, CredentialPlatform } from "../server/credentials";
 import type { User } from "../server/auth";
+import type { list as listActors, profile as actorProfile, WatchEntry } from "../server/actors";
+import type templates from "../../config/templates.json";
 import type { Probe } from "cakranala-scrap";
 
 export type State = ReturnType<typeof snapshot>;
@@ -14,7 +16,10 @@ export type Case = CaseView;
 export type MonitorState = State["monitors"][number];
 export type ReportItem = ReportRow<ReportContent>;
 export type Audit = { entries: number; valid: boolean; brokenAt: number | null; recent: AuditEntry[] };
-export type { Credential, CredentialPlatform, Probe, User };
+export type { Credential, CredentialPlatform, Probe, User, WatchEntry };
+export type ActorPage = ReturnType<typeof listActors>;
+export type ActorProfile = NonNullable<ReturnType<typeof actorProfile>>;
+export type Template = (typeof templates)[number];
 export type { CaseStatus, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface Capabilities {
@@ -37,6 +42,12 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 const send = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) });
 
 export const api = {
+  actors: (q: { q: string; filter: string; page: number }) => call<ActorPage>(`/api/actors?${new URLSearchParams({ q: q.q, filter: q.filter, page: String(q.page) })}`),
+  actor: (id: string) => call<ActorProfile>(`/api/actors/${id}`),
+  watch: (id: string, note: string) => call<WatchEntry>(`/api/actors/${id}/watch`, send("POST", { note })),
+  unwatch: (id: string) => call<{ ok: true }>(`/api/actors/${id}/watch`, send("DELETE")),
+  watchlist: () => call<(WatchEntry & { profile: ActorProfile | undefined })[]>("/api/watchlist"),
+  templates: () => call<Template[]>("/api/templates"),
   me: () => call<{ user: User | null; setup: boolean }>("/api/auth/me"),
   login: (body: { username: string; password: string }) => call<{ user: User }>("/api/auth/login", send("POST", body)),
   setup: (body: { username: string; password: string }) => call<{ user: User }>("/api/auth/setup", send("POST", body)),

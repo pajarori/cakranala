@@ -16,10 +16,10 @@ export function NavMain({ items }: { items: NavItem[] }) {
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="New monitor" className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground">
+            <SidebarMenuButton asChild tooltip="Pantauan baru" className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground">
               <Link to="/monitors/new">
                 <CirclePlus />
-                <span>New monitor</span>
+                <span>Pantauan baru</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
