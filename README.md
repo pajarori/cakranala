@@ -12,7 +12,7 @@ Deteksi operasi pengaruh terkoordinasi dari ketergantungan antar akun.
 </div>
 
 <p align="center">
-  <img src="docs/assets/cover.jpg" alt="Cakra Nala" width="900">
+  <img src="https://raw.githubusercontent.com/pajarori/cakranala/refs/heads/main/docs/assets/cover.jpg" alt="Cakra Nala" width="900">
 </p>
 
 Cakra Nala menemukan buzzer, bot farm dan swarm LLM dengan mengukur seberapa sering akun bergerak bersama melebihi peluang, lalu menghitung berapa suara independen yang sebenarnya ada di balik sebuah narasi. Tersedia sebagai library dan dashboard operasi untuk X, YouTube, Telegram, TikTok, Instagram dan Facebook. Cara kerjanya ada di [docs/how-it-works.md](docs/how-it-works.md).
