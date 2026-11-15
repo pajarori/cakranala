@@ -1,9 +1,10 @@
-import { pseudonymize, simulate, type Dataset, type Scenario } from "cakranala";
+import { pseudonymize, pseudonyms, simulate, type Dataset, type Scenario } from "cakranala";
 import seruni from "cakranala/scenarios/seruni.json";
 import { createCollector, sessionFromEnv, sidecarFromEnv, validate, type Kind } from "cakranala/collect";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { audit, DIR, monitors, store, type Monitor, type MonitorKind, type Platform } from "./db";
 import { credentials, pool } from "./credentials";
+import { identities } from "./identities";
 
 const scenario = seruni as Scenario;
 export const DEMO_MODE = /^(1|true|yes)$/i.test(process.env.DEMO_MODE ?? "");
@@ -52,7 +53,9 @@ export async function runMonitor(m: Monitor, now = Date.now()) {
       return;
     }
     const raw = await collector.collect({ platform: m.platform, kind: m.kind as Kind, target: m.target, pages: m.pages });
-    const ds = await pseudonymize(raw, secret);
+    const ids = await pseudonyms(raw, secret);
+    await identities.put(raw.actors, ids);
+    const ds = await pseudonymize(raw, secret, ids);
     monitors.ran(m.id, now, raw.meta?.coverage === 0 ? "terkena batas laju" : null, store.add(m.id, ds.actors, ds.events));
   } catch (e) {
     monitors.ran(m.id, now, e instanceof Error ? e.message : String(e), 0);

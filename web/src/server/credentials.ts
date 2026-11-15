@@ -1,6 +1,6 @@
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { CREDENTIAL_FIELDS as SPEC, type CredentialPool, type Probe } from "cakranala/collect";
-import { db, DIR } from "./db";
+import { db } from "./db";
+import { open, seal } from "./vault";
 
 export type CredentialPlatform = "x" | "youtube" | "tiktok" | "instagram" | "facebook";
 
@@ -13,29 +13,6 @@ db.exec(`CREATE TABLE IF NOT EXISTS credentials (id TEXT PRIMARY KEY, platform T
 
 for (const [col, type] of [["profile", "TEXT"], ["checked_at", "INTEGER"]] as const)
   if (!(db.query("PRAGMA table_info(credentials)").all() as { name: string }[]).some((c) => c.name === col)) db.exec(`ALTER TABLE credentials ADD COLUMN ${col} ${type}`);
-
-const KEY_FILE = `${DIR}credential.key`;
-
-function keyBytes() {
-  if (!existsSync(KEY_FILE)) {
-    writeFileSync(KEY_FILE, Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64"), { mode: 0o600 });
-    chmodSync(KEY_FILE, 0o600);
-  }
-  return Buffer.from(readFileSync(KEY_FILE, "utf8").trim(), "base64");
-}
-
-const key = crypto.subtle.importKey("raw", keyBytes(), "AES-GCM", false, ["encrypt", "decrypt"]);
-
-async function seal(fields: Record<string, string>) {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await key, new TextEncoder().encode(JSON.stringify(fields)));
-  return { secret: Buffer.from(data).toString("base64"), iv: Buffer.from(iv).toString("base64") };
-}
-
-async function open(secret: string, iv: string): Promise<Record<string, string>> {
-  const data = await crypto.subtle.decrypt({ name: "AES-GCM", iv: Buffer.from(iv, "base64") }, await key, Buffer.from(secret, "base64"));
-  return JSON.parse(new TextDecoder().decode(data));
-}
 
 export interface Credential {
   id: string;

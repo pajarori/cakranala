@@ -6,10 +6,15 @@ async function hmac(key: CryptoKey, value: string) {
   return Array.from(sig.subarray(0, 5), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export async function pseudonymize(ds: Dataset, secret: string): Promise<Dataset> {
+export async function pseudonyms(ds: Dataset, secret: string) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const ids = new Map<string, string>();
   for (const a of ds.actors) ids.set(a.id, `akun_${await hmac(key, a.id)}`);
+  return ids;
+}
+
+export async function pseudonymize(ds: Dataset, secret: string, known?: Map<string, string>): Promise<Dataset> {
+  const ids = known ?? (await pseudonyms(ds, secret));
   const mention = /@\w+/g;
   return {
     ...ds,
