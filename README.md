@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/pajarori/cakranala/main/web/src/icons/favicon.svg" width="72" alt="">
+<img src="web/src/icons/favicon.svg" width="72" alt="">
 
 # Cakra Nala
 
@@ -8,13 +8,11 @@ Deteksi operasi pengaruh terkoordinasi dari ketergantungan antar akun.
 
 [![npm](https://img.shields.io/npm/v/cakranala?style=flat&logo=npm&color=CB3837)](https://www.npmjs.com/package/cakranala)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/pajarori/cakranala?style=flat&logo=github)](https://github.com/pajarori/cakranala/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/pajarori/cakranala?style=flat&logo=github)](https://github.com/pajarori/cakranala/commits/main)
 
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pajarori/cakranala/main/docs/assets/cover.jpg" alt="Cakra Nala" width="900">
+  <img src="docs/assets/cover.jpg" alt="Cakra Nala" width="900">
 </p>
 
 Cakra Nala menemukan buzzer, bot farm dan swarm LLM dengan mengukur seberapa sering akun bergerak bersama melebihi peluang, lalu menghitung berapa suara independen yang sebenarnya ada di balik sebuah narasi. Tersedia sebagai library dan dashboard operasi untuk X, YouTube, Telegram, TikTok, Instagram dan Facebook. Cara kerjanya ada di [docs/how-it-works.md](docs/how-it-works.md).
