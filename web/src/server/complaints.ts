@@ -6,6 +6,7 @@ import { credentials, proxies } from "./credentials";
 import { identities } from "./identities";
 import { reportPdf } from "./pdf";
 import { createReport, type ReportContent } from "./reports";
+import { caseEvidence } from "./analysis";
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS complaint_batches (id TEXT PRIMARY KEY, case_ids TEXT NOT NULL, by TEXT NOT NULL, created_at INTEGER NOT NULL, mode TEXT NOT NULL, title TEXT NOT NULL, text TEXT NOT NULL, report_id TEXT);
@@ -93,9 +94,15 @@ function actorsOf(ids: string[]) {
   return out;
 }
 
-function eventsOf(members: string[]) {
+const DAY = 86_400_000;
+
+function windowOf(c: { id: string; lastSeen: number }) {
+  return caseEvidence(c.id)?.window ?? { from: c.lastSeen - DAY, to: c.lastSeen };
+}
+
+function eventsOf(members: string[], window: { from: number; to: number }) {
   const byActor = new Map<string, Event[]>();
-  for (const r of store.rows(members, 0)) {
+  for (const r of store.rows(members, window.from, window.to + 1)) {
     const e = JSON.parse(r.json) as Event;
     const list = byActor.get(e.actor);
     if (list) list.push(e);
@@ -115,7 +122,7 @@ export function candidates(caseIds: string[], simulation = false): Candidate[] {
     if (!c) continue;
     const actors = actorsOf(c.members);
     const known = identities.known(c.members);
-    const events = eventsOf(c.members);
+    const events = eventsOf(c.members, windowOf(c));
     const shared = new Map<string, Set<string>>();
     for (const [actor, list] of events)
       for (const e of list) {
@@ -163,8 +170,7 @@ export async function createBatch(input: { caseIds: string[]; keys?: string[]; k
   const id = crypto.randomUUID();
   const rows = caseIds.map((cid) => cases.get(cid)!).filter(Boolean);
   const title = rows.length === 1 ? rows[0].title : `${rows.length} kasus operasi pengaruh terkoordinasi`;
-  const events = eventsOf(rows.flatMap((r) => r.members));
-  const posts = [...events.values()].flat();
+  const posts = rows.flatMap((r) => [...eventsOf(r.members, windowOf(r)).values()].flat());
   const text = complaintText({
     title,
     brief: rows.length === 1 ? (rows[0].brief ?? undefined) : undefined,
