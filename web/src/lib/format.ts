@@ -34,6 +34,7 @@ export const LAYERS: Record<string, string> = {
   copypasta: "Copypasta",
   rhythm: "Rhythm",
   lifecycle: "Account lifecycle",
+  portfolio: "Narrative portfolio",
 };
 
 export const SEVERITY_VARIANT = { critical: "destructive", high: "destructive", medium: "secondary", low: "outline" } as const;

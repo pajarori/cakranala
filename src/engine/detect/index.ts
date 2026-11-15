@@ -44,7 +44,7 @@ export interface Report {
 export const DEFAULTS: AnalyzeOptions = {
   ...LAYER_DEFAULTS,
   layers: LAYERS,
-  families: [["coaction"], ["rhythm"], ["copypasta", "coframing"], ["lifecycle"]],
+  families: [["coaction"], ["rhythm"], ["copypasta", "coframing", "portfolio"], ["lifecycle"]],
   minFamilies: 1,
   edgeAlphas: [0.05, 0.01, 0.001, 0.0001],
   fdr: 0.05,

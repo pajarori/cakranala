@@ -2,8 +2,8 @@ import type { Actor, Dataset, Event } from "../schema";
 import { jaccard, nearDuplicateGroups, shingles } from "../text";
 import { groupBy, nbTail, pairKey, poissonTail, quantile, randomPairQuantile, rng } from "../util";
 
-export type LayerId = "coaction" | "coframing" | "rhythm" | "copypasta" | "lifecycle";
-export const LAYERS: LayerId[] = ["coaction", "coframing", "rhythm", "copypasta", "lifecycle"];
+export type LayerId = "coaction" | "coframing" | "rhythm" | "copypasta" | "lifecycle" | "portfolio";
+export const LAYERS: LayerId[] = ["coaction", "coframing", "rhythm", "copypasta", "lifecycle", "portfolio"];
 
 export interface LayerOptions {
   windowSec: Partial<Record<LayerId, number>>;
@@ -156,7 +156,7 @@ function test(real: Map<string, Acc>, reps: Map<string, Acc>[], expected: (k: st
   return { dispersion, pairs, replicates };
 }
 
-function objectLayer(events: Event[], keys: (e: Event, i: number) => string[], window: number, n: number, opts: LayerOptions, span: number, replicate: (occ: Occ[]) => Occ[][], period?: number) {
+function objectLayer(events: Event[], keys: (e: Event, i: number) => string[], window: number, n: number, opts: LayerOptions, span: number, replicate: (occ: Occ[]) => Occ[][], period?: number, every = false) {
   const raw = new Map<string, { actor: string; ts: number }[]>();
   events.forEach((e, i) => {
     for (const k of keys(e, i)) {
@@ -191,7 +191,7 @@ function objectLayer(events: Event[], keys: (e: Event, i: number) => string[], w
   }
   const rate = (Math.min(1, (2 * window) / span) * squares) / Math.max(1, total) ** 2;
   const occ: Occ[] = objects.flatMap((l, o) => l.map((x) => ({ o, actor: x.actor, ts: x.ts }))).sort((a, b) => a.ts - b.ts);
-  const gap = period ?? 2 * window;
+  const gap = every ? -1 : (period ?? 2 * window);
   const real = sweep(occ, objects.length, window, gap, idf);
   const reps = replicate(occ).map((o) => sweep(o, objects.length, window, gap, idf));
   const expected = (k: string) => {
@@ -249,20 +249,35 @@ export function runLayers(ds: Dataset, opts: LayerOptions, enabled: LayerId[], f
   const win = (id: LayerId) => (opts.windowSec[id] ?? 900) * 1000;
   const layer = (keys: (e: Event, i: number) => string[], id: LayerId) =>
     objectLayer(ev, keys, win(id), n, opts, span, (occ) => Array.from({ length: opts.nullReplicates }, (_, b) => permuted(occ, opts.strataWindows * win(id), opts.seed * 7919 + b * 31 + LAYERS.indexOf(id) + 1)));
+  const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
+  let pasted: Map<number, number> | undefined;
+  const copies = () => {
+    if (pasted) return pasted;
+    const idx = ev.flatMap((e, i) => (e.action !== "reshare" && e.text ? [i] : []));
+    const texts = idx.map((i) => ev[i].text!);
+    const sets = texts.map((t) => shingles(t));
+    const tau = Math.max(opts.copypastaFloor, randomPairQuantile(sets.length, (i, j) => jaccard(sets[i], sets[j]), opts.similarityQuantile, rng(opts.seed)));
+    const groups = nearDuplicateGroups(texts, tau);
+    pasted = new Map(idx.flatMap((i, j) => (groups[j] >= 0 ? [[i, groups[j]] as [number, number]] : [])));
+    return pasted;
+  };
   const out: LayerResult[] = [];
   for (const id of enabled) {
     if (id === "coaction") {
-      const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
       const numbers = (t?: string) => (t?.match(/\+?\d[\d\s.-]{7,}\d/g) ?? []).map((m) => `n:${m.replace(/\D/g, "").slice(-9)}`);
       out.push({ id, ...layer((e) => [...(e.target ? [`t:${e.target}`] : []), ...(e.urls ?? []).map((u) => `u:${norm(u)}`), ...(e.tags ?? []).map((h) => `h:${h.toLowerCase()}`), ...numbers(e.text)], id) });
     } else if (id === "copypasta") {
-      const idx = ev.flatMap((e, i) => (e.action !== "reshare" && e.text ? [i] : []));
-      const texts = idx.map((i) => ev[i].text!);
-      const sets = texts.map((t) => shingles(t));
-      const tau = Math.max(opts.copypastaFloor, randomPairQuantile(sets.length, (i, j) => jaccard(sets[i], sets[j]), opts.similarityQuantile, rng(opts.seed)));
-      const groups = nearDuplicateGroups(texts, tau);
-      const group = new Map(idx.map((i, j) => [i, groups[j]]));
-      out.push({ id, ...layer((_, i) => ((group.get(i) ?? -1) >= 0 ? [`p:${group.get(i)}`] : []), id) });
+      const group = copies();
+      out.push({ id, ...layer((_, i) => (group.has(i) ? [`p:${group.get(i)}`] : []), id) });
+    } else if (id === "portfolio") {
+      const group = copies();
+      const keys = (e: Event, i: number) => [
+        ...(e.target ? [`t:${e.target}`] : []),
+        ...(e.urls ?? []).map((u) => `u:${norm(u)}`),
+        ...(group.has(i) ? [`p:${group.get(i)}`] : []),
+        ...(frames?.has(i) ? [`f:${frames.get(i)}`] : []),
+      ];
+      out.push({ id, ...objectLayer(ev, keys, span, n, opts, span, (occ) => Array.from({ length: opts.nullReplicates }, (_, b) => permuted(occ, 2 * span, opts.seed * 7919 + b * 31 + LAYERS.indexOf(id) + 1)), undefined, true) });
     } else if (id === "coframing" && frames?.size) {
       out.push({ id, ...layer((_, i) => (frames.has(i) ? [`f:${frames.get(i)}`] : []), id) });
     } else if (id === "rhythm" && worlds.length) {

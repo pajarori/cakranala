@@ -58,3 +58,25 @@ test("ranking metrics handle perfect order and ties", () => {
   expect(ranking({}, truth).ap).toBeCloseTo(0.6, 2);
   expect(ranking({ c: 3, d: 2 }, truth).precisionAt.R).toBe(0);
 });
+
+describe("swarm pelan", async () => {
+  const slow = (await import("./slow-swarm.json")).default as Scenario;
+  const { LAYERS } = await import("../src");
+  const runs = await Promise.all(
+    [1, 2, 3].map(async (seed) => {
+      const ds = simulate(slow, seed);
+      const base = evaluate(await analyze(ds, { layers: LAYERS.filter((l) => l !== "portfolio") }), ds.truth!);
+      const full = evaluate(await analyze(ds), ds.truth!);
+      return { base, full };
+    }),
+  );
+  const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+  const recall = (k: "base" | "full") => mean(runs.map((r) => r[k].operations.find((o) => o.kind === "slowswarm")!.recall));
+  test("lapisan portfolio menaikkan recall swarm pelan", () => expect(recall("full")).toBeGreaterThan(recall("base")));
+  test("tanpa false positive organik maupun viral", () => {
+    for (const r of runs) {
+      expect(r.full.organicFlagRate).toBe(0);
+      expect(r.full.viralFlagRate).toBe(0);
+    }
+  });
+});

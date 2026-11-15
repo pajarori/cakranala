@@ -2,7 +2,7 @@ import { SCHEMA_VERSION, type Action, type Actor, type Dataset, type Event } fro
 import type { Reasoner } from "./ports";
 import { expo, gauss, pick, rng, shuffle, type Rng } from "./util";
 
-export type OperationKind = "paid" | "botfarm" | "swarm";
+export type OperationKind = "paid" | "botfarm" | "swarm" | "slowswarm";
 
 export interface Scenario {
   name: string;
@@ -116,6 +116,12 @@ export function simulate(scenario: Scenario, seed = 1): Dataset {
         members.slice(1).forEach((m, i) =>
           emit(m, "reply", T + 20000 + i * 30000 + gauss(r, 0, 2500), `${text} ${pick(r, scenario.fillers.emoji)}`, target, nar.tags),
         );
+      } else if (op.kind === "slowswarm") {
+        for (const m of members.slice(1)) {
+          if (r() < 0.4) continue;
+          const text = nar.paraphrases?.length ? mutate(pick(r, nar.paraphrases), r, 0.3, scenario.fillers) : mutate(pick(r, nar.claims), r, 0.95, scenario.fillers);
+          emit(m, r() < 0.75 ? "reply" : "quote", T + Math.exp(gauss(r, Math.log(span * 0.2), 0.9)), text, target);
+        }
       } else if (op.kind === "paid") {
         for (const m of members.slice(1)) {
           if (r() < 0.15) continue;
