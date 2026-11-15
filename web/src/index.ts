@@ -393,7 +393,7 @@ export const server = serve({
       POST: authed(async (req) => {
         const { caseIds } = await req.json();
         if (!Array.isArray(caseIds) || !caseIds.length) throw new HttpError(400, "pilih minimal satu kasus");
-        return { candidates: candidates(caseIds.map(String)), blocked: caseIds.map(String).filter((id) => !coordinated(id)), simulation: DEMO_MODE };
+        return { candidates: candidates(caseIds.map(String), DEMO_MODE), blocked: caseIds.map(String).filter((id) => !coordinated(id)), simulation: DEMO_MODE };
       }),
     },
     "/api/complaints": {

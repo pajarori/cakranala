@@ -95,7 +95,7 @@ test("komdigi tanpa kredensial gagal dengan error yang jelas dan bisa dicoba lag
   for (let k = 0; k < 6; k++) await c.work(later(), ok);
   const k = c.ofCase(caseId).items.find((i) => i.batchId === b.id && i.channel === "komdigi")!;
   expect(k.status).toBe("failed");
-  expect(k.error).toContain("kredensial pelapor komdigi");
-  expect(alerts.errors().some((a) => a.text.includes("komdigi"))).toBe(true);
+  expect(k.error).toContain("kredensial pelapor Komdigi");
+  expect(alerts.errors().some((a) => a.text.includes("Komdigi"))).toBe(true);
   expect(c.retry(k.id, "analis").status).toBe("queued");
 });

@@ -104,7 +104,7 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
                     <Label htmlFor={c.key} className="grid min-w-0 gap-0.5 font-normal">
                       <span className="truncate">{c.kind === "account" ? c.label : `"${c.label}"`}</span>
                       <span className="text-xs text-muted-foreground">
-                        {c.kind === "account" ? "akun" : `post dari ${c.pseudonym}`}
+                        {c.kind === "account" ? "akun" : `post dari ${c.owner}, teksnya juga diposting akun lain`}
                         {!c.reportable && !plan.data.simulation && ", identitas asli tidak tersedia"}
                       </span>
                     </Label>

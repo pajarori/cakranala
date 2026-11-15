@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import type { Actor, Event } from "cakranala";
+import { normalize, type Actor, type Event } from "cakranala";
 import { complaintText, KOMDIGI_URL, permalink, profileUrl, sendReport, type Channel, type Receipt } from "cakranala/collect";
 import { alerts, audit, cases, db, decisions, DIR, reports, store } from "./db";
 import { credentials, proxies } from "./credentials";
@@ -51,6 +51,7 @@ export interface Candidate {
   channel: Channel;
   kind: "account" | "post";
   pseudonym: string;
+  owner: string;
   label: string;
   reportable: boolean;
 }
@@ -60,6 +61,7 @@ const CHANNEL_GAP = 45_000;
 const MAX_ATTEMPTS = 3;
 const SHOTS = `${DIR}complaints/`;
 const PLATFORMS = new Set(["x", "youtube", "telegram", "tiktok", "instagram", "facebook"]);
+const NAME: Record<string, string> = { x: "X", youtube: "YouTube", telegram: "Telegram", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook", komdigi: "Komdigi" };
 
 const toItem = (r: any): ComplaintItem => ({
   id: r.id,
@@ -106,7 +108,7 @@ export function coordinated(caseId: string) {
   return decisions.get(caseId)?.verdict === "coordinated";
 }
 
-export function candidates(caseIds: string[]): Candidate[] {
+export function candidates(caseIds: string[], simulation = false): Candidate[] {
   const out: Candidate[] = [];
   for (const caseId of caseIds) {
     const c = cases.get(caseId);
@@ -114,17 +116,29 @@ export function candidates(caseIds: string[]): Candidate[] {
     const actors = actorsOf(c.members);
     const known = identities.known(c.members);
     const events = eventsOf(c.members);
+    const shared = new Map<string, Set<string>>();
+    for (const [actor, list] of events)
+      for (const e of list) {
+        if (!e.text || e.action === "reshare") continue;
+        const k = normalize(e.text);
+        if (k.length < 20) continue;
+        const set = shared.get(k) ?? new Set();
+        set.add(actor);
+        shared.set(k, set);
+      }
+    const copies = (e: Event) => (e.text ? (shared.get(normalize(e.text))?.size ?? 0) : 0);
     for (const m of c.members) {
       const a = actors.get(m);
-      const platform = a?.platform ?? "";
+      const platform = simulation && a?.platform === "sim" ? "x" : (a?.platform ?? "");
       if (!PLATFORMS.has(platform)) continue;
       const reportable = known.has(m);
-      out.push({ key: `${caseId}|account|${m}`, caseId, channel: platform as Channel, kind: "account", pseudonym: m, label: a?.handle ?? m, reportable });
+      const owner = a?.handle ?? m;
+      out.push({ key: `${caseId}|account|${m}`, caseId, channel: platform as Channel, kind: "account", pseudonym: m, owner, label: owner, reportable });
       const posts = (events.get(m) ?? [])
-        .filter((e) => e.text && permalink(e, { platform, id: "", handle: "akun" }))
-        .sort((x, y) => y.ts - x.ts)
+        .filter((e) => copies(e) >= 2 && (simulation || permalink(e, { platform, id: "", handle: "akun" })))
+        .sort((x, y) => copies(y) - copies(x) || y.ts - x.ts)
         .slice(0, POSTS_PER_ACCOUNT);
-      for (const e of posts) out.push({ key: `${caseId}|post|${e.id}`, caseId, channel: platform as Channel, kind: "post", pseudonym: m, label: e.text!.slice(0, 120), reportable });
+      for (const e of posts) out.push({ key: `${caseId}|post|${e.id}`, caseId, channel: platform as Channel, kind: "post", pseudonym: m, owner, label: e.text!.slice(0, 120), reportable });
     }
   }
   return out;
@@ -140,7 +154,7 @@ export async function createBatch(input: { caseIds: string[]; keys?: string[]; k
   if (!caseIds.length) throw new Error("pilih minimal satu kasus");
   const blocked = caseIds.filter((id) => !coordinated(id));
   if (blocked.length) throw new Error(`isi keputusan analis "terkoordinasi" dulu untuk ${blocked.length} kasus`);
-  const all = candidates(caseIds);
+  const all = candidates(caseIds, input.simulation);
   const wanted = input.keys ? new Set(input.keys) : undefined;
   const chosen = all.filter((c) => !wanted || wanted.has(c.key));
   if (!chosen.length && !input.komdigi) throw new Error("tidak ada target yang dipilih");
@@ -272,10 +286,10 @@ async function process(i: ComplaintItem, send: Sender) {
   const b = batch(i.batchId)!;
   const fail = (error: string, status: ItemStatus = "failed") => {
     db.query("UPDATE complaint_items SET status = ?, attempts = attempts + 1, error = ? WHERE id = ?").run(status, error.slice(0, 300), i.id);
-    alerts.add({ ts: Date.now(), kind: "error", caseId: i.caseId, text: `Aduan ${i.channel} gagal: ${error.slice(0, 160)}` });
+    alerts.add({ ts: Date.now(), kind: "error", caseId: i.caseId, text: `Aduan ${NAME[i.channel]} gagal: ${error.slice(0, 160)}` });
   };
   const lease = await credentials.reporter(i.channel);
-  if (!lease) return fail(`belum ada kredensial pelapor ${i.channel} yang aktif`);
+  if (!lease) return fail(`belum ada kredensial pelapor ${NAME[i.channel]} yang aktif, tambahkan di Credentials`);
   const px = ["tiktok", "telegram", "komdigi"].includes(i.channel) || !(db.query("SELECT COUNT(*) AS n FROM proxies").get() as { n: number }).n ? undefined : await proxies.lease(lease.id);
   const links = i.channel === "komdigi" ? (db.query("SELECT url FROM complaint_items WHERE batch_id = ? AND channel != 'komdigi' AND url != ''").all(b.id) as { url: string }[]).map((r) => r.url) : [i.url];
   const r = await send({ channel: i.channel, kind: i.kind === "complaint" ? "post" : i.kind, url: i.url, who: i.pseudonym && i.kind === "account" ? await identities.reveal(i.pseudonym, b.by, i.caseId) : undefined }, { title: b.title, text: b.text, links, pdf: i.channel === "komdigi" ? await pdfOf(b) : undefined }, lease.fields, px?.url);
@@ -289,7 +303,7 @@ async function process(i: ComplaintItem, send: Sender) {
     db.query("UPDATE complaint_items SET not_before = ?, error = ? WHERE id = ?").run(r.until ?? Date.now() + 15 * 60_000, r.error ?? "terkena batas laju", i.id);
   } else if (r.status === "needs_manual") {
     db.query("UPDATE complaint_items SET status = 'needs_manual', attempts = attempts + 1, screenshot = ?, error = ? WHERE id = ?").run(shot, (r.error ?? "butuh verifikasi").slice(0, 300), i.id);
-    alerts.add({ ts: Date.now(), kind: "error", caseId: i.caseId, text: `Aduan ${i.channel} butuh verifikasi manual: ${r.error ?? ""}`.trim() });
+    alerts.add({ ts: Date.now(), kind: "error", caseId: i.caseId, text: `Aduan ${NAME[i.channel]} butuh verifikasi manual: ${r.error ?? ""}`.trim() });
   } else if (/proxy|ECONN|ETIMEDOUT|fetch failed|socket/i.test(r.error ?? "") && i.attempts + 1 < MAX_ATTEMPTS) {
     if (px) proxies.failed(px.id, r.error ?? "", lease.id);
     db.query("UPDATE complaint_items SET attempts = attempts + 1, not_before = ?, error = ? WHERE id = ?").run(Date.now() + 60_000, r.error ?? null, i.id);
