@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { createRoute, Link, notFound } from "@tanstack/react-router";
+import { createRoute, Link, notFound, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Eye, EyeOff, Search, ShieldAlert, Users } from "lucide-react";
+import { Eye, EyeOff, FlagTriangleRight, Search, ShieldAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ComplaintForm } from "@/routes/complaints";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -54,7 +57,7 @@ function WatchButton({ id, watched }: { id: string; watched: boolean }) {
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-80 flex-col gap-3">
         <div className="text-sm font-medium">Catatan untuk daftar pantau</div>
-        <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opsional, misalnya alasan dipantau" rows={3} />
+        <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opsional" rows={3} />
         <Button
           disabled={watch.isPending}
           onClick={() =>
@@ -82,6 +85,13 @@ function Actors() {
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
   const { data, isPending } = useActors({ q, filter, page });
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const pick = (id: string, on: boolean) =>
+    setPicked((s) => {
+      const n = new Set(s);
+      on ? n.add(id) : n.delete(id);
+      return n;
+    });
   const pages = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1;
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
@@ -100,6 +110,14 @@ function Actors() {
           />
         </InputGroup>
         <div className="flex items-center gap-2">
+          {picked.size > 0 && (
+            <Button size="sm" asChild>
+              <Link to="/actors/report/$ids" params={{ ids: [...picked].join(",") }}>
+                <FlagTriangleRight />
+                Laporkan {picked.size} akun
+              </Link>
+            </Button>
+          )}
           <ToggleGroup
             type="single"
             variant="outline"
@@ -137,6 +155,13 @@ function Actors() {
             <Table>
               <TableHeader className="bg-muted">
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      aria-label="Pilih semua akun di halaman ini"
+                      checked={data.rows.some((x) => x.cases > 0) && data.rows.filter((x) => x.cases > 0).every((x) => picked.has(x.id))}
+                      onCheckedChange={(v) => data.rows.filter((x) => x.cases > 0).forEach((x) => pick(x.id, v === true))}
+                    />
+                  </TableHead>
                   <TableHead>Akun</TableHead>
                   <TableHead>Platform</TableHead>
                   <TableHead className="text-right">Skor koordinasi</TableHead>
@@ -148,6 +173,9 @@ function Actors() {
               <TableBody>
                 {data.rows.map((r) => (
                   <TableRow key={r.id}>
+                    <TableCell>
+                      <Checkbox aria-label={`Pilih ${r.handle}`} disabled={!r.cases} checked={picked.has(r.id)} onCheckedChange={(v) => pick(r.id, v === true)} />
+                    </TableCell>
                     <TableCell>
                       <Link to="/actors/$id" params={{ id: r.id }} onMouseEnter={() => queryClient.prefetchQuery(actorQuery(r.id))} className="flex items-center gap-3 font-medium hover:underline">
                         <ActorAvatar handle={r.handle} />
@@ -258,6 +286,8 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 function ActorProfile() {
   const { id } = actorRoute.useParams();
   const a = useActor(id);
+  const navigate = useNavigate();
+  const reporting = useRouterState({ select: (s) => s.location.pathname.endsWith("/report") });
   const data = a.activity.map((d) => ({ day: new Date(d.day).toLocaleDateString("id-ID", { day: "2-digit", month: "short", timeZone: "Asia/Jakarta" }), posts: d.posts }));
   return (
     <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
@@ -270,12 +300,30 @@ function ActorProfile() {
               <Badge variant="outline">{PLATFORM[a.platform] ?? a.platform}</Badge>
               {a.cluster ? <Badge variant="destructive">Cluster {short(a.cluster.id)}</Badge> : <Badge variant="secondary">Tidak dalam cluster</Badge>}
               {a.watch && <Badge variant="destructive">Dipantau</Badge>}
-              <span>Pseudonim, identitas asli tidak disimpan</span>
             </div>
           </div>
         </div>
-        <WatchButton id={a.id} watched={!!a.watch} />
+        <div className="flex items-center gap-2">
+          {a.cases.length > 0 && (
+            <Button variant="outline" asChild>
+              <Link to="/actors/$id/report" params={{ id: a.id }}>
+                <FlagTriangleRight />
+                Laporkan
+              </Link>
+            </Button>
+          )}
+          <WatchButton id={a.id} watched={!!a.watch} />
+        </div>
       </div>
+      <Sheet open={reporting} onOpenChange={(o) => !o && navigate({ to: "/actors/$id", params: { id: a.id } })}>
+        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Laporkan {a.handle}</SheetTitle>
+            <SheetDescription className="sr-only">Target aduan</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">{reporting && <ComplaintForm actors={[a.id]} onDone={(b) => navigate({ to: "/threats/$id/complaints", params: { id: b.caseIds[0] } })} />}</div>
+        </SheetContent>
+      </Sheet>
       <div className="grid gap-4 @5xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
@@ -411,3 +459,25 @@ export const actorRoute = createRoute({
   }),
   component: ActorProfile,
 });
+
+export const actorReportRoute = createRoute({ getParentRoute: () => actorRoute, path: "/report", component: () => null });
+
+function ReportActors() {
+  const { ids } = useParams({ strict: false }) as { ids: string };
+  const navigate = useNavigate();
+  const actors = ids.split(",").filter(Boolean);
+  return (
+    <div className="flex flex-col gap-4 px-4 lg:px-6">
+      <Card className="mx-auto flex h-[calc(100vh-12rem)] w-full max-w-2xl flex-col">
+        <CardHeader>
+          <CardTitle>Laporkan {actors.length} akun</CardTitle>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col">
+          <ComplaintForm actors={actors} onDone={(b) => navigate({ to: "/threats/$id/complaints", params: { id: b.caseIds[0] } })} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export const reportActorsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/actors/report/$ids", staticData: { title: "Actors" }, component: ReportActors });

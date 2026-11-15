@@ -52,7 +52,7 @@ function TelegramLogin({ apiId, apiHash, onSession }: { apiId: string; apiHash: 
       <div className="flex flex-col gap-2">
         <Label htmlFor="phone">Nomor HP akun pelapor</Label>
         <div className="flex gap-2">
-          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+62812..." autoComplete="off" className="h-11 font-mono" />
+          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+62…" autoComplete="off" className="h-11 font-mono" />
           <Button type="button" variant="outline" className="h-11" disabled={busy || !apiId || !apiHash || !phone} onClick={() => run(async () => setSent(await api.telegramCode({ apiId, apiHash, phone })))}>
             {busy && !sent ? <Spinner /> : <Send />}
             Kirim kode
@@ -67,7 +67,7 @@ function TelegramLogin({ apiId, apiHash, onSession }: { apiId: string; apiHash: 
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="tgpass">Password verifikasi dua langkah</Label>
-            <Input id="tgpass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Kosongkan kalau tidak dipakai" autoComplete="off" className="h-11" />
+            <Input id="tgpass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Opsional" autoComplete="off" className="h-11" />
           </div>
           <Button
             type="button"
@@ -259,7 +259,7 @@ function NewCredential() {
           <div className="grid gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="label">Nama</Label>
-              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional, terisi otomatis setelah tes" autoComplete="off" className="h-11" />
+              <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional" autoComplete="off" className="h-11" />
             </div>
             {names.filter((n) => n !== "session").map((n) => (
               <div key={`${platform}:${n}`} className="flex flex-col gap-2">

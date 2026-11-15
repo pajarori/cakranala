@@ -6,15 +6,14 @@ import { threatRoute, threatTabs } from "@/routes/threat";
 import { complaintRoutes, multiComplaintRoute } from "@/routes/complaints";
 import { importRoute, monitorsRoute, newFromTemplateRoute, newMonitorRoute, templatesRoute } from "@/routes/monitors";
 import { reportRoute, reportsRoute } from "@/routes/reports";
-import { perisaiRoute } from "@/routes/perisai";
 import { systemRoute } from "@/routes/system";
 import { loginRoute } from "@/routes/login";
 import { newUserRoute, passwordRoute, usersRoute } from "@/routes/users";
 import { credentialsRoute, newCredentialRoute } from "@/routes/credentials";
 import { newProxiesRoute, proxiesRoute } from "@/routes/proxies";
-import { actorRoute, actorsRoute, watchlistRoute } from "@/routes/actors";
+import { actorReportRoute, actorRoute, actorsRoute, reportActorsRoute, watchlistRoute } from "@/routes/actors";
 
-const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, situationPeriodRoute, threatsRoute, threatRoute.addChildren([...threatTabs, complaintRoutes]), multiComplaintRoute, actorsRoute, watchlistRoute, actorRoute, monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, perisaiRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute, proxiesRoute, newProxiesRoute])]);
+const routeTree = shellRoute.addChildren([loginRoute, rootRoute.addChildren([situationRoute, situationPeriodRoute, threatsRoute, threatRoute.addChildren([...threatTabs, complaintRoutes]), multiComplaintRoute, actorsRoute, watchlistRoute, reportActorsRoute, actorRoute.addChildren([actorReportRoute]), monitorsRoute, newMonitorRoute, newFromTemplateRoute, templatesRoute, importRoute, reportsRoute, reportRoute, systemRoute, usersRoute, newUserRoute, passwordRoute, credentialsRoute, newCredentialRoute, proxiesRoute, newProxiesRoute])]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
 

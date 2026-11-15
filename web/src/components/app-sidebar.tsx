@@ -1,7 +1,7 @@
 import type * as React from "react";
 import { Logo } from "@/components/logo";
 import { Link } from "@tanstack/react-router";
-import { FileText, LockKeyhole, Users, LayoutDashboard, ScanEye, Settings, ShieldAlert, ShieldCheck, UserSearch } from "lucide-react";
+import { FileText, LockKeyhole, Users, LayoutDashboard, ScanEye, Settings, ShieldAlert, UserSearch } from "lucide-react";
 import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -40,7 +40,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary
           className="mt-auto"
           items={[
-            { title: "Perisai", url: "/perisai", icon: ShieldCheck },
             { title: "System", url: "/system", icon: Settings },
             { title: "Credentials", url: "/credentials", icon: LockKeyhole },
             { title: "Users", url: "/users", icon: Users },

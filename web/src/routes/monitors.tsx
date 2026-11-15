@@ -39,18 +39,18 @@ const PLATFORMS: Record<Platform, { label: string; kinds: MonitorKind[] }> = {
 };
 
 const TARGETS: Record<string, { label: string; placeholder: string }> = {
-  "x:topic": { label: "Kata kunci atau hashtag", placeholder: "pulau seruni" },
-  "x:account": { label: "Handle akun", placeholder: "@tni_ad" },
+  "x:topic": { label: "Kata kunci atau hashtag", placeholder: "kata kunci" },
+  "x:account": { label: "Handle akun", placeholder: "@username" },
   "x:post": { label: "URL atau ID post", placeholder: "https://x.com/user/status/123" },
-  "youtube:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
+  "youtube:topic": { label: "Kata pencarian", placeholder: "kata kunci" },
   "youtube:post": { label: "URL atau ID video", placeholder: "https://youtu.be/abc123def45" },
-  "telegram:account": { label: "Kanal publik", placeholder: "kanal_satu, kanal_dua" },
-  "tiktok:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
+  "telegram:account": { label: "Kanal publik", placeholder: "nama_kanal" },
+  "tiktok:topic": { label: "Kata pencarian", placeholder: "kata kunci" },
   "tiktok:post": { label: "URL atau ID video", placeholder: "https://www.tiktok.com/@user/video/123" },
-  "instagram:topic": { label: "Tagar", placeholder: "#pulauseruni" },
-  "instagram:account": { label: "Nama akun", placeholder: "@tni_angkatan_darat" },
+  "instagram:topic": { label: "Tagar", placeholder: "#tagar" },
+  "instagram:account": { label: "Nama akun", placeholder: "@username" },
   "instagram:post": { label: "URL post atau reel", placeholder: "https://www.instagram.com/p/AbCdEfGhIjK/" },
-  "facebook:topic": { label: "Kata pencarian", placeholder: "pulau seruni" },
+  "facebook:topic": { label: "Kata pencarian", placeholder: "kata kunci" },
   "facebook:account": { label: "URL atau nama Page", placeholder: "https://www.facebook.com/nama.page" },
   "facebook:post": { label: "URL post", placeholder: "https://www.facebook.com/nama.page/posts/123" },
   "demo:simulation": { label: "Seed skenario", placeholder: "1" },
@@ -488,7 +488,7 @@ function ImportData() {
         </Section>
         <Section step={2} title="Atau arsip besar dari URL">
           <div className="flex flex-col gap-3 @3xl/main:flex-row">
-            <Input value={archiveUrl} onChange={(e) => setArchiveUrl(e.target.value)} placeholder="https://.../arsip_tweets.zip" className="h-11" />
+            <Input value={archiveUrl} onChange={(e) => setArchiveUrl(e.target.value)} placeholder="https://…/arsip.zip" className="h-11" />
             <Button
               type="button"
               variant="outline"
@@ -513,7 +513,7 @@ function ImportData() {
           <p className="text-sm text-muted-foreground">Untuk arsip berukuran besar (ZIP atau CSV format arsip X/Twitter). Waktu asli dipertahankan; Cakra Nala memutar ulang seluruh arsip hari demi hari dan melacak kasus lintas hari.</p>
         </Section>
         <Section step={3} title="Nama">
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional, misalnya nama sumber data" className="h-11" />
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional" className="h-11" />
         </Section>
       </div>
       <Summary title="Ringkasan berkas" rows={rows}>

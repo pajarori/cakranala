@@ -18,7 +18,6 @@ const PAGES = [
   { to: "/monitors", label: "Monitors" },
   { to: "/monitors/templates", label: "Template pantauan" },
   { to: "/reports", label: "Reports" },
-  { to: "/perisai", label: "Perisai" },
   { to: "/system", label: "System" },
 ];
 

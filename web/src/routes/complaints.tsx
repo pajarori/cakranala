@@ -60,8 +60,9 @@ const remembered = () => {
   }
 };
 
-function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: ComplaintBatch) => void }) {
-  const plan = useComplaintPlan(caseIds);
+export function ComplaintForm({ caseIds: given, actors, onDone }: { caseIds?: string[]; actors?: string[]; onDone: (b: ComplaintBatch) => void }) {
+  const plan = useComplaintPlan(actors ? { actors } : { caseIds: given });
+  const caseIds = plan.data?.caseIds ?? given ?? [];
   const create = useCreateComplaint();
   const [off, setOff] = useState<Set<string>>(new Set());
   const [komdigi, setKomdigiState] = useState(remembered);
@@ -115,7 +116,7 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
   };
   const submit = () =>
     create.mutate(
-      { caseIds, keys: chosen.map((c) => c.key), komdigi },
+      { caseIds: chosen.length ? [...new Set(chosen.map((c) => c.caseId))] : caseIds, keys: chosen.map((c) => c.key), komdigi },
       { onSuccess: (b) => (toast.success(b.mode === "simulation" ? "Aduan simulasi dibuat" : "Aduan masuk antrean"), onDone(b)), onError: failure("Aduan tidak bisa dibuat") },
     );
   const confirmAll = () => {
@@ -284,7 +285,7 @@ function ManualDialog({ item, batch, onClose }: { item: ComplaintItem; batch: Co
           </li>
           <li>
             Tandai selesai. Nomor aduan bisa diisi kalau ada.
-            <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Nomor aduan, opsional" className="mt-2 h-9 w-full rounded-md border bg-transparent px-3 text-sm" />
+            <Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Nomor aduan, opsional" className="mt-2" />
           </li>
         </ol>
         <DialogFooter>

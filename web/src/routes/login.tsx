@@ -45,12 +45,8 @@ function Login() {
                   setBusy(true);
                   setError("");
                   (setup ? api.setup : api.login)({ username, password })
-                    .then((r) => {
-                      queryClient.setQueryData(meQuery.queryKey, { user: r.user, setup: false });
-                      navigate({ to: takeReturn(), replace: true });
-                    })
-                    .catch((err: Error) => setError(err.message))
-                    .finally(() => setBusy(false));
+                    .then(() => window.location.replace(takeReturn()))
+                    .catch((err: Error) => (setError(err.message), setBusy(false)));
                 }}
               >
                 <FieldGroup>

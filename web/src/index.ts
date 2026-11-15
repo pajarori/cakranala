@@ -391,9 +391,13 @@ export const server = serve({
     },
     "/api/complaints/plan": {
       POST: authed(async (req) => {
-        const { caseIds } = await req.json();
-        if (!Array.isArray(caseIds) || !caseIds.length) throw new HttpError(400, "pilih minimal satu kasus");
-        return { candidates: candidates(caseIds.map(String), DEMO_MODE), blocked: caseIds.map(String).filter((id) => !coordinated(id)), simulation: DEMO_MODE };
+        const body = await req.json();
+        const actors = Array.isArray(body.actors) ? new Set<string>(body.actors.map(String)) : undefined;
+        const caseIds: string[] = actors ? cases.all().filter((c) => c.members.some((m) => actors.has(m))).map((c) => c.id) : Array.isArray(body.caseIds) ? body.caseIds.map(String) : [];
+        if (!caseIds.length) throw new HttpError(400, actors ? "akun ini belum masuk kasus mana pun" : "pilih minimal satu kasus");
+        const list = candidates(caseIds, DEMO_MODE).filter((c) => !actors || actors.has(c.pseudonym));
+        const seen = new Set<string>();
+        return { caseIds, candidates: list.filter((c) => !seen.has(`${c.kind}|${c.pseudonym}|${c.label}`) && seen.add(`${c.kind}|${c.pseudonym}|${c.label}`)), blocked: caseIds.filter((id) => !coordinated(id) && list.some((c) => c.caseId === id)), simulation: DEMO_MODE };
       }),
     },
     "/api/complaints": {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Laporkan langsung dari halaman aktor, atau pilih banyak akun di daftar Actors lalu laporkan sekaligus
+- Setelah login halaman dimuat ulang penuh ke dashboard
+- Halaman Perisai dihapus dari dashboard
+- Placeholder input dibuat umum
+
 ## 0.4.1
 
 - Login: logo Cakra Nala di panel kanan, tanpa teks pengisi

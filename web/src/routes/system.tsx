@@ -30,9 +30,9 @@ function Integrations() {
         ["facebook", "Facebook", brand("facebook"), "Page, pencarian, dan komentar post lewat browser"],
       ] as const
     ).map(([p, title, icon, text]) => ({ icon, title, text, ok: !!caps.data?.chrome && ready(p) > 0, status: !caps.data?.chrome ? "Chrome belum terpasang" : ready(p) ? `${ready(p)} kredensial siap` : "Belum ada kredensial", to: "/credentials" })),
-    { icon: Brain, title: "Layer semantik", text: "Embedding e5 untuk co-framing, narasi, dan Perisai", ok: !!caps.data?.semantic, status: caps.data?.semantic ? (caps.data.model ? "Siap" : "Model diunduh saat analisis pertama") : "Jalankan cakranala install" },
+    { icon: Brain, title: "Layer semantik", text: "Embedding e5 untuk co-framing dan narasi", ok: !!caps.data?.semantic, status: caps.data?.semantic ? (caps.data.model ? "Siap" : "Model diunduh saat analisis pertama") : "Jalankan cakranala install" },
     { icon: FileText, title: "Laporan PDF", text: "Laporan komandan lewat Typst", ok: !!caps.data?.pdf, status: caps.data?.pdf ? "Siap" : "Jalankan cakranala install" },
-    { icon: Bot, title: "Model bahasa", text: "Judul kasus, ringkasan, laporan, dan Perisai", ok: !!caps.data?.reasoner, status: caps.data?.reasoner ? "Terhubung" : "Belum dikonfigurasi" },
+    { icon: Bot, title: "Model bahasa", text: "Judul kasus, ringkasan, dan laporan", ok: !!caps.data?.reasoner, status: caps.data?.reasoner ? "Terhubung" : "Belum dikonfigurasi" },
     {
       icon: Clapperboard,
       title: "Mode demo",
