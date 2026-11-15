@@ -15,7 +15,7 @@ import { ensureState, overviewQuery, queryClient, useOps, useOverview, useWatchl
 import { ESCALATION_LABEL, SEVERITY_LABEL, SEVERITY_VARIANT, ago, approx, int } from "@/lib/format";
 import type { Case, Period, State } from "@/lib/api";
 
-const ICON = { new: AlertTriangle, escalated: ArrowUpRight, status: Flag, watchlist: Eye };
+const ICON = { new: AlertTriangle, escalated: ArrowUpRight, status: Flag, watchlist: Eye, error: ShieldAlert };
 const RANK = { urgent: 0, alert: 1, watch: 2 };
 
 const PERIODS: { value: Period; label: string; text: string }[] = [

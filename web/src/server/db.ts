@@ -186,14 +186,19 @@ export const evidence = {
 export interface Alert {
   id: number;
   ts: number;
-  kind: "new" | "escalated" | "status" | "watchlist";
+  kind: "new" | "escalated" | "status" | "watchlist" | "error";
   caseId: string;
   text: string;
+  seen?: boolean;
 }
 
+if (!(db.query("PRAGMA table_info(alerts)").all() as { name: string }[]).some((c) => c.name === "seen")) db.exec("ALTER TABLE alerts ADD COLUMN seen INTEGER NOT NULL DEFAULT 1");
+
 export const alerts = {
-  add: (a: Omit<Alert, "id">) => db.query("INSERT INTO alerts (ts, kind, case_id, text) VALUES (?, ?, ?, ?)").run(a.ts, a.kind, a.caseId, a.text),
-  recent: (limit = 30) => db.query("SELECT id, ts, kind, case_id AS caseId, text FROM alerts ORDER BY ts DESC, id DESC LIMIT ?").all(limit) as Alert[],
+  add: (a: Omit<Alert, "id">) => db.query("INSERT INTO alerts (ts, kind, case_id, text, seen) VALUES (?, ?, ?, ?, ?)").run(a.ts, a.kind, a.caseId, a.text, a.kind === "error" ? 0 : 1),
+  recent: (limit = 30) => db.query("SELECT id, ts, kind, case_id AS caseId, text FROM alerts WHERE kind != 'error' ORDER BY ts DESC, id DESC LIMIT ?").all(limit) as Alert[],
+  errors: () => (db.query("SELECT id, ts, kind, case_id AS caseId, text FROM alerts WHERE kind = 'error' AND seen = 0 ORDER BY ts, id").all() as Alert[]),
+  seen: (ids: number[]) => db.transaction(() => ids.forEach((id) => db.query("UPDATE alerts SET seen = 1 WHERE id = ? AND kind = 'error'").run(id)))(),
 };
 
 export interface ReportRow<T = unknown> {

@@ -20,6 +20,7 @@ import { startArchive } from "./server/archive";
 import { overview, PERIODS, type Period } from "./server/overview";
 import { proof } from "./server/proof";
 import { parseDecision, VERDICT_STATUS } from "./server/decision";
+import { candidates, coordinated, createBatch, markDone, ofCase, retry, screenshotPath, work } from "./server/complaints";
 import { currentUser, login, logout, sessionCookie, users, type User } from "./server/auth";
 
 class HttpError extends Error {
@@ -385,6 +386,54 @@ export const server = serve({
       },
     },
     "/api/cases/:id/reports": { POST: authed((req, me) => createReport(req.params.id, me.username)) },
+    "/api/cases/:id/complaints": {
+      GET: authed((req) => ({ ...ofCase(req.params.id), coordinated: coordinated(req.params.id), simulation: DEMO_MODE })),
+    },
+    "/api/complaints/plan": {
+      POST: authed(async (req) => {
+        const { caseIds } = await req.json();
+        if (!Array.isArray(caseIds) || !caseIds.length) throw new HttpError(400, "pilih minimal satu kasus");
+        return { candidates: candidates(caseIds.map(String)), blocked: caseIds.map(String).filter((id) => !coordinated(id)), simulation: DEMO_MODE };
+      }),
+    },
+    "/api/complaints": {
+      POST: authed(async (req, me) => {
+        const { caseIds, keys, komdigi } = await req.json();
+        if (!Array.isArray(caseIds)) throw new HttpError(400, "pilih minimal satu kasus");
+        try {
+          return await createBatch({ caseIds: caseIds.map(String), keys: Array.isArray(keys) ? keys.map(String) : undefined, komdigi: komdigi !== false, by: me.username, simulation: DEMO_MODE });
+        } catch (e) {
+          throw new HttpError(400, e instanceof Error ? e.message : String(e));
+        }
+      }),
+    },
+    "/api/complaint-items/:id/retry": { POST: authed((req, me) => retry(req.params.id, me.username)) },
+    "/api/complaint-items/:id/done": {
+      POST: authed(async (req, me) => {
+        const { ref } = await req.json().catch(() => ({}));
+        return markDone(req.params.id, me.username, ref ? String(ref).slice(0, 80) : undefined);
+      }),
+    },
+    "/api/complaint-items/:id/screenshot": {
+      GET: async (req) => {
+        try {
+          guard(req);
+          const path = screenshotPath(req.params.id);
+          if (!path || !existsSync(path)) throw new HttpError(404, "screenshot tidak ada");
+          return new Response(Bun.file(path), { headers: { "content-type": "image/png", "cache-control": "no-store" } });
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    "/api/errors": {
+      GET: authed(() => alerts.errors()),
+      POST: authed(async (req) => {
+        const { ids } = await req.json();
+        alerts.seen(Array.isArray(ids) ? ids.map(Number).filter(Number.isFinite) : []);
+        return { ok: true };
+      }),
+    },
     "/api/reports": { GET: authed(() => reports.all()) },
     "/api/reports/:id": {
       GET: authed((req) => {
@@ -427,6 +476,8 @@ if (DEMO_MODE && !monitors.all().some((m) => m.kind === "simulation")) createMon
 const tick = () => refresh().catch((e) => console.error(`analisis gagal: ${e.message}`));
 tick();
 setInterval(tick, 15_000);
+const send = () => work().catch((e) => console.error(`aduan gagal: ${e.message}`));
+setInterval(send, 10_000);
 const sync = () => syncLibrary().catch((e) => console.error(`sinkron cek fakta gagal: ${e.message}`));
 sync();
 setInterval(sync, 3_600_000);
