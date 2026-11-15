@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Form Laporkan: cari target, pilih cepat (Semua, Akun saja, Post saja, Kosongkan, Balik pilihan), Shift+klik untuk rentang, Ctrl+Enter untuk kirim, konfirmasi sebelum kirim sungguhan
+- Pilihan Komdigi diingat di browser
+- Tab Aduan: filter status, coba lagi semua yang gagal sekaligus, salin semua tautan
+
 ## 0.2.0
 
 - Aduan satu tombol ke X, YouTube, Telegram, TikTok, Instagram, Facebook dan Komdigi, untuk satu atau beberapa kasus sekaligus

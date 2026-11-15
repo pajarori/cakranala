@@ -1,13 +1,17 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createRoute, Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, ExternalLink, FlagTriangleRight, Image, Landmark, RotateCw, Send } from "lucide-react";
+import { Copy, ExternalLink, FlagTriangleRight, Image, Landmark, Link2, RotateCw, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
 import { threatRoute } from "@/routes/threat";
 import { failure } from "@/components/error-dialog";
 import { PlatformIcon } from "@/components/platform-icon";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,26 +44,84 @@ const STATUS: Record<ComplaintItem["status"], { label: string; variant: "default
 
 const ChannelIcon = ({ channel }: { channel: string }) => (channel === "komdigi" ? <Landmark className="size-4 shrink-0" /> : <PlatformIcon platform={channel} className="size-4 shrink-0" />);
 
+const PICKS = [
+  { id: "all", label: "Semua", on: () => true },
+  { id: "accounts", label: "Akun saja", on: (c: Candidate) => c.kind === "account" },
+  { id: "posts", label: "Post saja", on: (c: Candidate) => c.kind === "post" },
+  { id: "none", label: "Kosongkan", on: () => false },
+] as const;
+
+const remembered = () => {
+  try {
+    return localStorage.getItem("cakranala.komdigi") !== "0";
+  } catch {
+    return true;
+  }
+};
+
 function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: ComplaintBatch) => void }) {
   const plan = useComplaintPlan(caseIds);
   const create = useCreateComplaint();
   const [off, setOff] = useState<Set<string>>(new Set());
-  const [komdigi, setKomdigi] = useState(true);
+  const [komdigi, setKomdigiState] = useState(remembered);
+  const [query, setQuery] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const anchor = useRef<number | null>(null);
+  const shift = useRef(false);
   const list = plan.data?.candidates ?? [];
-  const groups = useMemo(() => Object.entries(Object.groupBy(list, (c) => c.channel)) as [string, Candidate[]][], [list]);
-  const chosen = list.filter((c) => (c.reportable || plan.data?.simulation) && !off.has(c.key));
+  const usable = (c: Candidate) => c.reportable || !!plan.data?.simulation;
+  const q = query.trim().toLowerCase();
+  const visible = q ? list.filter((c) => c.label.toLowerCase().includes(q) || c.owner.toLowerCase().includes(q)) : list;
+  const groups = useMemo(() => Object.entries(Object.groupBy(visible, (c) => c.channel)) as [string, Candidate[]][], [visible]);
+  const flat = groups.flatMap(([, items]) => items);
+  const chosen = list.filter((c) => usable(c) && !off.has(c.key));
   const accounts = chosen.filter((c) => c.kind === "account").length;
   const posts = chosen.length - accounts;
-  const flip = (keys: string[], on: boolean) => setOff((s) => {
+  const setKomdigi = (v: boolean) => {
+    setKomdigiState(v);
+    try {
+      localStorage.setItem("cakranala.komdigi", v ? "1" : "0");
+    } catch {}
+  };
+  const flip = (keys: string[], on: boolean) =>
+    setOff((s) => {
+      const n = new Set(s);
+      for (const k of keys) on ? n.delete(k) : n.add(k);
+      return n;
+    });
+  const pick = (on: (c: Candidate) => boolean) =>
+    setOff((s) => {
+      const n = new Set(s);
+      for (const c of visible) on(c) ? n.delete(c.key) : n.add(c.key);
+      return n;
+    });
+  const invert = () =>
+    setOff((s) => {
     const n = new Set(s);
-    for (const k of keys) on ? n.delete(k) : n.add(k);
+    for (const c of visible) if (usable(c)) n.has(c.key) ? n.delete(c.key) : n.add(c.key);
     return n;
   });
+  const toggle = (c: Candidate, on: boolean) => {
+    const i = flat.indexOf(c);
+    if (shift.current && anchor.current !== null) {
+      const [a, b] = [Math.min(anchor.current, i), Math.max(anchor.current, i)];
+      flip(flat.slice(a, b + 1).filter(usable).map((x) => x.key), on);
+    } else flip([c.key], on);
+    anchor.current = i;
+  };
+  const submit = () =>
+    create.mutate(
+      { caseIds, keys: chosen.map((c) => c.key), komdigi },
+      { onSuccess: (b) => (toast.success(b.mode === "simulation" ? "Aduan simulasi dibuat" : "Aduan masuk antrean"), onDone(b)), onError: failure("Aduan tidak bisa dibuat") },
+    );
   if (plan.isPending) return <Skeleton className="h-64" />;
   if (plan.error) return <Alert variant="destructive"><AlertTitle>Target tidak bisa disiapkan</AlertTitle><AlertDescription>{plan.error.message}</AlertDescription></Alert>;
   const blocked = plan.data.blocked;
+  const ready = !create.isPending && !blocked.length && (chosen.length > 0 || komdigi);
+  const go = () => (plan.data.simulation ? submit() : setConfirm(true));
+  const total = chosen.length + (komdigi ? 1 : 0);
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-3" onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && ready && go()}>
       {plan.data.simulation && (
         <Alert>
           <AlertTitle>Mode simulasi</AlertTitle>
@@ -83,15 +145,32 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
         {int(accounts)} akun dan {int(posts)} post di {[...new Set(chosen.map((c) => CHANNEL[c.channel]))].join(", ") || "platform"}
         {komdigi ? ", ditambah 1 aduan Komdigi" : ""}.
       </p>
+      <div className="grid gap-2">
+        <div className="relative">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari akun atau isi post" className="pl-8" aria-label="Cari target" />
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          {PICKS.map((p) => (
+            <Button key={p.id} type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => pick(p.on)}>
+              {p.label}
+            </Button>
+          ))}
+          <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={invert}>
+            Balik pilihan
+          </Button>
+          <span className="ml-auto text-xs text-muted-foreground">Shift+klik untuk memilih rentang</span>
+        </div>
+      </div>
       <ScrollArea className="min-h-0 flex-1 rounded-lg border">
         <div className="divide-y">
           {groups.map(([channel, items]) => {
-            const usable = items.filter((c) => c.reportable || plan.data.simulation);
-            const on = usable.filter((c) => !off.has(c.key)).length;
+            const ok = items.filter(usable);
+            const on = ok.filter((c) => !off.has(c.key)).length;
             return (
               <div key={channel} className="grid gap-2 p-3">
                 <div className="flex items-center gap-2">
-                  <Checkbox id={`all-${channel}`} checked={on === usable.length && on > 0 ? true : on ? "indeterminate" : false} disabled={!usable.length} onCheckedChange={(v) => flip(usable.map((c) => c.key), v === true)} />
+                  <Checkbox id={`all-${channel}`} checked={on === ok.length && on > 0 ? true : on ? "indeterminate" : false} disabled={!ok.length} onCheckedChange={(v) => flip(ok.map((c) => c.key), v === true)} />
                   <Label htmlFor={`all-${channel}`} className="flex items-center gap-2 font-medium">
                     <ChannelIcon channel={channel} />
                     {CHANNEL[channel]}
@@ -99,13 +178,20 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
                   <Badge variant="outline" className="ml-auto">{on} dari {items.length}</Badge>
                 </div>
                 {items.map((c) => (
-                  <div key={c.key} className="flex items-start gap-2 pl-6 text-sm">
-                    <Checkbox id={c.key} className="mt-0.5" checked={(c.reportable || plan.data.simulation) && !off.has(c.key)} disabled={!c.reportable && !plan.data.simulation} onCheckedChange={(v) => flip([c.key], v === true)} />
+                  <div key={c.key} className={`flex items-start gap-2 text-sm ${c.kind === "post" ? "pl-12" : "pl-6"}`}>
+                    <Checkbox
+                      id={c.key}
+                      className="mt-0.5"
+                      checked={usable(c) && !off.has(c.key)}
+                      disabled={!usable(c)}
+                      onClick={(e) => (shift.current = e.shiftKey)}
+                      onCheckedChange={(v) => toggle(c, v === true)}
+                    />
                     <Label htmlFor={c.key} className="grid min-w-0 gap-0.5 font-normal">
                       <span className="truncate">{c.kind === "account" ? c.label : `"${c.label}"`}</span>
                       <span className="text-xs text-muted-foreground">
-                        {c.kind === "account" ? "akun" : `post dari ${c.owner}, teksnya juga diposting akun lain`}
-                        {!c.reportable && !plan.data.simulation && ", identitas asli tidak tersedia"}
+                        {c.kind === "account" ? ["akun", list.filter((x) => x.kind === "post" && x.pseudonym === c.pseudonym).length].filter(Boolean).join(", ").replace(/(\d+)$/, "$1 post bukti") : "post yang teksnya juga diposting akun lain"}
+                        {!usable(c) && ", identitas asli tidak tersedia"}
                       </span>
                     </Label>
                   </div>
@@ -113,7 +199,7 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
               </div>
             );
           })}
-          {!groups.length && <p className="p-4 text-sm text-muted-foreground">Tidak ada akun yang bisa dilaporkan ke platform. Aduan Komdigi tetap bisa dikirim.</p>}
+          {!groups.length && <p className="p-4 text-sm text-muted-foreground">{q ? "Tidak ada target yang cocok." : "Tidak ada akun yang bisa dilaporkan ke platform. Aduan Komdigi tetap bisa dikirim."}</p>}
         </div>
       </ScrollArea>
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
@@ -123,18 +209,25 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
         </Label>
         <Switch id="komdigi" checked={komdigi} onCheckedChange={setKomdigi} />
       </div>
-      <Button
-        disabled={create.isPending || blocked.length > 0 || (!chosen.length && !komdigi)}
-        onClick={() =>
-          create.mutate(
-            { caseIds, keys: chosen.map((c) => c.key), komdigi },
-            { onSuccess: (b) => (toast.success(b.mode === "simulation" ? "Aduan simulasi dibuat" : "Aduan masuk antrean"), onDone(b)), onError: failure("Aduan tidak bisa dibuat") },
-          )
-        }
-      >
+      <Button disabled={!ready} onClick={go}>
         {create.isPending ? <Spinner /> : <Send />}
-        Kirim aduan
+        Kirim {int(total)} aduan
+        <Kbd className="ml-auto hidden sm:inline-flex">Ctrl Enter</Kbd>
       </Button>
+      <AlertDialog open={confirm} onOpenChange={setConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kirim {int(total)} aduan sungguhan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {int(accounts)} akun dan {int(posts)} post akan dilaporkan ke platform{komdigi ? ", ditambah 1 aduan ke Komdigi" : ""}. Laporan yang sudah terkirim tidak bisa ditarik.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={submit}>Kirim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -198,11 +291,23 @@ function ManualDialog({ item, batch, onClose }: { item: ComplaintItem; batch: Co
   );
 }
 
-function BatchCard({ batch, items }: { batch: ComplaintBatch; items: ComplaintItem[] }) {
+const FILTERS = [
+  { id: "all", label: "Semua", match: () => true },
+  { id: "attention", label: "Perlu tindakan", match: (i: ComplaintItem) => i.status === "needs_manual" || i.status === "failed" },
+  { id: "sent", label: "Terkirim", match: (i: ComplaintItem) => i.status === "sent" || i.status === "simulated" },
+  { id: "queued", label: "Antre", match: (i: ComplaintItem) => i.status === "queued" },
+] as const;
+
+function BatchCard({ batch, items: all }: { batch: ComplaintBatch; items: ComplaintItem[] }) {
   const act = useComplaintItem();
   const [manual, setManual] = useState<ComplaintItem | undefined>();
-  const settled = items.filter((i) => i.status !== "queued").length;
-  const counts = Object.entries(Object.groupBy(items, (i) => i.status)).map(([s, l]) => [s, l!.length] as const);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
+  const items = all.filter(FILTERS.find((f) => f.id === filter)!.match);
+  const failed = all.filter((i) => i.status === "failed");
+  const settled = all.filter((i) => i.status !== "queued").length;
+  const counts = Object.entries(Object.groupBy(all, (i) => i.status)).map(([s, l]) => [s, l!.length] as const);
+  const links = all.filter((i) => i.url && i.channel !== "komdigi" && !i.url.startsWith("simulasi:")).map((i) => i.url);
+  const retryAll = () => Promise.all(failed.map((i) => act.mutateAsync({ id: i.id, action: "retry" }))).then(() => toast.success(`${failed.length} item dicoba lagi`), failure("Sebagian item tidak bisa dicoba lagi"));
   return (
     <Card>
       <CardHeader>
@@ -221,8 +326,32 @@ function BatchCard({ batch, items }: { batch: ComplaintBatch; items: ComplaintIt
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-1">
-          <Progress value={(settled / Math.max(1, items.length)) * 100} />
-          <p className="text-xs text-muted-foreground">{settled} dari {items.length} selesai diproses</p>
+          <Progress value={(settled / Math.max(1, all.length)) * 100} />
+          <p className="text-xs text-muted-foreground">{settled} dari {all.length} selesai diproses</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup type="single" variant="outline" size="sm" value={filter} onValueChange={(v) => v && setFilter(v as typeof filter)}>
+            {FILTERS.map((f) => (
+              <ToggleGroupItem key={f.id} value={f.id} className="px-3">
+                {f.label}
+                <Badge variant="secondary" className="ml-1">{all.filter(f.match).length}</Badge>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <div className="ml-auto flex gap-2">
+            {links.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(links.join("\n")).then(() => toast.success(`${links.length} tautan disalin`))}>
+                <Link2 />
+                Salin semua tautan
+              </Button>
+            )}
+            {failed.length > 0 && (
+              <Button variant="outline" size="sm" disabled={act.isPending} onClick={retryAll}>
+                <RotateCw />
+                Coba lagi {failed.length} yang gagal
+              </Button>
+            )}
+          </div>
         </div>
         <div className="overflow-hidden rounded-lg border">
           <Table>
@@ -234,6 +363,11 @@ function BatchCard({ batch, items }: { batch: ComplaintBatch; items: ComplaintIt
               </TableRow>
             </TableHeader>
             <TableBody>
+              {!items.length && (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-16 text-center text-muted-foreground">Tidak ada item dengan status ini.</TableCell>
+                </TableRow>
+              )}
               {items.map((i) => (
                 <TableRow key={i.id}>
                   <TableCell className="max-w-0">
