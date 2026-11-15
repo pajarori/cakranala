@@ -60,6 +60,8 @@ report.narratives.map((n) => [n.sample, n.supporters, n.sie.value]);
 | `-d, --data` | Folder data (default: `./.cakranala`) |
 | `--demo` | Putar skenario fiktif Pulau Seruni |
 
+Kasus yang sudah dikonfirmasi bisa dilaporkan ke platform dan Komdigi dengan satu tombol, lihat bagian Aduan di [docs/platforms.md](docs/platforms.md).
+
 Model bahasa diatur lewat `LLM_BASE_URL`, `LLM_MODEL` dan `LLM_API_KEY` (endpoint kompatibel OpenAI, opsional). Kredensial platform dan proxy diatur dari dashboard, lihat [docs/platforms.md](docs/platforms.md).
 
 ## Docker

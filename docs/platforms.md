@@ -56,3 +56,22 @@ http://user:pass@203.0.113.10:8080
 ```
 
 Setiap sesi diikat ke satu proxy, yang paling sedikit dipakai, supaya akun selalu muncul dari alamat yang sama. Uji proxy menampilkan IP keluar dan negaranya. Kalau pengumpulan gagal di level jaringan, kegagalan dicatat ke proxy, bukan ke akun: sesi pindah ke proxy lain dan mencoba sekali lagi. Proxy dimatikan setelah tiga kali gagal. Kalau ada proxy tetapi tidak ada yang aktif, pengumpulan berhenti dan tidak jatuh ke alamat server.
+
+## Aduan
+
+Kasus dengan verdict "terkoordinasi" bisa dilaporkan dari tombol **Laporkan**. Satu kali kirim membuat aduan ke platform untuk setiap akun dan post yang dipilih, ditambah satu aduan ke Komdigi (aduankonten.id) berisi semua tautan dan laporan PDF. Beberapa kasus bisa dilaporkan sekaligus dari halaman Threats.
+
+| Kanal | Cara | Kredensial |
+|---|---|---|
+| X | API `users/report_spam`, cadangan lewat tombol Report di browser | sama dengan kredensial X |
+| Telegram | MTProto `account.reportPeer` dan `messages.report` | login dari dashboard: API ID dan API hash dari my.telegram.org, nomor HP, kode, password dua langkah kalau ada |
+| Instagram, Facebook, TikTok, YouTube | tombol Report resmi di Chrome yang dipasang `cakranala install` | sama dengan kredensial pengumpulan |
+| Komdigi | form aduankonten.id lewat Chrome | email dan password akun aduankonten.id |
+
+Setiap target dikirim sekali dari kredensial pelapor pertama yang aktif di platform itu, berurutan dengan jeda. Target yang sudah pernah terkirim dilewati sebagai "sudah dilaporkan". Melaporkan satu target berulang kali dari banyak akun tidak didukung: platform menghapus laporan ganda dan memblokir akun yang melakukannya.
+
+Nama akun disimpan terpisah dan terenkripsi di vault. Identitas asli hanya dibuka saat aduan dibuat, dan setiap pembukaan tercatat di audit log. Data dari arsip yang sudah disamarkan tidak bisa dilaporkan.
+
+Kalau platform menampilkan captcha, checkpoint, atau tombolnya tidak ditemukan, item ditandai "butuh verifikasi". Tab Aduan menyiapkan teks aduan siap salin, tautan form resmi dan PDF, lalu analis menandainya selesai. Error penting muncul sebagai dialog yang tetap terbuka sampai dibaca. Screenshot halaman konfirmasi disimpan sebagai bukti, dan hash-nya ikut di audit log.
+
+Dalam mode demo semua aduan berstatus simulasi dan tidak ada yang terkirim.
