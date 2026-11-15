@@ -3,6 +3,7 @@ import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Clapperboard, FileUp, Hash, LayoutTemplate, MessageSquareText, Pause, Play, Plus, ScanEye, Trash2, UserRound } from "lucide-react";
 import { brand, PlatformIcon, type IconComponent } from "@/components/platform-icon";
 import { toast } from "sonner";
+import { failure } from "@/components/error-dialog";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary, Tiles } from "@/components/form-kit";
 import { Badge } from "@/components/ui/badge";
@@ -255,7 +256,7 @@ function NewMonitor({ template }: { template?: Template }) {
   const submit = () =>
     create.mutate(
       { kind, platform: live ? source : undefined, target: target.trim(), label: label.trim() || undefined, intervalMin: Number(interval), pages: Number(pages), speed: Number(speed) },
-      { onSuccess: () => (toast.success("Pantauan dibuat"), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
+      { onSuccess: () => (toast.success("Pantauan dibuat"), navigate({ to: "/monitors" })), onError: failure("Pantauan tidak bisa dibuat") },
     );
   const summary: [string, React.ReactNode][] = [
     ["Sumber", SOURCES.find((x) => x.id === source)!.label],
@@ -372,7 +373,7 @@ function Templates() {
                 onClick={() =>
                   create.mutate(
                     { kind: "topic", platform: "x", target: `#${t}`, label: `Tren #${t}`, intervalMin: 15, pages: 3 },
-                    { onSuccess: () => (toast.success(`Memantau #${t}`), navigate({ to: "/monitors" })), onError: (e) => toast.error(e.message) },
+                    { onSuccess: () => (toast.success(`Memantau #${t}`), navigate({ to: "/monitors" })), onError: failure("Pantauan tidak bisa dibuat") },
                   )
                 }
               >
@@ -474,7 +475,7 @@ function ImportData() {
             toast.success(`${int(r.added)} post diimpor, analisis berjalan`);
             navigate({ to: "/monitors" });
           })
-          .catch((e: Error) => setError(e.message))
+          .catch((e: Error) => (setError(e.message), failure("Impor gagal")(e)))
           .finally(() => setBusy(false));
       }}
     >
@@ -501,7 +502,7 @@ function ImportData() {
                     toast.success("Arsip sedang diunduh dan dianalisis");
                     navigate({ to: "/monitors" });
                   })
-                  .catch((e: Error) => setError(e.message))
+                  .catch((e: Error) => (setError(e.message), failure("Impor arsip gagal")(e)))
                   .finally(() => setBusy(false));
               }}
             >

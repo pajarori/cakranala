@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { CircleCheck, Download, Eye, EyeOff, FileText, History, Layers3, RefreshCw, Users, Waypoints } from "lucide-react";
+import { CircleCheck, Download, Eye, EyeOff, FileText, FlagTriangleRight, History, Layers3, RefreshCw, Users, Waypoints } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -22,7 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ensureState, evidenceQuery, proofQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { failure } from "@/components/error-dialog";
+import { ensureState, evidenceQuery, proofQuery, useCreateReport, useDecision, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
 import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, date, day, graphColor, int, num, pct, ratio, short, span } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
 import type { CaseStatus, Proof, State } from "@/lib/api";
@@ -43,6 +45,7 @@ const TABS = [
   { value: "evidence", to: "/threats/$id/evidence", label: "Evidence" },
   { value: "network", to: "/threats/$id/network", label: "Network" },
   { value: "accounts", to: "/threats/$id/accounts", label: "Accounts" },
+  { value: "complaints", to: "/threats/$id/complaints", label: "Aduan" },
 ] as const;
 
 function ThreatLayout() {
@@ -51,6 +54,7 @@ function ThreatLayout() {
   const setStatus = useSetStatus();
   const report = useCreateReport();
   const redescribe = useRedescribe();
+  const coordinated = useDecision(c.id).data?.verdict === "coordinated";
   const path = useRouterState({ select: (s) => s.location.pathname });
   const tab = TABS.find((t) => t.value !== "summary" && path.includes(`/${t.value}`))?.value ?? "summary";
   return (
@@ -96,7 +100,27 @@ function ThreatLayout() {
               </a>
             </Button>
           )}
-          <Button disabled={(!c.active && !ev) || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: (e) => toast.error(e.message) })}>
+          {coordinated ? (
+            <Button variant="outline" asChild>
+              <Link to="/threats/$id/complaints/new" params={{ id: c.id }}>
+                <FlagTriangleRight />
+                Laporkan
+              </Link>
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0}>
+                  <Button variant="outline" disabled>
+                    <FlagTriangleRight />
+                    Laporkan
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Isi keputusan analis dengan verdict terkoordinasi dulu</TooltipContent>
+            </Tooltip>
+          )}
+          <Button disabled={(!c.active && !ev) || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: failure("Laporan tidak bisa dibuat") })}>
             {report.isPending ? <Spinner /> : <FileText />}
             Buat laporan
           </Button>

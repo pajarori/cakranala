@@ -1,6 +1,7 @@
 import { createRoute, Link } from "@tanstack/react-router";
 import { Copy, Download, PenLine } from "lucide-react";
 import { toast } from "sonner";
+import { failure } from "@/components/error-dialog";
 import { rootRoute } from "@/routes/root";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,7 @@ function ReportView() {
           <CardContent className="flex flex-col gap-3">
             {r.counter && <blockquote className="rounded-lg border-l-4 border-primary bg-muted/50 p-3 text-sm leading-relaxed">{r.counter}</blockquote>}
             <div className="flex gap-2">
-              <Button variant={r.counter ? "outline" : "default"} className="flex-1" disabled={counter.isPending} onClick={() => counter.mutate(undefined, { onError: (e) => toast.error(e.message) })}>
+              <Button variant={r.counter ? "outline" : "default"} className="flex-1" disabled={counter.isPending} onClick={() => counter.mutate(undefined, { onError: failure("Draf kontra narasi gagal dibuat") })}>
                 {counter.isPending ? <Spinner /> : <PenLine />}
                 {r.counter ? "Buat ulang draf" : "Buat draf pesan"}
               </Button>

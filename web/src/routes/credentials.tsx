@@ -3,6 +3,7 @@ import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Landmark, LockKeyhole, Pause, Play, PlugZap, Plus, RotateCw, Send, Trash2 } from "lucide-react";
 import { brand, PlatformIcon } from "@/components/platform-icon";
 import { toast } from "sonner";
+import { failure, showProblem } from "@/components/error-dialog";
 import { rootRoute } from "@/routes/root";
 import { VaultTabs } from "@/routes/proxies";
 import { Section, Summary, Tiles } from "@/components/form-kit";
@@ -42,7 +43,7 @@ function TelegramLogin({ apiId, apiHash, onSession }: { apiId: string; apiHash: 
   const run = (job: () => Promise<void>) => {
     setBusy(true);
     job()
-      .catch((e: Error) => toast.error(e.message))
+      .catch(failure("Login Telegram gagal"))
       .finally(() => setBusy(false));
   };
   if (done) return <Alert><AlertTitle>Masuk sebagai {done}</AlertTitle></Alert>;
@@ -105,9 +106,9 @@ function Credentials() {
           if (action !== "test") return;
           const p = r as Probe;
           if (p.ok) toast.success(p.profile ? `Terhubung sebagai ${p.profile.handle}` : "Terhubung");
-          else toast.error(p.error ?? "Koneksi gagal");
+          else showProblem({ title: "Kredensial tidak terhubung", description: p.error ?? "Koneksi gagal", detail: p.error });
         },
-        onError: (e) => toast.error(e.message),
+        onError: failure("Aksi kredensial gagal"),
       },
     );
   return (
@@ -231,7 +232,7 @@ function NewCredential() {
         setResult({ key, probe: p });
         if (p.ok && p.profile && !label.trim()) setLabel(platform !== "tiktok" || p.profile.handle.startsWith("@") ? p.profile.handle : `TikTok ${p.profile.signedIn ? "masuk" : "anonim"}`);
       })
-      .catch((e: Error) => toast.error(e.message))
+      .catch(failure("Tes koneksi gagal"))
       .finally(() => setTesting(false));
   };
   return (
@@ -241,7 +242,7 @@ function NewCredential() {
         e.preventDefault();
         add.mutate(
           { platform, label, fields: values() },
-          { onSuccess: () => (toast.success("Kredensial ditambahkan"), navigate({ to: "/credentials" })), onError: (err) => toast.error(err.message) },
+          { onSuccess: () => (toast.success("Kredensial ditambahkan"), navigate({ to: "/credentials" })), onError: failure("Kredensial tidak tersimpan") },
         );
       }}
     >

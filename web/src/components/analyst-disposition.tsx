@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
+import { failure } from "@/components/error-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -96,7 +97,7 @@ export function AnalystDisposition({ caseId }: { caseId: string }) {
       <CardFooter className="justify-end">
         <Button
           disabled={decide.isPending}
-          onClick={() => decide.mutate({ verdict, confidence, reasons, note }, { onSuccess: () => toast.success("Keputusan tersimpan"), onError: (e) => toast.error(e.message) })}
+          onClick={() => decide.mutate({ verdict, confidence, reasons, note }, { onSuccess: () => toast.success("Keputusan tersimpan"), onError: failure("Keputusan tidak tersimpan") })}
         >
           {decide.isPending ? <Spinner /> : <Save />}
           Simpan keputusan

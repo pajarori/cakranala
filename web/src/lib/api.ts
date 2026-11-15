@@ -11,6 +11,8 @@ import type { summarize as summarizeImport } from "../server/imports";
 import type { overview, Period } from "../server/overview";
 import type { proof } from "../server/proof";
 import type { Probe } from "cakranala/collect";
+import type { Candidate, ComplaintBatch, ComplaintItem } from "../server/complaints";
+import type { Alert } from "../server/db";
 
 export type State = ReturnType<typeof snapshot>;
 export type Report = NonNullable<State["report"]>;
@@ -29,6 +31,7 @@ export type ImportSummary = ReturnType<typeof summarizeImport>;
 export type Overview = ReturnType<typeof overview>;
 export type Proof = NonNullable<ReturnType<typeof proof>>;
 export type { Period };
+export type { Candidate, ComplaintBatch, ComplaintItem };
 export type { CaseStatus, Confidence, Decision, Monitor, MonitorKind, Platform, Severity, ShieldResult };
 
 export interface Capabilities {
@@ -92,6 +95,13 @@ export const api = {
   credentials: () => call<{ platforms: Record<CredentialPlatform, { fields: string[]; required: string[] }>; items: Credential[] }>("/api/credentials", send("GET")),
   addCredential: (body: { platform: CredentialPlatform; label: string; fields: Record<string, string> }) => call<Credential>("/api/credentials", send("POST", body)),
   updateCredential: (id: string, body: { active?: boolean; rotate?: boolean }) => call<Credential>(`/api/credentials/${id}`, send("PATCH", body)),
+  complaints: (id: string) => call<{ batches: ComplaintBatch[]; items: ComplaintItem[]; coordinated: boolean; simulation: boolean }>(`/api/cases/${id}/complaints`),
+  planComplaint: (caseIds: string[]) => call<{ candidates: Candidate[]; blocked: string[]; simulation: boolean }>("/api/complaints/plan", send("POST", { caseIds })),
+  createComplaint: (body: { caseIds: string[]; keys: string[]; komdigi: boolean }) => call<ComplaintBatch>("/api/complaints", send("POST", body)),
+  retryComplaint: (id: string) => call<ComplaintItem>(`/api/complaint-items/${id}/retry`, send("POST")),
+  doneComplaint: (id: string, ref?: string) => call<ComplaintItem>(`/api/complaint-items/${id}/done`, send("POST", { ref })),
+  errors: () => call<Alert[]>("/api/errors"),
+  seenErrors: (ids: number[]) => call<{ ok: true }>("/api/errors", send("POST", { ids })),
   telegramCode: (body: { apiId: string; apiHash: string; phone: string }) => call<{ phoneCodeHash: string; session: string }>("/api/credentials/telegram/code", send("POST", body)),
   telegramVerify: (body: { apiId: string; apiHash: string; phone: string; session: string; phoneCodeHash: string; code: string; password?: string }) =>
     call<{ session: string; profile: { id: string; handle: string; name: string } }>("/api/credentials/telegram/verify", send("POST", body)),

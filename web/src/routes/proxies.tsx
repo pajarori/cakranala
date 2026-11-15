@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Globe, LockKeyhole, Pause, Play, PlugZap, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { failure, showProblem } from "@/components/error-dialog";
 import { rootRoute } from "@/routes/root";
 import { Section, Summary } from "@/components/form-kit";
 import { Alert, AlertTitle } from "@/components/ui/alert";
@@ -50,9 +51,9 @@ function Proxies() {
           if (action !== "test") return;
           const t = r as { ok: boolean; exit?: { ip: string; country: string }; error?: string };
           if (t.ok) toast.success(`Keluar lewat ${t.exit?.ip} ${t.exit?.country}`);
-          else toast.error(t.error ?? "Proxy gagal");
+          else showProblem({ title: "Proxy tidak terhubung", description: t.error ?? "Proxy gagal", detail: t.error });
         },
-        onError: (e) => toast.error(e.message),
+        onError: failure("Aksi proxy gagal"),
       },
     );
   return (
@@ -154,7 +155,7 @@ function NewProxies() {
         e.preventDefault();
         add.mutate(list, {
           onSuccess: (r) => (toast.success(`${r.added} proxy ditambahkan${r.skipped ? `, ${r.skipped} sudah ada` : ""}`), navigate({ to: "/credentials/proxies" })),
-          onError: (err) => toast.error(err.message),
+          onError: failure("Proxy tidak tersimpan"),
         });
       }}
     >

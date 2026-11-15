@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { ErrorDialog } from "@/components/error-dialog";
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +28,7 @@ function Layout() {
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <Outlet />
             </div>
+            <ErrorDialog />
           </div>
         </div>
       </SidebarInset>

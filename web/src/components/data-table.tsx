@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns3 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns3, FlagTriangleRight } from "lucide-react";
 import {
   columnFilteringFeature,
   columnVisibilityFeature,
@@ -19,6 +19,7 @@ import {
 } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -120,6 +121,7 @@ export function DataTable({ state }: { state: State }) {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("all");
   const [platform, setPlatform] = useState("all");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const platformOf = new Map(state.monitors.map((m) => [m.id, m.kind === "simulation" ? "demo" : m.platform]));
   const platforms = ["all", ...new Set(state.cases.flatMap((c) => c.monitors.map((m) => platformOf.get(m) ?? "")).filter((p) => p && p !== "demo"))];
   const data = state.cases
@@ -127,7 +129,20 @@ export function DataTable({ state }: { state: State }) {
     .filter((c) => severity === "all" || c.severity === severity)
     .filter((c) => platform === "all" || c.monitors.some((m) => platformOf.get(m) === platform));
 
+  const selectable = data.filter((c) => c.status === "confirmed").map((c) => c.id);
+  const chosen = [...picked].filter((id) => selectable.includes(id));
+  const pick = (ids: string[], on: boolean) => setPicked((s) => {
+    const n = new Set(s);
+    for (const id of ids) on ? n.add(id) : n.delete(id);
+    return n;
+  });
   const columns = helper.columns([
+    helper.display({
+      id: "select",
+      header: () => <Checkbox aria-label="Pilih semua kasus terkonfirmasi" disabled={!selectable.length} checked={chosen.length && chosen.length === selectable.length ? true : chosen.length ? "indeterminate" : false} onCheckedChange={(v) => pick(selectable, v === true)} />,
+      cell: ({ row }) => <Checkbox aria-label={`Pilih ${row.original.title}`} disabled={row.original.status !== "confirmed"} checked={picked.has(row.original.id)} onCheckedChange={(v) => pick([row.original.id], v === true)} />,
+      enableHiding: false,
+    }),
     helper.accessor("title", { header: "Kasus", cell: ({ row }) => <QuickView c={row.original} state={state} />, enableHiding: false }),
     helper.accessor((c) => RANK[c.severity], {
       id: "severity",
@@ -187,6 +202,14 @@ export function DataTable({ state }: { state: State }) {
           })}
         </TabsList>
         <div className="flex items-center gap-2">
+          {chosen.length > 0 && (
+            <Button size="sm" asChild>
+              <Link to="/complaints/$ids" params={{ ids: chosen.join(",") }}>
+                <FlagTriangleRight />
+                Laporkan {chosen.length} kasus
+              </Link>
+            </Button>
+          )}
           <ToggleGroup type="single" variant="outline" size="sm" value={severity} onValueChange={(v) => v && setSeverity(v as typeof severity)} className="hidden @5xl/main:flex">
             {SEVERITIES.map((s) => (
               <ToggleGroupItem key={s} value={s} className="px-3">

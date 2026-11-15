@@ -104,3 +104,17 @@ export const useCounter = (id: string) => {
   return useMutation({ mutationFn: () => api.counter(id), onSuccess: done });
 };
 export const useShield = () => useMutation({ mutationFn: api.shield });
+
+export const complaintsQuery = (id: string) => queryOptions({ queryKey: ["complaints", id], queryFn: () => api.complaints(id), refetchInterval: 5_000 });
+export const useComplaintPlan = (caseIds: string[]) => useQuery({ queryKey: ["complaint-plan", caseIds], queryFn: () => api.planComplaint(caseIds), enabled: caseIds.length > 0 });
+export const useCreateComplaint = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: api.createComplaint, onSuccess: () => qc.invalidateQueries({ queryKey: ["complaints"] }) });
+};
+export const useComplaintItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (a: { id: string; action: "retry" | "done"; ref?: string }) => (a.action === "retry" ? api.retryComplaint(a.id) : api.doneComplaint(a.id, a.ref)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["complaints"] }),
+  });
+};
