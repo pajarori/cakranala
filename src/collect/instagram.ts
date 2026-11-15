@@ -16,6 +16,16 @@ interface User {
 
 export const shortcode = (t: string) => t.match(/instagram\.com\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/([\w-]+)/)?.[1] ?? t.match(/^[\w-]{10,12}$/)?.[0];
 
+export const mediaCode = (pk: string) => {
+  let n = BigInt(pk);
+  let code = "";
+  while (n > 0n) {
+    code = ALPHABET[Number(n % 64n)] + code;
+    n /= 64n;
+  }
+  return code || "A";
+};
+
 export const mediaPk = (code: string) => [...code.slice(0, 11)].reduce((n, c) => n * 64n + BigInt(ALPHABET.indexOf(c)), 0n).toString();
 
 const tagsOf = (text: string) => [...text.matchAll(/#([\p{L}\p{N}_]+)/gu)].map((m) => m[1].toLowerCase());
