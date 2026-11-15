@@ -1,12 +1,11 @@
 import { mkdirSync } from "node:fs";
-import { normalize, type Actor, type Event } from "cakranala";
+import type { Actor, Event } from "cakranala";
 import { complaintText, KOMDIGI_URL, permalink, profileUrl, sendReport, type Channel, type Receipt } from "cakranala/collect";
-import { alerts, audit, cases, db, decisions, DIR, reports, store } from "./db";
+import { alerts, audit, cases, db, decisions, DIR, reports } from "./db";
 import { credentials, proxies } from "./credentials";
 import { identities } from "./identities";
 import { reportPdf } from "./pdf";
 import { createReport, type ReportContent } from "./reports";
-import { caseEvidence } from "./analysis";
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS complaint_batches (id TEXT PRIMARY KEY, case_ids TEXT NOT NULL, by TEXT NOT NULL, created_at INTEGER NOT NULL, mode TEXT NOT NULL, title TEXT NOT NULL, text TEXT NOT NULL, report_id TEXT);
@@ -94,21 +93,26 @@ function actorsOf(ids: string[]) {
   return out;
 }
 
-const DAY = 86_400_000;
+const evidenceQuery = db.query(`WITH m AS (SELECT value AS actor FROM json_each(?1)),
+  s AS (SELECT text_key, COUNT(DISTINCT actor) AS n FROM events INDEXED BY events_actor_text WHERE actor IN m AND length(text_key) >= 20 GROUP BY text_key HAVING n >= 2),
+  r AS (SELECT e.id, e.actor, e.ts, s.n, ROW_NUMBER() OVER (PARTITION BY e.actor ORDER BY s.n DESC, e.ts DESC) AS rank FROM events e INDEXED BY events_actor_text JOIN s ON e.text_key = s.text_key WHERE e.actor IN m)
+  SELECT r.actor, r.n, events.json FROM r JOIN events ON events.id = r.id WHERE r.rank <= ?2 ORDER BY r.actor, r.n DESC, r.ts DESC`);
+const spanQuery = db.query("SELECT COUNT(*) AS n, MIN(ts) AS first, MAX(ts) AS last FROM events WHERE actor IN (SELECT value FROM json_each(?))");
+const byIds = db.query("SELECT json FROM events WHERE id IN (SELECT value FROM json_each(?))");
+const cache = new Map<string, { sig: string; posts: Map<string, Event[]> }>();
 
-function windowOf(c: { id: string; lastSeen: number }) {
-  return caseEvidence(c.id)?.window ?? { from: c.lastSeen - DAY, to: c.lastSeen };
-}
-
-function eventsOf(members: string[], window: { from: number; to: number }) {
-  const byActor = new Map<string, Event[]>();
-  for (const r of store.rows(members, window.from, window.to + 1)) {
-    const e = JSON.parse(r.json) as Event;
-    const list = byActor.get(e.actor);
-    if (list) list.push(e);
-    else byActor.set(e.actor, [e]);
+function evidencePosts(c: { id: string; members: string[]; lastSeen: number }) {
+  const sig = `${c.members.length}:${c.lastSeen}`;
+  const hit = cache.get(c.id);
+  if (hit?.sig === sig) return hit.posts;
+  const posts = new Map<string, Event[]>();
+  for (const r of evidenceQuery.all(JSON.stringify(c.members), POSTS_PER_ACCOUNT) as { actor: string; json: string }[]) {
+    const list = posts.get(r.actor) ?? [];
+    list.push(JSON.parse(r.json));
+    posts.set(r.actor, list);
   }
-  return byActor;
+  cache.set(c.id, { sig, posts });
+  return posts;
 }
 
 export function coordinated(caseId: string) {
@@ -122,18 +126,7 @@ export function candidates(caseIds: string[], simulation = false): Candidate[] {
     if (!c) continue;
     const actors = actorsOf(c.members);
     const known = identities.known(c.members);
-    const events = eventsOf(c.members, windowOf(c));
-    const shared = new Map<string, Set<string>>();
-    for (const [actor, list] of events)
-      for (const e of list) {
-        if (!e.text || e.action === "reshare") continue;
-        const k = normalize(e.text);
-        if (k.length < 20) continue;
-        const set = shared.get(k) ?? new Set();
-        set.add(actor);
-        shared.set(k, set);
-      }
-    const copies = (e: Event) => (e.text ? (shared.get(normalize(e.text))?.size ?? 0) : 0);
+    const evidence = evidencePosts(c);
     for (const m of c.members) {
       const a = actors.get(m);
       const platform = simulation && a?.platform === "sim" ? "x" : (a?.platform ?? "");
@@ -141,10 +134,7 @@ export function candidates(caseIds: string[], simulation = false): Candidate[] {
       const reportable = known.has(m);
       const owner = a?.handle ?? m;
       out.push({ key: `${caseId}|account|${m}`, caseId, channel: platform as Channel, kind: "account", pseudonym: m, owner, label: owner, reportable });
-      const posts = (events.get(m) ?? [])
-        .filter((e) => copies(e) >= 2 && (simulation || permalink(e, { platform, id: "", handle: "akun" })))
-        .sort((x, y) => copies(y) - copies(x) || y.ts - x.ts)
-        .slice(0, POSTS_PER_ACCOUNT);
+      const posts = (evidence.get(m) ?? []).filter((e) => simulation || permalink(e, { platform, id: "", handle: "akun" }));
       for (const e of posts) out.push({ key: `${caseId}|post|${e.id}`, caseId, channel: platform as Channel, kind: "post", pseudonym: m, owner, label: e.text!.slice(0, 120), reportable });
     }
   }
@@ -170,14 +160,18 @@ export async function createBatch(input: { caseIds: string[]; keys?: string[]; k
   const id = crypto.randomUUID();
   const rows = caseIds.map((cid) => cases.get(cid)!).filter(Boolean);
   const title = rows.length === 1 ? rows[0].title : `${rows.length} kasus operasi pengaruh terkoordinasi`;
-  const posts = rows.flatMap((r) => [...eventsOf(r.members, windowOf(r)).values()].flat());
+  const span = spanQuery.get(JSON.stringify([...new Set(rows.flatMap((r) => r.members))])) as { n: number; first: number | null; last: number | null };
+  const chosenPosts = new Map((byIds.all(JSON.stringify(chosen.filter((c) => c.kind === "post").map((c) => c.key.split("|")[2]))) as { json: string }[]).map((r) => {
+    const e = JSON.parse(r.json) as Event;
+    return [e.id, e] as const;
+  }));
   const text = complaintText({
     title,
     brief: rows.length === 1 ? (rows[0].brief ?? undefined) : undefined,
     accounts: new Set(rows.flatMap((r) => r.members)).size,
-    posts: posts.length,
-    from: Math.min(...rows.map((r) => r.firstSeen), ...posts.map((e) => e.ts)),
-    to: Math.max(...rows.map((r) => r.lastSeen), ...posts.map((e) => e.ts)),
+    posts: span.n,
+    from: Math.min(...rows.map((r) => r.firstSeen), span.first ?? Infinity),
+    to: Math.max(...rows.map((r) => r.lastSeen), span.last ?? -Infinity),
     layers: [...new Set(caseIds.flatMap((cid) => decisions.get(cid)?.reasons ?? []))],
     platforms: [...new Set(chosen.map((c) => c.channel))],
   });
@@ -188,7 +182,7 @@ export async function createBatch(input: { caseIds: string[]; keys?: string[]; k
       continue;
     }
     const who = c.reportable ? await identities.reveal(c.pseudonym, input.by, c.caseId) : undefined;
-    const event = c.kind === "post" ? posts.find((e) => e.id === c.key.split("|")[2]) : undefined;
+    const event = c.kind === "post" ? chosenPosts.get(c.key.split("|")[2]) : undefined;
     const url = (event ? permalink(event, who) : who ? profileUrl(who) : undefined) ?? (mode === "simulation" ? `simulasi://${c.channel}/${c.kind}/${c.pseudonym}` : "");
     if (!url) {
       resolved.push({ c, url: "", status: "unreportable", error: "tautan target tidak bisa dibentuk" });
