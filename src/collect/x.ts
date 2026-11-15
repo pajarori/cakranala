@@ -191,6 +191,27 @@ export async function createXCollector(session: XSession) {
       }
       return collected(actors, events, q, fetched / pages);
     },
+    async reportSpam(userId: string): Promise<{ status: number; body: string }> {
+      const path = "/i/api/1.1/users/report_spam.json";
+      const res = await fetch(`https://x.com${path}`, {
+        method: "POST",
+        headers: {
+          "user-agent": session.userAgent,
+          authorization: `Bearer ${bearer}`,
+          "x-csrf-token": session.ct0,
+          cookie: `auth_token=${session.authToken}; ct0=${session.ct0}`,
+          "x-twitter-auth-type": "OAuth2Session",
+          "x-twitter-active-user": "yes",
+          "x-client-transaction-id": await tx.generateTransactionId("POST", path),
+          "content-type": "application/x-www-form-urlencoded",
+          referer: `https://x.com/i/user/${userId}`,
+        },
+        body: new URLSearchParams({ user_id: userId, perform_block: "false" }),
+        proxy: session.proxy,
+        signal: AbortSignal.timeout(TIMEOUT),
+      });
+      return { status: res.status, body: (await res.text()).slice(0, 300) };
+    },
     async me(): Promise<Profile> {
       if (!viewer) throw new Error("x.com Viewer query id not found");
       const json = await graphql(`/i/api/graphql/${viewer}/Viewer`, { withCommunitiesMemberships: false }, "https://x.com/home");

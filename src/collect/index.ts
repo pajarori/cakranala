@@ -6,6 +6,7 @@ import { createTiktokCollector, tiktokAccount, type SidecarConfig } from "./tikt
 import { Limited, type Session } from "./browser";
 import { createInstagramCollector, shortcode } from "./instagram";
 import { createFacebookCollector, facebookUrl } from "./facebook";
+import { telegramMe } from "./report";
 
 export { createXCollector, sessionFromEnv, type XSession, type XRateState, type Profile } from "./x";
 export { createYoutubeCollector } from "./youtube";
@@ -14,18 +15,23 @@ export { createTiktokCollector, sidecarFromEnv, type SidecarConfig } from "./tik
 export { chromePath } from "./browser";
 export { createInstagramCollector } from "./instagram";
 export { createFacebookCollector } from "./facebook";
+export { complaintText, FLOWS, KOMDIGI_URL, permalink, profileUrl, runFlow, sendReport, telegramCode, telegramMe, telegramVerify, type Channel, type Complaint, type Flow, type Identity, type Receipt, type ReceiptStatus, type ReportTarget, type Step } from "./report";
 
 export type Platform = "x" | "youtube" | "telegram" | "tiktok" | "instagram" | "facebook";
 export type Kind = "topic" | "account" | "post";
 
 export const PLATFORM_KINDS: Record<Platform, Kind[]> = { x: ["topic", "account", "post"], youtube: ["topic", "post"], telegram: ["account"], tiktok: ["topic", "post"], instagram: ["topic", "account", "post"], facebook: ["topic", "account", "post"] };
 
-export const CREDENTIAL_FIELDS: Record<Exclude<Platform, "telegram">, { fields: string[]; required: string[] }> = {
+export type CredentialKind = Platform | "komdigi";
+
+export const CREDENTIAL_FIELDS: Record<CredentialKind, { fields: string[]; required: string[] }> = {
   x: { fields: ["authToken", "ct0", "userAgent"], required: ["authToken", "ct0"] },
   youtube: { fields: ["cookie"], required: ["cookie"] },
   tiktok: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
   instagram: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
   facebook: { fields: ["cookie", "userAgent"], required: ["cookie", "userAgent"] },
+  telegram: { fields: ["apiId", "apiHash", "session"], required: ["apiId", "apiHash", "session"] },
+  komdigi: { fields: ["email", "password"], required: ["email", "password"] },
 };
 
 const session = (fields: Record<string, string>, proxy?: string): Session => ({ cookie: fields.cookie, userAgent: fields.userAgent, proxy });
@@ -38,13 +44,15 @@ export interface Probe {
   error?: string;
 }
 
-export async function probe(platform: Platform, fields: Record<string, string>, o: { tiktok?: SidecarConfig; proxy?: string } = {}): Promise<Probe> {
+export async function probe(platform: CredentialKind, fields: Record<string, string>, o: { tiktok?: SidecarConfig; proxy?: string } = {}): Promise<Probe> {
   const { tiktok, proxy } = o;
   try {
     if (platform === "instagram" || platform === "facebook") {
       const c = platform === "instagram" ? createInstagramCollector() : createFacebookCollector();
       return { ok: true, profile: { ...(await c.me(session(fields, proxy))), signedIn: true } };
     }
+    if (platform === "telegram") return { ok: true, profile: { ...(await telegramMe(fields as { apiId: string; apiHash: string; session: string })), signedIn: true } };
+    if (platform === "komdigi") return { ok: true, profile: { id: "komdigi", handle: fields.email, name: "aduankonten.id", signedIn: true } };
     if (platform === "x") return { ok: true, profile: await (await createXCollector({ authToken: fields.authToken, ct0: fields.ct0, userAgent: fields.userAgent || "Mozilla/5.0", proxy })).me() };
     if (platform === "youtube") return { ok: true, profile: await (await createYoutubeCollector(fields.cookie, proxy)).me() };
     if (platform === "tiktok") {

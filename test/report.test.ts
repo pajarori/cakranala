@@ -26,3 +26,20 @@ test("tautan profil per platform", () => {
   expect(profileUrl({ platform: "youtube", id: "yt:UC123", handle: "Nama" })).toBe("https://www.youtube.com/channel/UC123");
   expect(profileUrl({ platform: "telegram", id: "tg:beritaku", handle: "beritaku" })).toBe("https://t.me/beritaku");
 });
+
+test("status X dipetakan ke receipt", async () => {
+  const { xReceipt } = await import("../src/collect/report");
+  expect(xReceipt(200, "x:1")).toEqual({ status: "sent", ref: "x:1" });
+  expect(xReceipt(429, "x:1")!.status).toBe("limited");
+  expect(xReceipt(429, "x:1")!.until).toBeGreaterThan(Date.now());
+  expect(xReceipt(401, "x:1")!.status).toBe("failed");
+  expect(xReceipt(500, "x:1")).toBeUndefined();
+});
+
+test("teks aduan polos dan memuat jumlah serta rentang waktu", async () => {
+  const { complaintText } = await import("../src/collect/report");
+  const t = complaintText({ title: "Narasi Uji", accounts: 12, posts: 30, from: Date.UTC(2026, 10, 1), to: Date.UTC(2026, 10, 3), layers: ["Copypasta", "Co-action"], platforms: ["X", "TikTok"] });
+  expect(t).toContain("12 akun di X, TikTok memposting 30 konten");
+  expect(t).toContain("1 November 2026");
+  expect(t).not.toMatch(/[—–]/);
+});
