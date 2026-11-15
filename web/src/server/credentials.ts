@@ -1,8 +1,8 @@
-import { CREDENTIAL_FIELDS as SPEC, type CredentialPool, type Probe } from "cakranala/collect";
+import { CREDENTIAL_FIELDS as SPEC, type CredentialKind, type CredentialPool, type Probe } from "cakranala/collect";
 import { db } from "./db";
 import { open, seal } from "./vault";
 
-export type CredentialPlatform = "x" | "youtube" | "tiktok" | "instagram" | "facebook";
+export type CredentialPlatform = CredentialKind;
 
 export const CREDENTIAL_FIELDS = SPEC as Record<CredentialPlatform, { fields: string[]; required: string[] }>;
 const REQUIRED = Object.fromEntries(Object.entries(SPEC).map(([p, s]) => [p, s.required])) as Record<CredentialPlatform, string[]>;
@@ -193,6 +193,12 @@ export const credentials = {
   rotate: (id: string, until = Date.now() + 15 * 60_000) => db.query("UPDATE credentials SET cooldown_until = ? WHERE id = ?").run(until, id),
   available: (platform: CredentialPlatform, now = Date.now()) =>
     (db.query("SELECT COUNT(*) AS n FROM credentials WHERE platform = ? AND active = 1 AND (cooldown_until IS NULL OR cooldown_until <= ?)").get(platform, now) as { n: number }).n,
+  async reporter(platform: CredentialPlatform, now = Date.now()): Promise<Lease | undefined> {
+    const r = db.query("SELECT * FROM credentials WHERE platform = ? AND active = 1 AND (cooldown_until IS NULL OR cooldown_until <= ?) ORDER BY created_at LIMIT 1").get(platform, now) as any;
+    if (!r) return undefined;
+    db.query("UPDATE credentials SET last_used = ?, uses = uses + 1 WHERE id = ?").run(now, r.id);
+    return { id: r.id, fields: await open(r.secret, r.iv) };
+  },
   count: (platform: CredentialPlatform) => (db.query("SELECT COUNT(*) AS n FROM credentials WHERE platform = ? AND active = 1").get(platform) as { n: number }).n,
   async acquire(platform: CredentialPlatform, exclude: string[] = [], now = Date.now()): Promise<Lease | undefined> {
     const rows = db

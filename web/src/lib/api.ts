@@ -92,6 +92,9 @@ export const api = {
   credentials: () => call<{ platforms: Record<CredentialPlatform, { fields: string[]; required: string[] }>; items: Credential[] }>("/api/credentials", send("GET")),
   addCredential: (body: { platform: CredentialPlatform; label: string; fields: Record<string, string> }) => call<Credential>("/api/credentials", send("POST", body)),
   updateCredential: (id: string, body: { active?: boolean; rotate?: boolean }) => call<Credential>(`/api/credentials/${id}`, send("PATCH", body)),
+  telegramCode: (body: { apiId: string; apiHash: string; phone: string }) => call<{ phoneCodeHash: string; session: string }>("/api/credentials/telegram/code", send("POST", body)),
+  telegramVerify: (body: { apiId: string; apiHash: string; phone: string; session: string; phoneCodeHash: string; code: string; password?: string }) =>
+    call<{ session: string; profile: { id: string; handle: string; name: string } }>("/api/credentials/telegram/verify", send("POST", body)),
   testCredential: (body: { platform: CredentialPlatform; fields: Record<string, string> }) => call<Probe>("/api/credentials/test", send("POST", body)),
   retestCredential: (id: string) => call<Probe>(`/api/credentials/${id}/test`, send("POST")),
   removeCredential: (id: string) => call<{ ok: true }>(`/api/credentials/${id}`, send("DELETE")),

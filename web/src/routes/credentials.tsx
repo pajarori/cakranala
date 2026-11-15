@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LockKeyhole, Pause, Play, PlugZap, Plus, RotateCw, Trash2 } from "lucide-react";
+import { Landmark, LockKeyhole, Pause, Play, PlugZap, Plus, RotateCw, Send, Trash2 } from "lucide-react";
 import { brand, PlatformIcon } from "@/components/platform-icon";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
@@ -19,8 +19,74 @@ import { useAddCredential, useCredentialAction, useCredentials } from "@/lib/que
 import { ago, date, int } from "@/lib/format";
 import { api, type Credential, type CredentialPlatform, type Probe } from "@/lib/api";
 
-const PLATFORM: Record<CredentialPlatform, string> = { x: "X", youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook" };
-const FIELD: Record<string, string> = { authToken: "Cookie auth_token", ct0: "Cookie ct0", userAgent: "User agent dari browser yang sama", cookie: "Header cookie" };
+const PLATFORM: Record<CredentialPlatform, string> = { x: "X", youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", facebook: "Facebook", telegram: "Telegram", komdigi: "Komdigi" };
+const FIELD: Record<string, string> = {
+  authToken: "Cookie auth_token",
+  ct0: "Cookie ct0",
+  userAgent: "User agent dari browser yang sama",
+  cookie: "Header cookie",
+  apiId: "API ID dari my.telegram.org",
+  apiHash: "API hash dari my.telegram.org",
+  email: "Email akun aduankonten.id",
+  password: "Password akun aduankonten.id",
+};
+const iconOf = (p: CredentialPlatform) => (p === "komdigi" ? Landmark : brand(p));
+
+function TelegramLogin({ apiId, apiHash, onSession }: { apiId: string; apiHash: string; onSession: (session: string, handle: string) => void }) {
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [sent, setSent] = useState<{ phoneCodeHash: string; session: string } | undefined>();
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState("");
+  const run = (job: () => Promise<void>) => {
+    setBusy(true);
+    job()
+      .catch((e: Error) => toast.error(e.message))
+      .finally(() => setBusy(false));
+  };
+  if (done) return <Alert><AlertTitle>Masuk sebagai {done}</AlertTitle></Alert>;
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="phone">Nomor HP akun pelapor</Label>
+        <div className="flex gap-2">
+          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+62812..." autoComplete="off" className="h-11 font-mono" />
+          <Button type="button" variant="outline" className="h-11" disabled={busy || !apiId || !apiHash || !phone} onClick={() => run(async () => setSent(await api.telegramCode({ apiId, apiHash, phone })))}>
+            {busy && !sent ? <Spinner /> : <Send />}
+            Kirim kode
+          </Button>
+        </div>
+      </div>
+      {sent && (
+        <>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="code">Kode dari Telegram</Label>
+            <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" className="h-11 font-mono" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="tgpass">Password verifikasi dua langkah</Label>
+            <Input id="tgpass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Kosongkan kalau tidak dipakai" autoComplete="off" className="h-11" />
+          </div>
+          <Button
+            type="button"
+            disabled={busy || !code}
+            onClick={() =>
+              run(async () => {
+                const r = await api.telegramVerify({ apiId, apiHash, phone, code, password: password || undefined, ...sent });
+                setDone(r.profile.handle);
+                onSession(r.session, r.profile.handle);
+              })
+            }
+          >
+            {busy ? <Spinner /> : <LockKeyhole />}
+            Verifikasi
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
 
 function status(c: Credential) {
   if (!c.active) return <Badge variant="destructive">{c.lastError ? "Dimatikan setelah gagal" : "Dimatikan"}</Badge>;
@@ -184,8 +250,8 @@ function NewCredential() {
           <Tiles
             value={platform}
             onChange={setPlatform}
-            cols="grid-cols-2 @3xl/main:grid-cols-5"
-            items={(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => ({ id: p, label: PLATFORM[p], icon: brand(p), badge: <Badge variant={ready(p) ? "secondary" : "outline"}>{ready(p)} siap</Badge> }))}
+            cols="grid-cols-2 @3xl/main:grid-cols-4 @5xl/main:grid-cols-7"
+            items={(Object.keys(PLATFORM) as CredentialPlatform[]).map((p) => ({ id: p, label: PLATFORM[p], icon: iconOf(p), badge: <Badge variant={ready(p) ? "secondary" : "outline"}>{ready(p)} siap</Badge> }))}
           />
         </Section>
         <Section step={2} title="Sesi">
@@ -194,12 +260,12 @@ function NewCredential() {
               <Label htmlFor="label">Nama</Label>
               <Input id="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Opsional, terisi otomatis setelah tes" autoComplete="off" className="h-11" />
             </div>
-            {names.map((n) => (
+            {names.filter((n) => n !== "session").map((n) => (
               <div key={`${platform}:${n}`} className="flex flex-col gap-2">
                 <Label htmlFor={n}>{FIELD[n] ?? n}</Label>
                 <Input
                   id={n}
-                  type={n === "userAgent" ? "text" : "password"}
+                  type={["userAgent", "apiId", "email"].includes(n) ? "text" : "password"}
                   required={required.includes(n)}
                   value={fields[`${platform}:${n}`] ?? ""}
                   onChange={(e) => setFields({ ...fields, [`${platform}:${n}`]: e.target.value })}
@@ -209,6 +275,16 @@ function NewCredential() {
                 />
               </div>
             ))}
+            {platform === "telegram" && (
+              <TelegramLogin
+                apiId={fields["telegram:apiId"] ?? ""}
+                apiHash={fields["telegram:apiHash"] ?? ""}
+                onSession={(session, handle) => {
+                  setFields((f) => ({ ...f, "telegram:session": session }));
+                  if (!label.trim()) setLabel(handle);
+                }}
+              />
+            )}
           </div>
         </Section>
       </div>
