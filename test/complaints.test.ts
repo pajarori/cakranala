@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pseudonymize, pseudonyms, type Dataset } from "../src";
+import type { Sender } from "../web/src/server/complaints";
 
 process.env.CAKRANALA_DATA = mkdtempSync(join(tmpdir(), "cakranala-test-"));
 const { alerts, audit, cases, db, decisions, store } = await import("../web/src/server/db");
@@ -33,7 +34,7 @@ await credentials.add("x", "pelapor", { authToken: "a", ct0: "b", userAgent: "ua
 let clock = Date.now();
 const later = () => (clock += 120_000);
 const calls: string[] = [];
-const ok: c.Sender = async (t) => (calls.push(t.url), { status: "sent", ref: "r1", screenshot: new Uint8Array([137, 80, 78, 71]) });
+const ok: Sender = async (t) => (calls.push(t.url), { status: "sent", ref: "r1", screenshot: new Uint8Array([137, 80, 78, 71]) });
 
 test("aduan ditolak sebelum verdict terkoordinasi", async () => {
   expect(c.createBatch({ caseIds: [caseId], komdigi: false, by: "analis", simulation: false })).rejects.toThrow("terkoordinasi");
@@ -78,7 +79,7 @@ test("mode simulasi tidak pernah memanggil reporter", async () => {
 test("butuh verifikasi tercatat sebagai error penting, lalu bisa diselesaikan manual", async () => {
   db.exec("DELETE FROM complaint_items");
   const b = await c.createBatch({ caseIds: [caseId], komdigi: false, by: "analis", simulation: false });
-  const manual: c.Sender = async () => ({ status: "needs_manual", error: "captcha atau verifikasi" });
+  const manual: Sender = async () => ({ status: "needs_manual", error: "captcha atau verifikasi" });
   await c.work(later(), manual);
   const it = c.ofCase(caseId).items.find((i) => i.batchId === b.id && i.status === "needs_manual")!;
   expect(it).toBeDefined();
