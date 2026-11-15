@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
-import shot from "@/assets/login.png";
 import { Logo } from "@/components/logo";
 import { RETURN, shellRoute } from "@/routes/root";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -56,9 +55,8 @@ function Login() {
               >
                 <FieldGroup>
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <Logo className="size-10" />
-                    <h1 className="text-2xl font-bold">{setup ? "Buat akun pertama" : "Masuk ke Cakra Nala"}</h1>
-                    <p className="text-balance text-muted-foreground">{setup ? "Akun ini menjadi analis pertama di dashboard." : "Dashboard deteksi operasi pengaruh terkoordinasi."}</p>
+                    <Logo className="size-10 md:hidden" />
+                    <h1 className="text-2xl font-bold">{setup ? "Buat akun pertama" : "Masuk"}</h1>
                   </div>
                   {error && (
                     <Alert variant="destructive">
@@ -95,15 +93,14 @@ function Login() {
                       {setup ? "Buat akun" : "Masuk"}
                     </Button>
                   </Field>
-                  <FieldDescription className="text-center">Akun baru dibuat oleh analis lain di menu Users.</FieldDescription>
                 </FieldGroup>
               </form>
-              <div className="relative hidden bg-muted md:block">
-                <img src={shot} alt="" className="absolute inset-0 h-full w-full object-cover object-left-top brightness-[0.6]" />
+              <div className="hidden flex-col items-center justify-center gap-4 bg-muted p-10 md:flex">
+                <Logo className="size-28" />
+                <span className="text-2xl font-semibold">Cakra Nala</span>
               </div>
             </CardContent>
           </Card>
-          <FieldDescription className="px-6 text-center">Akses tercatat di audit log. Gunakan hanya untuk tugas yang berwenang.</FieldDescription>
         </div>
       </div>
     </div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Login: logo Cakra Nala di panel kanan, tanpa teks pengisi
+- Form dan tab aduan tanpa teks penjelasan yang tidak perlu
+
 ## 0.4.0
 
 - Login baru dua kolom dengan cuplikan dashboard, tampilkan kata sandi, dan error langsung di form

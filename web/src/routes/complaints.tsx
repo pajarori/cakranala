@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -135,15 +135,13 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
     <div className="flex min-h-0 flex-1 flex-col gap-3" onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && ready && go()}>
       {plan.data.simulation && (
         <Alert>
-          <AlertTitle>Mode simulasi</AlertTitle>
-          <AlertDescription>Alurnya sama persis, tapi tidak ada laporan yang benar-benar terkirim.</AlertDescription>
+          <AlertTitle>Mode simulasi, tidak ada laporan yang terkirim</AlertTitle>
         </Alert>
       )}
       {blocked.length > 0 && (
         <Alert>
           <AlertTitle>{blocked.length === 1 ? "Kasus ini belum dikonfirmasi" : `${blocked.length} kasus belum dikonfirmasi`}</AlertTitle>
           <AlertDescription className="grid gap-3">
-            <span>Aduan hanya dikirim untuk kasus yang sudah dinilai analis sebagai operasi terkoordinasi. Keputusan ini tercatat di audit log.</span>
             <Label htmlFor="confirm" className="flex items-start gap-2 font-normal text-foreground">
               <Checkbox id="confirm" className="mt-0.5" checked={reviewed} onCheckedChange={(v) => setReviewed(v === true)} />
               Saya sudah meninjau bukti dan menilai {blocked.length === 1 ? "kasus ini" : "kasus-kasus ini"} sebagai operasi terkoordinasi
@@ -173,7 +171,6 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
           <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={invert}>
             Balik pilihan
           </Button>
-          <span className="ml-auto text-xs text-muted-foreground">Shift+klik untuk memilih rentang</span>
         </div>
       </div>
       <ScrollArea className="min-h-0 flex-1 rounded-lg border">
@@ -204,7 +201,7 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
                     <Label htmlFor={c.key} className="grid min-w-0 gap-0.5 font-normal">
                       <span className="truncate">{c.kind === "account" ? c.label : `"${c.label}"`}</span>
                       <span className="text-xs text-muted-foreground">
-                        {c.kind === "account" ? ["akun", list.filter((x) => x.kind === "post" && x.pseudonym === c.pseudonym).length].filter(Boolean).join(", ").replace(/(\d+)$/, "$1 post bukti") : "post yang teksnya juga diposting akun lain"}
+                        {c.kind === "account" ? ["akun", list.filter((x) => x.kind === "post" && x.pseudonym === c.pseudonym).length].filter(Boolean).join(", ").replace(/(\d+)$/, "$1 post bukti") : "post bukti"}
                         {!usable(c) && ", identitas asli tidak tersedia"}
                       </span>
                     </Label>
@@ -217,10 +214,7 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
         </div>
       </ScrollArea>
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-        <Label htmlFor="komdigi" className="grid gap-0.5">
-          <span>Kirim juga ke Komdigi</span>
-          <span className="text-xs font-normal text-muted-foreground">Satu aduan berisi semua tautan dan laporan PDF</span>
-        </Label>
+        <Label htmlFor="komdigi">Kirim juga ke Komdigi</Label>
         <Switch id="komdigi" checked={komdigi} onCheckedChange={setKomdigi} />
       </div>
       <Button disabled={!ready} onClick={go}>
@@ -441,7 +435,6 @@ function Complaints() {
         <Empty className="border">
           <EmptyHeader>
             <EmptyTitle>Belum ada aduan</EmptyTitle>
-            <EmptyDescription>Laporkan akun dan post kasus ini ke platform dan Komdigi dengan satu tombol.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button asChild>
@@ -457,7 +450,7 @@ function Complaints() {
         <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>Laporkan</SheetTitle>
-            <SheetDescription>Pilih target, lalu kirim. Setiap target dilaporkan sekali dari akun pelapor resmi.</SheetDescription>
+            <SheetDescription className="sr-only">Target aduan</SheetDescription>
           </SheetHeader>
           <div className="flex min-h-0 flex-1 flex-col px-4">{open && <ComplaintForm caseIds={[id]} onDone={close} />}</div>
           <SheetFooter />
@@ -476,7 +469,6 @@ function MultiComplaint() {
       <Card className="mx-auto flex h-[calc(100vh-12rem)] w-full max-w-2xl flex-col">
         <CardHeader>
           <CardTitle>Laporkan {caseIds.length} kasus</CardTitle>
-          <CardDescription>Semua target dari kasus terpilih dikirim dalam satu aduan.</CardDescription>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col">
           <ComplaintForm caseIds={caseIds} onDone={() => navigate({ to: "/threats/$id/complaints", params: { id: caseIds[0] } })} />
