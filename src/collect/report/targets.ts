@@ -31,9 +31,11 @@ export function profileUrl(who: Identity): string | undefined {
   return undefined;
 }
 
+const parse = (ref?: string) => ref?.match(/(?:^|:)(x|tg|ig|fb|yt|tt):(.+)$/)?.slice(1) as [string, string] | undefined;
+
 export function permalink(e: Pick<Event, "id" | "action" | "target">, who?: Identity): string | undefined {
-  const id = bare(e.id);
-  const platform = e.id.slice(0, e.id.indexOf(":"));
+  const [platform, id] = parse(e.id) ?? ["", ""];
+  const target = parse(e.target);
   const own = e.action === "post" || e.action === "reshare" || e.action === "quote";
   switch (platform) {
     case "x":
@@ -45,7 +47,7 @@ export function permalink(e: Pick<Event, "id" | "action" | "target">, who?: Iden
     case "fb":
       return own && /^\d+$/.test(id) ? `https://www.facebook.com/${id}` : undefined;
     case "yt":
-      return e.target?.startsWith("yt:") ? `https://www.youtube.com/watch?v=${bare(e.target)}&lc=${id}` : undefined;
+      return target?.[0] === "yt" ? `https://www.youtube.com/watch?v=${target[1]}&lc=${id}` : undefined;
     case "tt":
       return own && who?.handle ? `https://www.tiktok.com/@${handleOf(who.handle)}/video/${id}` : undefined;
   }
