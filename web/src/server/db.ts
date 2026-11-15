@@ -116,10 +116,8 @@ export const store = {
     const actors = db.query("SELECT json FROM actors").all().map((r: any) => JSON.parse(r.json) as Actor).filter((a) => ids.has(a.id) || a.reshared?.some((t) => posts.has(t)));
     return { actors, events };
   },
-  rows: (actors: string[], since: number, until = Number.MAX_SAFE_INTEGER) => {
-    const set = new Set(actors);
-    return (db.query("SELECT id, json FROM events WHERE ts >= ? AND ts < ? ORDER BY id").all(since, until) as { id: string; json: string }[]).filter((r) => set.has((JSON.parse(r.json) as Event).actor));
-  },
+  rows: (actors: string[], since: number, until = Number.MAX_SAFE_INTEGER) =>
+    db.query("SELECT id, json FROM events WHERE actor IN (SELECT value FROM json_each(?)) AND ts >= ? AND ts < ? ORDER BY id").all(JSON.stringify(actors), since, until) as { id: string; json: string }[],
   monitorOf: (since: number, until = Number.MAX_SAFE_INTEGER) => new Map(db.query("SELECT id, monitor FROM events WHERE ts >= ? AND ts < ?").all(since, until).map((r: any) => [r.id as string, r.monitor as string])),
   bounds: (monitor: string) => db.query("SELECT MIN(ts) AS from_, MAX(ts) AS to_, COUNT(*) AS n FROM events WHERE monitor = ?").get(monitor) as { from_: number | null; to_: number | null; n: number },
   count: (monitor: string, from: number, to: number) => (db.query("SELECT COUNT(*) AS n FROM events WHERE monitor = ? AND ts >= ? AND ts < ?").get(monitor, from, to) as { n: number }).n,
