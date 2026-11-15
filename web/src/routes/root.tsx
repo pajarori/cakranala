@@ -45,12 +45,19 @@ export const shellRoute = createRootRoute({
   ),
 });
 
+export const RETURN = "cakranala.return";
+
 export const rootRoute = createRoute({
   getParentRoute: () => shellRoute,
   id: "app",
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const me = await queryClient.fetchQuery(meQuery);
-    if (!me.user) throw redirect({ to: "/login" });
+    if (!me.user) {
+      try {
+        sessionStorage.setItem(RETURN, location.pathname);
+      } catch {}
+      throw redirect({ to: "/login" });
+    }
   },
   component: Layout,
   pendingComponent: () => (

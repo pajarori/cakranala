@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Login baru dua kolom dengan cuplikan dashboard, tampilkan kata sandi, dan error langsung di form
+- Setelah login langsung masuk tanpa menunggu, dan kembali ke halaman yang tadinya dibuka
+- Tombol Laporkan selalu aktif; kasus yang belum dikonfirmasi bisa dikonfirmasi langsung di form aduan
+- Kartu Respons dan Teknik DISARM dihapus dari halaman kasus
+
 ## 0.3.0
 
 - Form Laporkan: cari target, pilih cepat (Semua, Akun saja, Post saja, Kosongkan, Balik pilihan), Shift+klik untuk rentang, Ctrl+Enter untuk kirim, konfirmasi sebelum kirim sungguhan

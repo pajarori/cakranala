@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createRoute, Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { Copy, ExternalLink, FlagTriangleRight, Image, Landmark, Link2, RotateCw, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 import { rootRoute } from "@/routes/root";
@@ -66,6 +67,9 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
   const [komdigi, setKomdigiState] = useState(remembered);
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const qc = useQueryClient();
   const anchor = useRef<number | null>(null);
   const shift = useRef(false);
   const list = plan.data?.candidates ?? [];
@@ -114,6 +118,13 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
       { caseIds, keys: chosen.map((c) => c.key), komdigi },
       { onSuccess: (b) => (toast.success(b.mode === "simulation" ? "Aduan simulasi dibuat" : "Aduan masuk antrean"), onDone(b)), onError: failure("Aduan tidak bisa dibuat") },
     );
+  const confirmAll = () => {
+    setConfirming(true);
+    Promise.all((plan.data?.blocked ?? []).map((id) => api.decide(id, { verdict: "coordinated", confidence: "medium", reasons: [], note: "Dikonfirmasi saat membuat aduan" })))
+      .then(() => Promise.all([qc.invalidateQueries({ queryKey: ["complaint-plan"] }), qc.invalidateQueries({ queryKey: ["decision"] }), qc.invalidateQueries({ queryKey: ["state"] })]))
+      .then(() => toast.success("Kasus dikonfirmasi"), failure("Konfirmasi gagal"))
+      .finally(() => setConfirming(false));
+  };
   if (plan.isPending) return <Skeleton className="h-64" />;
   if (plan.error) return <Alert variant="destructive"><AlertTitle>Target tidak bisa disiapkan</AlertTitle><AlertDescription>{plan.error.message}</AlertDescription></Alert>;
   const blocked = plan.data.blocked;
@@ -129,15 +140,18 @@ function ComplaintForm({ caseIds, onDone }: { caseIds: string[]; onDone: (b: Com
         </Alert>
       )}
       {blocked.length > 0 && (
-        <Alert variant="destructive">
-          <AlertTitle>Isi keputusan analis dulu</AlertTitle>
-          <AlertDescription>
-            Aduan hanya bisa dikirim untuk kasus dengan verdict terkoordinasi.
-            {caseIds.length === 1 && (
-              <Button variant="link" className="h-auto p-0" asChild>
-                <Link to="/threats/$id" params={{ id: caseIds[0] }}>Buka keputusan analis</Link>
-              </Button>
-            )}
+        <Alert>
+          <AlertTitle>{blocked.length === 1 ? "Kasus ini belum dikonfirmasi" : `${blocked.length} kasus belum dikonfirmasi`}</AlertTitle>
+          <AlertDescription className="grid gap-3">
+            <span>Aduan hanya dikirim untuk kasus yang sudah dinilai analis sebagai operasi terkoordinasi. Keputusan ini tercatat di audit log.</span>
+            <Label htmlFor="confirm" className="flex items-start gap-2 font-normal text-foreground">
+              <Checkbox id="confirm" className="mt-0.5" checked={reviewed} onCheckedChange={(v) => setReviewed(v === true)} />
+              Saya sudah meninjau bukti dan menilai {blocked.length === 1 ? "kasus ini" : "kasus-kasus ini"} sebagai operasi terkoordinasi
+            </Label>
+            <Button size="sm" className="w-fit" disabled={!reviewed || confirming} onClick={confirmAll}>
+              {confirming && <Spinner />}
+              Konfirmasi terkoordinasi
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -430,8 +444,11 @@ function Complaints() {
             <EmptyDescription>Laporkan akun dan post kasus ini ke platform dan Komdigi dengan satu tombol.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button disabled={!q.data?.coordinated} asChild={!!q.data?.coordinated}>
-              {q.data?.coordinated ? <Link to="/threats/$id/complaints/new" params={{ id }}><FlagTriangleRight />Laporkan</Link> : <span><FlagTriangleRight />Isi keputusan analis dulu</span>}
+            <Button asChild>
+              <Link to="/threats/$id/complaints/new" params={{ id }}>
+                <FlagTriangleRight />
+                Laporkan
+              </Link>
             </Button>
           </EmptyContent>
         </Empty>

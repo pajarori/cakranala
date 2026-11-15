@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoute, Link, notFound, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { CircleCheck, Download, Eye, EyeOff, FileText, FlagTriangleRight, History, Layers3, RefreshCw, Users, Waypoints } from "lucide-react";
+import { Download, Eye, EyeOff, FileText, FlagTriangleRight, History, Layers3, RefreshCw, Users, Waypoints } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -22,9 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { failure } from "@/components/error-dialog";
-import { ensureState, evidenceQuery, proofQuery, useCreateReport, useDecision, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
+import { ensureState, evidenceQuery, proofQuery, useCreateReport, useOps, useRedescribe, useSetStatus, useWatch, useWatchlist } from "@/lib/queries";
 import { ESCALATION_LABEL, LAYERS, SEVERITY_LABEL, SEVERITY_VARIANT, STATUS_LABEL, ago, approx, date, day, graphColor, int, num, pct, ratio, short, span } from "@/lib/format";
 import { inflation, profile } from "@/lib/profile";
 import type { CaseStatus, Proof, State } from "@/lib/api";
@@ -54,7 +53,6 @@ function ThreatLayout() {
   const setStatus = useSetStatus();
   const report = useCreateReport();
   const redescribe = useRedescribe();
-  const coordinated = useDecision(c.id).data?.verdict === "coordinated";
   const path = useRouterState({ select: (s) => s.location.pathname });
   const tab = TABS.find((t) => t.value !== "summary" && path.includes(`/${t.value}`))?.value ?? "summary";
   return (
@@ -100,26 +98,12 @@ function ThreatLayout() {
               </a>
             </Button>
           )}
-          {coordinated ? (
-            <Button variant="outline" asChild>
-              <Link to="/threats/$id/complaints/new" params={{ id: c.id }}>
-                <FlagTriangleRight />
-                Laporkan
-              </Link>
-            </Button>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span tabIndex={0}>
-                  <Button variant="outline" disabled>
-                    <FlagTriangleRight />
-                    Laporkan
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Isi keputusan analis dengan verdict terkoordinasi dulu</TooltipContent>
-            </Tooltip>
-          )}
+          <Button variant="outline" asChild>
+            <Link to="/threats/$id/complaints/new" params={{ id: c.id }}>
+              <FlagTriangleRight />
+              Laporkan
+            </Link>
+          </Button>
           <Button disabled={(!c.active && !ev) || report.isPending} onClick={() => report.mutate(c.id, { onSuccess: (r) => navigate({ to: "/reports/$id", params: { id: r.id } }), onError: failure("Laporan tidak bisa dibuat") })}>
             {report.isPending ? <Spinner /> : <FileText />}
             Buat laporan
@@ -164,12 +148,6 @@ function ThreatLayout() {
     </div>
   );
 }
-
-const RESPONSE = {
-  watch: ["Lanjutkan pemantauan", "Tinjau bukti"],
-  alert: ["Tugaskan analis", "Buat laporan komandan", "Siapkan klarifikasi publik"],
-  urgent: ["Laporkan ke komandan sekarang", "Terbitkan klarifikasi di kanal resmi", "Laporkan akun ke platform", "Buat laporan komandan"],
-};
 
 const PROFILE_TEXT: Record<string, string> = {
   Terskrip: "Akun memposting dengan urutan yang sama di setiap gelombang, indikasi otomatisasi.",
@@ -268,42 +246,6 @@ function Summary() {
         ))}
       </div>
       <AnalystDisposition caseId={c.id} />
-      <Card>
-        <CardHeader>
-          <CardTitle>Respons</CardTitle>
-          <CardAction>
-            <Badge variant="outline">{ESCALATION_LABEL[c.escalation]}</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          <ul className="grid gap-2 @xl/main:grid-cols-2">
-            {RESPONSE[c.escalation].map((r) => (
-              <li key={r} className="flex items-center gap-2">
-                <CircleCheck className="size-4 text-muted-foreground" />
-                {r}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-      {!!c.disarm.length && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Teknik DISARM</CardTitle>
-            <CardDescription>DISARM Framework, CC BY-SA 4.0</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {c.disarm.map((t) => (
-              <Badge key={t.id} variant="outline" asChild>
-                <a href={t.url} target="_blank" rel="noreferrer">
-                  <span className="font-mono">{t.id}</span>
-                  {t.name}
-                </a>
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      )}
       {c.brief && (
         <Card>
           <CardHeader>
